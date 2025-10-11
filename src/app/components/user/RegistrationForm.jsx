@@ -61,8 +61,8 @@ export default function RegistrationForm() {
       <form className="login container" onSubmit={handleSubmit(onSubmit)} autoComplete="off">
         <div className="flex flex-col gap-4">
           {/* Hidden dummy inputs: prevent Chrome autofill */}
-          <input type="text" name="fakeuser" style={{ display: 'none' }} />
-          <input type="password" name="fakepassword" style={{ display: 'none' }} />
+          <input type="text" name="fakeuser" autoComplete="off" style={{ display: 'none' }} />
+          <input type="password" name="fakepassword" autoComplete="off" style={{ display: 'none' }} />
 
           {/* Email Field */}
           <RHFTextField
@@ -71,6 +71,7 @@ export default function RegistrationForm() {
             label="Email*"
             placeholder="Email*"
             type="email"
+            autoComplete="off" // 🚫 Disable Chrome autofill
             error={!!errors.email || !!emailError}
             helperText={errors?.email?.message || emailError}
           />
@@ -82,6 +83,7 @@ export default function RegistrationForm() {
             label="Password*"
             placeholder="Password*"
             type="password"
+            autoComplete="new-password" // 🚫 Prevent autofill reuse
             error={!!errors.password}
             helperText={errors?.password?.message}
           />
@@ -93,6 +95,7 @@ export default function RegistrationForm() {
             label="Confirm Password*"
             placeholder="Confirm Password*"
             type="password"
+            autoComplete="new-password"
             error={!!errors.confirmPassword}
             helperText={errors?.confirmPassword?.message}
           />
