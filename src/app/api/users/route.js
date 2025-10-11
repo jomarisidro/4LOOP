@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 
-
-
 export async function GET(request) {
   await connectMongoDB();
 
@@ -27,9 +25,6 @@ export async function GET(request) {
   }
 }
 
-
-
-
 export async function POST(request) {
   await connectMongoDB();
 
@@ -39,7 +34,7 @@ export async function POST(request) {
 
     // Normalize role
     let normalizedRole;
-    if (role === "Business Owner") {
+    if (role === "Business Owner" || role === "business") {
       normalizedRole = "business";
     } else if (role === "officer") {
       normalizedRole = "officer";
@@ -50,27 +45,22 @@ export async function POST(request) {
       );
     }
 
-    // Officers must have fullName, email, and password
-    if (normalizedRole === "officer") {
-      if (!fullName || !email || !password) {
-        return NextResponse.json(
-          { error: "Full name, email, and password are required for officer accounts." },
-          { status: 400 }
-        );
-      }
+    // Validate required fields
+    if (normalizedRole === "officer" && (!fullName || !email || !password)) {
+      return NextResponse.json(
+        { error: "Full name, email, and password are required for officer accounts." },
+        { status: 400 }
+      );
     }
 
-    // Business owners must have email and password only
-    if (normalizedRole === "business") {
-      if (!email || !password) {
-        return NextResponse.json(
-          { error: "Email and password are required for business accounts." },
-          { status: 400 }
-        );
-      }
+    if (normalizedRole === "business" && (!email || !password)) {
+      return NextResponse.json(
+        { error: "Email and password are required for business accounts." },
+        { status: 400 }
+      );
     }
 
-    // Check for existing email
+    // Check if email already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json(
@@ -79,6 +69,7 @@ export async function POST(request) {
       );
     }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
@@ -90,14 +81,14 @@ export async function POST(request) {
       verified: normalizedRole === "officer" ? true : false,
     });
 
-    // Business accounts link to themselves
+    // For business accounts, link to themselves
     if (normalizedRole === "business") {
       newUser.businessAccount = newUser._id;
       await newUser.save();
     }
 
     return NextResponse.json(
-      { msg: "User registered", user: newUser },
+      { msg: "User registered successfully", user: newUser },
       { status: 201 }
     );
   } catch (err) {

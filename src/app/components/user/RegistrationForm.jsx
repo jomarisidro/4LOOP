@@ -13,7 +13,9 @@ import { useState } from "react";
 const schema = yup.object().shape({
   email: yup.string().email("Provide valid email").required("Email is required"),
   password: yup.string().required('Password required').min(8, 'Minimum 8 characters'),
-  confirmPassword: yup.string().required("Confirm password").oneOf([yup.ref('password')], 'Passwords do not match'),
+  confirmPassword: yup.string()
+    .required("Confirm password")
+    .oneOf([yup.ref('password')], 'Passwords do not match'),
 });
 
 export default function RegistrationForm() {
@@ -31,9 +33,7 @@ export default function RegistrationForm() {
 
   const { mutate } = useMutation({
     mutationFn: signUpWithCompleteInfo,
-    onSuccess: () => {
-      router.push("/login");
-    },
+    onSuccess: () => router.push("/login"),
     onError: async (err) => {
       const status = err?.response?.status;
       const errorData = err?.response?.data;
@@ -49,50 +49,60 @@ export default function RegistrationForm() {
 
   const onSubmit = ({ email, password }) => {
     setEmailError("");
-    // Hard-code role as "business"
     mutate({ role: "business", email, password });
   };
 
   return (
-    <div className='max-w-96 w-full mx-auto'>
-      <h1 className="title">TO CREATE AN ACCOUNT, KINDLY FILL IN ALL THE REQUIRED INFORMATION</h1>
-      <form className="login-form form-container" onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-4">
+    <div className="max-w-96 w-full mx-auto">
+      <h1 className="title">
+        TO CREATE AN ACCOUNT, KINDLY FILL IN ALL THE REQUIRED INFORMATION
+      </h1>
 
+      <form className="login container" onSubmit={handleSubmit(onSubmit)} autoComplete="off">
+        <div className="flex flex-col gap-4">
+          {/* Hidden dummy inputs: prevent Chrome autofill */}
+          <input type="text" name="fakeuser" style={{ display: 'none' }} />
+          <input type="password" name="fakepassword" style={{ display: 'none' }} />
+
+          {/* Email Field */}
           <RHFTextField
             control={control}
             name="email"
             label="Email*"
             placeholder="Email*"
+            type="email"
             error={!!errors.email || !!emailError}
             helperText={errors?.email?.message || emailError}
-            type="email"
           />
 
+          {/* Password Field */}
           <RHFTextField
             control={control}
             name="password"
             label="Password*"
             placeholder="Password*"
+            type="password"
             error={!!errors.password}
             helperText={errors?.password?.message}
-            type="password"
           />
 
+          {/* Confirm Password Field */}
           <RHFTextField
             control={control}
             name="confirmPassword"
             label="Confirm Password*"
             placeholder="Confirm Password*"
+            type="password"
             error={!!errors.confirmPassword}
             helperText={errors?.confirmPassword?.message}
-            type="password"
           />
 
+          {/* Submit Button */}
           <div className="flex gap-4 justify-center">
             <Button type="submit" variant="contained">Register</Button>
           </div>
 
+          {/* Login Link Section */}
           <div className="mt-8 text-center">
             <hr className="border-t border-gray-300 mb-4" />
             <p className="text-sm text-gray-700 mb-2">
