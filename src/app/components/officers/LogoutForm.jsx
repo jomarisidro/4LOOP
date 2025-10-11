@@ -8,8 +8,8 @@ export default function LogoutForm() {
 
   const handleLogout = () => {
     // 🔒 Insert your logout logic here (e.g. clearing tokens, session)
-    router.push('http://localhost:3000/login'); // Redirect to login page
-  };
+  router.push("/login"); // ✅ relative path works in dev & prod
+};
 
   return (
     <Box textAlign="center">

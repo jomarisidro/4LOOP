@@ -4,12 +4,13 @@ import { useRouter } from 'next/navigation';
 import { Typography, Button, Stack, Box } from '@mui/material';
 
 export default function LogoutForm() {
-  const router = useRouter();
+const handleLogout = () => {
+  // 🔒 Clear tokens/session here (localStorage, cookies, etc.)
+  // Example: localStorage.removeItem("authToken");
 
-  const handleLogout = () => {
-    // 🔒 Insert your logout logic here (e.g. clearing tokens, session)
-    router.push('http://localhost:3000/login'); // Redirect to login page
-  };
+  const router = useRouter();
+  router.push("/login"); // ✅ relative path works in dev & prod
+};
 
   return (
     <Box textAlign="center">
