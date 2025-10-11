@@ -1,3 +1,4 @@
+import Violation from "@/models/Violation"; // ✅ Register the model
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Ticket from "@/models/Ticket";
