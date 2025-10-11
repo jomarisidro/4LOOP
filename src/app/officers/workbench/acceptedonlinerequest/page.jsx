@@ -1,5 +1,5 @@
 'use client';
-
+export const dynamic = "force-dynamic";
 import AcceptedOnlineRequestForm from '../../../components/officers/AcceptedOnlineRequestForm';
 
 export default function AcceptedOnlineRequestPage() {
