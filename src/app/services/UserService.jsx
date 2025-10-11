@@ -17,7 +17,7 @@
 
   export const signUpWithCompleteInfo = (data) => {
     return axios.post(
-      `${URL}/api/users`,
+      `/api/users`,
       data,
       jsonHeader
     );
@@ -25,7 +25,7 @@
 
   export const userLogin = (data) => {
     return axios.post(
-      `${URL}/api/login`,
+      `/api/login`,
       data,
       jsonHeader
     );

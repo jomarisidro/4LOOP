@@ -19,20 +19,20 @@ const formHeader = {
 
 // 🔍 GET business by bidNumber (query param version)
 export const getBusinessByBid = (bidNumber) => {
-  return axios.get(`${URL}/api/business?bidNumber=${bidNumber}`, jsonHeader);
+  return axios.get(`/api/business?bidNumber=${bidNumber}`, jsonHeader);
 };
 
 // ✏️ PUT update business by bidNumber
 export const updateBusinessRequest = (bidNumber, payload) => {
-  return axios.put(`${URL}/api/business/${bidNumber}`, payload, jsonHeader);
+  return axios.put(`/api/business/${bidNumber}`, payload, jsonHeader);
 };
 
 // ➕ POST new business (owner only)
 export const addOwnerBusiness = (data) => {
-  return axios.post(`${URL}/api/business`, data, jsonHeader);
+  return axios.post(`/api/business`, data, jsonHeader);
 };
 
 // 📥 GET all businesses (owner or officer)
 export const getAddOwnerBusiness = () => {
-  return axios.get(`${URL}/api/business`, jsonHeader);
+  return axios.get(`/api/business`, jsonHeader);
 };

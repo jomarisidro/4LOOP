@@ -19,13 +19,13 @@ export const getSanitationOnlineRequest = () => {
   // console.log(data)
   // return {}
   return axios.get(
-    `${URL}/api/officer`,
+    `/api/officer`,
   );
 };
 
 export const updateSanitationOnlineRequest = (id, payload) => {
   return axios.put(
-    `${URL}/api/officer/${id}`, 
+    `/api/officer/${id}`, 
     payload, 
     jsonHeader);
 };

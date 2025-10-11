@@ -20,7 +20,7 @@ const jsonHeader = {
  * @param {string|Date} [data.inspectionDate] - optional inspection date
  */
 export const createInspectionTicket = (data) => {
-  return axios.post(`${URL}/api/ticket`, data, jsonHeader);
+  return axios.post(`/api/ticket`, data, jsonHeader);
 };
 
 /**
@@ -32,7 +32,7 @@ export const createInspectionTicket = (data) => {
  */
 export const getTickets = (params = {}) => {
   const query = new URLSearchParams(params).toString();
-  return axios.get(`${URL}/api/ticket${query ? `?${query}` : ""}`, jsonHeader);
+  return axios.get(`/api/ticket${query ? `?${query}` : ""}`, jsonHeader);
 };
 
 /**
@@ -40,7 +40,7 @@ export const getTickets = (params = {}) => {
  * @param {string} id - Ticket ObjectId
  */
 export const getTicketById = (id) => {
-  return axios.get(`${URL}/api/ticket/${id}`, jsonHeader);
+  return axios.get(`/api/ticket/${id}`, jsonHeader);
 };
 
 /**
@@ -53,7 +53,7 @@ export const getTicketById = (id) => {
  * @param {Object} [data.checklist]
  */
 export const updateTicket = (id, data) => {
-  return axios.put(`${URL}/api/ticket/${id}`, data, jsonHeader);
+  return axios.put(`/api/ticket/${id}`, data, jsonHeader);
 };
 
 /**
@@ -61,5 +61,5 @@ export const updateTicket = (id, data) => {
  * @param {string} id - Ticket ObjectId
  */
 export const deleteTicket = (id) => {
-  return axios.delete(`${URL}/api/ticket/${id}`, jsonHeader);
+  return axios.delete(`/api/ticket/${id}`, jsonHeader);
 };
