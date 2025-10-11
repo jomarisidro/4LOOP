@@ -2,9 +2,8 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import User from "@/models/User";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
-import { withCors } from "@/lib/cors"; // ✅ add this
 
-export const GET = withCors(async (_request, context) => {
+export async function GET(_request, context) {
   await connectMongoDB();
 
   // ✅ destructure params from context
@@ -38,7 +37,4 @@ export const GET = withCors(async (_request, context) => {
       { status: 500 }
     );
   }
-});
-
-// ✅ OPTIONS handler for CORS preflight
-export const OPTIONS = withCors(() => new NextResponse(null, { status: 204 }));
+}
