@@ -1,4 +1,3 @@
-export const dynamic = "force-dynamic";
 
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";

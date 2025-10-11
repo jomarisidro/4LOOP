@@ -2,7 +2,7 @@ import './globals.css';
 import Providers from '@/lib/providers';
 import Link from 'next/link';
 import Image from 'next/image';
-
+export const dynamic = "force-dynamic";
 export const metadata = {
   title: 'Pasig City Sanitation Permit System',
   description: 'A web-based sanitation permit and compliance monitoring platform.',

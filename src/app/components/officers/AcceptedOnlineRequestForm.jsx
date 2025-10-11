@@ -1,5 +1,5 @@
 'use client';
-export const dynamic = "force-dynamic";
+
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -51,7 +51,10 @@ export default function AcceptedOnlineRequestForm() {
       setRemark('');
       refetch();
 
-      localStorage.removeItem('acceptedRequestId');
+     if (typeof window !== 'undefined') {
+  localStorage.removeItem('acceptedRequestId');
+}
+
       router.push('/officers/workbench/onlinerequest');
     } catch (err) {
       console.error('❌ Update failed:', err);
