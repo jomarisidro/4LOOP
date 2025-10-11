@@ -2,8 +2,10 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
+import { withCors } from "@/lib/cors"; // ✅ import the helper
 
-export async function GET(request) {
+// ✅ GET handler with CORS
+export const GET = withCors(async (request) => {
   await connectMongoDB();
 
   try {
@@ -23,9 +25,10 @@ export async function GET(request) {
       { status: 500 }
     );
   }
-}
+});
 
-export async function POST(request) {
+// ✅ POST handler with CORS
+export const POST = withCors(async (request) => {
   await connectMongoDB();
 
   try {
@@ -92,14 +95,13 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (err) {
-    console.error("Registration error:", {
-      message: err.message,
-      stack: err.stack,
-      cause: err.cause,
-    });
+    console.error("Registration error:", err);
     return NextResponse.json(
       { error: "Failed to register user" },
       { status: 500 }
     );
   }
-}
+});
+
+// ✅ OPTIONS handler for preflight
+export const OPTIONS = withCors(() => new NextResponse(null, { status: 204 }));
