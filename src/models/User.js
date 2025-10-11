@@ -7,7 +7,14 @@ const UserSchema = new Schema({
   profilePicture:         { type: String },
   email:                  { type: String, unique: true, required: true },
   password:               { type: String, required: true },
-  fullName:               { type: String, required: true },
+
+  // 👇 Make fullName conditionally required
+  fullName: {
+    type: String,
+    required: function () {
+      return this.role === 'officer'; // only required for officers
+    },
+  },
 
   role: {
     type: String,
@@ -25,7 +32,7 @@ const UserSchema = new Schema({
   accountWhoDisabled:     { type: Schema.Types.ObjectId, ref: "User" },
 
   assignedArea:           { type: String },
-  hiredDate:              { type: Date }, // ✅ corrected from hiredData
+  hiredDate:              { type: Date },
 
   businessAccount:        { type: Schema.Types.ObjectId, ref: "User" },
 
