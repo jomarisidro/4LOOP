@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation';
 import { Typography, Button, Stack, Box } from '@mui/material';
 
 export default function LogoutForm() {
-const handleLogout = () => {
-  // 🔒 Clear tokens/session here (localStorage, cookies, etc.)
-  // Example: localStorage.removeItem("authToken");
+  const router = useRouter(); // ✅ Hook must be at the top level
 
-  const router = useRouter();
-  router.push("/login"); // ✅ relative path works in dev & prod
-};
+  const handleLogout = () => {
+    // 🔒 Clear tokens/session here (localStorage, cookies, etc.)
+    // Example:
+    // localStorage.removeItem("authToken");
+    router.push("/login"); // ✅ Works fine now
+  };
 
   return (
     <Box textAlign="center">
@@ -29,7 +30,7 @@ const handleLogout = () => {
         <Button
           variant="contained"
           color="inherit"
-          onClick={() => router.push('/businessaccount/profile')}
+          onClick={() => router.push('/admin')}
         >
           Cancel
         </Button>

@@ -9,6 +9,8 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
+
+  
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-300">
@@ -25,14 +27,14 @@ export default function RootLayout({ children }) {
                     <Image
                       src="/pasig-seal.png"
                       alt="Pasig City Logo"
-                      width={64}
-                      height={64}
+                      width={90}
+                      height={90}
                     />
                   </Link>
                   <div className="flex flex-col">
-                    <span className="text-sm font-semibold tracking-wide">LUNGSOD </span>
-                    <span className="text-sm font-semibold tracking-wide">NG</span>
-                    <span className="text-sm font-semibold tracking-wide">PASIG</span>
+                    <span className="text-xs font-extralight tracking-wide">LUNGSOD NG</span>
+                    <span className="text-lg font-semibold tracking-wide">PASIG</span>
+                    <span className="text-xs font-extralight tracking-wide">UMAAGOS AND PAG-ASA</span>
                   </div>
                 </div>
 

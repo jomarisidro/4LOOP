@@ -144,7 +144,7 @@ const ticket = await Ticket.create({
     },
   },
   inspectionStatus: inspectionStatus || "pending",
-  resolutionStatus: "open",
+  resolutionStatus: "none",
   inspectionNumber,
 });
 

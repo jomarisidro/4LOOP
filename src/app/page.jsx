@@ -2,41 +2,55 @@ import Image from "next/image";
 import Link from "next/link";
 
 export default function Home() {
-  const name = "aica";
-
   return (
-    <div className="font-sans grid grid-rows-[auto_1fr_auto] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 bg-gray-50">
- 
-      <header className="row-start-1 flex flex-col items-center gap-4">
-   
-        <h1 className="text-3xl font-bold text-center text-blue-800 sm:text-left">
-          Welcome to the Sanitation Department
-        </h1>
-        <h2 className="text-xl font-semibold text-gray-700">
-          Home Page
-        </h2>
-      </header>
+    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
+      {/* LEFT SECTION */}
+      <div
+        className="relative flex flex-col justify-center items-start p-20 bg-cover bg-center text-white"
+        style={{
+          backgroundImage: "url('/home.png')",
+        }}
+      >
+        {/* overlay for contrast */}
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
 
-      {/* Main content */}
-      <main className="row-start-2 flex flex-col gap-6 items-center sm:items-start">
-        <Link
-          href="/registration"
-          className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition"
-        >
-          Register
-        </Link>
-        <Link
-          href="/login"
-          className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 transition"
-        >
-          Login
-        </Link>
-      </main>
+  
+         <div className="relative z-10 h-full flex flex-col justify-center px-10 text-white">
+  <div>
+    <h1 className="text-5xl font-semibold leading-tight">PASIG CITY</h1>
+    <h2 className="text-4xl font-light leading-tight mt-2">SANITATION</h2>
+    <h2 className="text-4xl font-light leading-tight">ONLINE SERVICE</h2>
+  </div>
+</div>
+        
+      </div>
 
-      {/* Footer */}
-      <footer className="row-start-3 text-sm text-gray-500 text-center">
-        &copy; 2025 Sanitation Department. All rights reserved.
-      </footer>
+      {/* RIGHT SECTION */}
+      <div className="flex flex-col justify-center bg-white p-10 md:px-20">
+        <div className="max-w-md w-full mx-auto space-y-8 text-center">
+         
+
+          <div className="flex flex-col gap-4">
+            <Link
+              href="/login"
+              className="w-full bg-blue-900 text-white py-3 rounded-md hover:bg-blue-800 transition"
+            >
+              SIGN IN
+            </Link>
+
+            <Link
+              href="/registration"
+              className="w-full border border-blue-900 text-blue-900 py-3 rounded-md hover:bg-blue-50 transition"
+            >
+              SIGN UP
+            </Link>
+          </div>
+        </div>
+
+        <footer className="mt-10 text-center text-xs text-gray-400">
+          © 2025 CITY GOVERNMENT OF PASIG
+        </footer>
+      </div>
     </div>
   );
 }

@@ -10,7 +10,6 @@ const navItems = [
   { label: 'Make a Request', path: '/businessaccount/request' },
   { label: 'Pending Request', path: '/businessaccount/pending' },
   { label: 'Completed Request', path: '/businessaccount/completed' },
-  { label: 'Profile Settings', path: '/businessaccount/profile' },
   { label: 'Help', path: '/businessaccount/help' },
   { label: 'Logout', path: '/businessaccount/logout' },
 ];
@@ -100,7 +99,7 @@ export default function Sidebar() {
   const email = user?.email || "";
   const role =
     user?.role === 'business'
-      ? 'Business Owner'
+      ? 'Business Account'
       : user?.role === 'officer'
       ? 'Sanitation Officer'
       : user?.role === 'admin'

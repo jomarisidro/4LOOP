@@ -44,17 +44,6 @@ export default function DashboardForm() {
           Error: {error}
         </div>
       )}
-
-      {user ? (
-        <div>
-          <h2 className="text-xl font-semibold mb-4">Hello, {user.name || user.email}</h2>
-          <p><b>Role:</b> {user.role}</p>
-          <p><b>Email:</b> {user.email}</p>
-          <p><b>User ID:</b> {user._id}</p>
-        </div>
-      ) : (
-        !error && <div>Loading user data...</div>
-      )}
     </>
   );
 }

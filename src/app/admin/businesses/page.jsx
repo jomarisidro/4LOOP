@@ -9,9 +9,8 @@ export default function BusinessesPage() {
   const router = useRouter();
   const [selectedOwner, setSelectedOwner] = useState(null);
 
-
   const handleBackToOfficers = () => {
-    router.push('/officers');
+    router.push('/admin');
   };
 
   const handleBackToList = () => {

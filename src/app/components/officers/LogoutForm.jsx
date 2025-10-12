@@ -28,7 +28,7 @@ export default function LogoutForm() {
         <Button
           variant="contained"
           color="inherit"
-          onClick={() => router.push('/businessaccount/profile')}
+          onClick={() => router.push('/officers')}
         >
           Cancel
         </Button>

@@ -23,31 +23,36 @@ import { useQuery } from '@tanstack/react-query';
 import { getAddOwnerBusiness } from '@/app/services/BusinessService';
 import axios from 'axios';
 
-export default function InspectionTicketForm() {
-  const router = useRouter();
+function formatViolationCode(code) {
+  if (!code) return '';
+  return code
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
-  const { data, refetch } = useQuery({
+
+export default function CreateTicketInspectionForm() {
+  const router = useRouter();
+  const currentYear = new Date().getFullYear();
+
+  // Fetch all businesses
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['business-list'],
     queryFn: () => getAddOwnerBusiness(),
   });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
+  const [inspectionCounts, setInspectionCounts] = useState({}); // { businessId: count }
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [openConfirm, setOpenConfirm] = useState(false);
-
-  // active ticket + business lock
-  const [activeTicket, setActiveTicket] = useState(null);
-  const [activeBusinessId, setActiveBusinessId] = useState(null);
-
-  // inline form fields
   const [inspectionDate, setInspectionDate] = useState('');
   const [remarks, setRemarks] = useState('');
 
+  // Filter businesses by search
   useEffect(() => {
-    if (data?.data) {
-      setFilteredBusinesses(data.data);
-    }
+    if (data?.data) setFilteredBusinesses(data.data);
   }, [data]);
 
   useEffect(() => {
@@ -61,69 +66,118 @@ export default function InspectionTicketForm() {
     }
   }, [searchTerm, data]);
 
+  // Fetch inspection info for each business
+  // Fetch inspection + violation info for each business
+  useEffect(() => {
+  async function fetchInspectionInfo() {
+    if (!data?.data) return;
+
+    const info = {};
+    await Promise.all(
+      data.data.map(async (b) => {
+        try {
+          const ticketRes = await axios.get(`/api/ticket?businessId=${b._id}&year=${currentYear}`);
+          const tickets = ticketRes.data || [];
+
+          const completedCount = tickets.filter(t => t.inspectionStatus === 'completed').length;
+          const hasPending = tickets.some(t => t.inspectionStatus === 'pending');
+
+          const violationRes = await axios.get(`/api/violation?businessId=${b._id}`);
+          const violations = violationRes.data || [];
+          const activeViolation = violations.find(v => v.status === 'pending');
+
+          info[b._id] = {
+            completedCount,
+            hasPending,
+        violation: activeViolation
+  ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
+  : null,
+
+
+          };
+        } catch {
+          info[b._id] = { completedCount: 0, hasPending: false, violation: null };
+        }
+      })
+    );
+
+    setInspectionCounts(info);
+  }
+
+  fetchInspectionInfo();
+}, [data, currentYear, refetch]);
+
+
+
+
   const handleOpenConfirm = (business) => {
     setSelectedBusiness(business);
     setOpenConfirm(true);
+    setInspectionDate(new Date().toISOString().split('T')[0]);
+    setRemarks('');
   };
 
   const handleCloseConfirm = () => {
     setSelectedBusiness(null);
     setOpenConfirm(false);
-  };
-
-  const handleCreateTicket = async () => {
-    if (!selectedBusiness) return;
-    try {
-      const response = await axios.post('/api/ticket', {
-        businessId: selectedBusiness._id,
-        inspectionDate: new Date().toISOString(),
-        inspectionStatus: 'none',
-      });
-
-      const ticket = response.data.ticket;
-
-      handleCloseConfirm();
-      refetch();
-
-      setActiveTicket(ticket);
-      setActiveBusinessId(selectedBusiness._id);
-    } catch (error) {
-      console.error('Error creating inspection ticket:', error);
-    }
-  };
-
-  const handleCancelInspection = async (ticketId) => {
-    try {
-      await axios.put(`/api/ticket/${ticketId}`, {
-        inspectionStatus: 'none',
-      });
-      refetch();
-      setActiveTicket(null);
-      setActiveBusinessId(null);
-    } catch (error) {
-      console.error('Error cancelling inspection:', error);
-    }
+    setInspectionDate('');
+    setRemarks('');
   };
 
   const handleSaveInspection = async () => {
-    if (!activeTicket) return;
-    try {
-      await axios.put(`/api/ticket/${activeTicket._id}`, {
-        inspectionStatus: 'pending',
-        inspectionDate,
-        remarks,
-      });
-      refetch();
-      alert('Inspection details saved.');
+    if (!selectedBusiness || !inspectionDate) return;
 
-      setInspectionDate('');
-      setRemarks('');
-      setActiveTicket(null);
-      setActiveBusinessId(null);
+    try {
+      await axios.post(
+        '/api/ticket',
+        {
+          businessId: selectedBusiness._id,
+          inspectionDate,
+          remarks,
+          inspectionStatus: 'pending',
+        },
+        { withCredentials: true }
+      );
+
+      alert('✅ Inspection ticket created and saved!');
+      handleCloseConfirm();
+      refetch();
     } catch (error) {
-      console.error('Error saving inspection details:', error);
+      console.error('Error saving inspection:', error.response?.data || error);
+      alert('❌ Failed to save inspection.');
     }
   };
+
+  const handleViewStatus = async (business) => {
+    try {
+      const res = await axios.get(`/api/ticket?businessId=${business._id}`);
+      const tickets = res.data || [];
+
+      if (!tickets.length) {
+        alert('❌ No tickets found for this business.');
+        return;
+      }
+
+      // Navigate to the first pending or latest completed inspection
+      const ticketToView =
+        tickets.find((t) => t.inspectionStatus === 'pending') ||
+        tickets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+
+      if (!ticketToView?._id) {
+        alert('❌ No valid inspection ticket found.');
+        return;
+      }
+
+      router.push(
+        `/officers/inspections/pendinginspections/inspectingcurrentbusiness?id=${ticketToView._id}`
+      );
+    } catch (err) {
+      console.error('Error fetching tickets:', err);
+      alert('⚠️ Failed to load ticket status.');
+    }
+  };
+
+  if (isLoading) return <Typography>Loading businesses…</Typography>;
 
   return (
     <Box p={4}>
@@ -133,7 +187,7 @@ export default function InspectionTicketForm() {
 
       <Button
         variant="outlined"
-        onClick={() => router.push('/officers/inspections')}
+        onClick={() => router.push('/admin')}
         sx={{ mb: 3 }}
       >
         ← Back to Inspections Workbench
@@ -157,59 +211,59 @@ export default function InspectionTicketForm() {
               <TableCell>Type</TableCell>
               <TableCell>Contact</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell>Inspection Count (2025)</TableCell> {/* ✅ new */}
-              <TableCell>Violation</TableCell> {/* ✅ new */}
+              <TableCell>Inspection Count ({currentYear})</TableCell>
+              <TableCell>Violation</TableCell>
               <TableCell>Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredBusinesses.map((business) => {
-              const isDisabled =
-                activeBusinessId && activeBusinessId !== business._id;
+              const inspectionInfo = inspectionCounts[business._id] || { completedCount: 0, hasPending: false };
+              const completedInspections = inspectionInfo.completedCount;
+              const pendingTicketExists = inspectionInfo.hasPending;
+              const reachedLimit = completedInspections >= 2;
+
+
               return (
-                <TableRow
-                  key={business._id}
-                  style={{
-                    opacity: isDisabled ? 0.4 : 1,
-                    pointerEvents: isDisabled ? 'none' : 'auto',
-                  }}
-                >
+                <TableRow key={business._id}>
                   <TableCell>{business.bidNumber}</TableCell>
                   <TableCell>{business.businessName}</TableCell>
                   <TableCell>{business.businessType}</TableCell>
                   <TableCell>{business.contactPerson}</TableCell>
                   <TableCell>{business.inspectionStatus || 'none'}</TableCell>
-                  <TableCell>{business.inspectionCountThisYear ?? 0}</TableCell> {/* ✅ show count */}
-                  <TableCell>{business.recordedViolation || '-'}</TableCell> {/* ✅ show violation */}
+                  <TableCell>{completedInspections}</TableCell>
                   <TableCell>
-                    {business.inspectionStatus === 'pending' ? (
+                    {inspectionCounts[business._id]?.violation
+                      ? `⚠️ ${inspectionCounts[business._id].violation}`
+                      : '—'}
+                  </TableCell>
+                  <TableCell>
+                    <Box display="flex" gap={1}>
                       <Button
                         variant="contained"
                         size="small"
-                        sx={{ backgroundColor: 'yellow', color: 'black', fontWeight: 'bold' }}
-                        onClick={() => router.push('/officers/inspections/pendinginspections')}
-                        disabled={isDisabled}
+                        onClick={() => {
+                          if (pendingTicketExists) handleViewStatus(business);
+                          else if (!reachedLimit) handleOpenConfirm(business);
+                        }}
+                        disabled={pendingTicketExists || reachedLimit}
+                        color={pendingTicketExists ? 'warning' : 'primary'}
                       >
-                        Pending Inspection
+                        {pendingTicketExists
+                          ? 'Pending Inspection'
+                          : reachedLimit
+                            ? 'Max Inspections'
+                            : 'Create Inspection'}
                       </Button>
-                    ) : business.inspectionStatus === 'completed' ? (
                       <Button
-                        variant="contained"
+                        variant="outlined"
                         size="small"
-                        onClick={() => handleOpenConfirm(business)} // ✅ add click handler here
+                        color="info"
+                        onClick={() => handleViewStatus(business)}
                       >
-                        Create Inspection
+                        View Status
                       </Button>
-                    ) : (
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleOpenConfirm(business)}
-                        disabled={isDisabled}
-                      >
-                        Create Inspection
-                      </Button>
-                    )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               );
@@ -218,28 +272,10 @@ export default function InspectionTicketForm() {
         </Table>
       </TableContainer>
 
-      {/* Confirmation Dialog */}
-      <Dialog open={openConfirm} onClose={handleCloseConfirm}>
-        <DialogTitle>Confirm Inspection</DialogTitle>
-        <DialogContent>
-          Are you sure you want to create an inspection for{' '}
-          <strong>{selectedBusiness?.businessName}</strong>?
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseConfirm}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateTicket}>
-            Confirm
-          </Button>
-        </DialogActions>
-      </Dialog>
-
       {/* Inline Inspection Form */}
-      {activeTicket && (
-        <Box mt={4} p={3} border="1px solid #ccc" borderRadius={2}>
-          <Typography variant="h6" mb={2}>
-            Inspection Form for {activeTicket.ticketNumber}
-          </Typography>
-
+      <Dialog open={!!selectedBusiness} onClose={handleCloseConfirm}>
+        <DialogTitle>Inspection Form for {selectedBusiness?.businessName}</DialogTitle>
+        <DialogContent>
           <TextField
             label="Inspection Date"
             type="date"
@@ -249,7 +285,6 @@ export default function InspectionTicketForm() {
             onChange={(e) => setInspectionDate(e.target.value)}
             sx={{ mb: 2 }}
           />
-
           <TextField
             label="Remarks"
             fullWidth
@@ -257,27 +292,19 @@ export default function InspectionTicketForm() {
             rows={3}
             value={remarks}
             onChange={(e) => setRemarks(e.target.value)}
-            sx={{ mb: 2 }}
           />
-
-          <Box display="flex" gap={2}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleSaveInspection}
-            >
-              Save Inspection
-            </Button>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={() => handleCancelInspection(activeTicket._id)}
-            >
-              Cancel Inspection
-            </Button>
-          </Box>
-        </Box>
-      )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirm}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveInspection}
+            disabled={!inspectionDate}
+          >
+            Save Inspection
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

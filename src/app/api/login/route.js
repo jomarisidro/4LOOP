@@ -17,6 +17,24 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
+    // 🚫 Block if email not verified
+    if (!user.verified) {
+      console.warn(`Login blocked: email not verified for ${email}`);
+      return NextResponse.json(
+        { error: "Email not verified. Please verify your account before logging in." },
+        { status: 403 }
+      );
+    }
+
+    // 🚫 Block if officer account is disabled
+    if (user.role === "officer" && user.accountDisabled === true) {
+      console.warn(`Login blocked: officer account locked for ${email}`);
+      return NextResponse.json(
+        { error: "Your account has been locked by the admin." },
+        { status: 403 }
+      );
+    }
+
     // 🔐 Compare hashed password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
@@ -24,21 +42,21 @@ export async function POST(request) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
     }
 
-    // ✅ Set session cookie via helper
+    // ✅ Set session cookie
     await login(user);
 
-    // 🧼 Sanitize user object before sending
+    // 🧼 Send safe user info
     const safeUser = {
       _id: user._id,
       email: user.email,
-      role: user.role, // ✅ Explicitly include this for redirect logic
+      role: user.role,
+      accountDisabled: user.accountDisabled || false, // include for frontend use
     };
 
     return NextResponse.json({
       msg: "Login successful",
       user: safeUser,
     });
-
   } catch (err) {
     console.error("Login error:", err);
     return NextResponse.json({ error: "Login failed" }, { status: 500 });

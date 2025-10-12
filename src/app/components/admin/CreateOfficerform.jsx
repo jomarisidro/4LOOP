@@ -15,7 +15,7 @@ export default function CreateOfficerForm() {
   const [message, setMessage] = useState('');
   const [officers, setOfficers] = useState([]);
 
-  // Fetch officers on mount
+  // Fetch officers
   useEffect(() => {
     const fetchOfficers = async () => {
       try {
@@ -40,18 +40,17 @@ export default function CreateOfficerForm() {
     }));
   };
 
+  // Create officer account
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
 
-    // ✅ Client-side validation
     if (formData.password !== formData.confirmPassword) {
       setMessage('❌ Passwords do not match.');
       return;
     }
 
     setLoading(true);
-
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
@@ -60,7 +59,9 @@ export default function CreateOfficerForm() {
           fullName: formData.fullName,
           email: formData.email,
           password: formData.password,
-          role: 'officer', // enforce officer role
+          role: 'officer',
+          verify: true, // ✅ Automatically verified
+          status: 'active',
         }),
       });
 
@@ -74,10 +75,14 @@ export default function CreateOfficerForm() {
 
       setMessage('✅ Officer account created successfully.');
 
-      // Refresh officer list
-      setOfficers((prev) => [...prev, data.user]);
+      if (data.user) {
+        setOfficers((prev) => [...prev, data.user]);
+      } else {
+        const res = await fetch('/api/users?role=officer');
+        const updated = await res.json();
+        setOfficers(updated.users || []);
+      }
 
-      // Reset form
       setFormData({
         fullName: '',
         email: '',
@@ -90,9 +95,42 @@ export default function CreateOfficerForm() {
     }
   };
 
+  // Disable or Re-enable officer
+  const handleStatusChange = async (id, fullName, action) => {
+    const confirm = window.confirm(
+      `Are you sure you want to ${action === 'disable' ? 'disable' : 're-enable'} ${fullName}'s account?`
+    );
+    if (!confirm) return;
+
+    try {
+      const res = await fetch(`/api/users/${id}/${action}`, { method: 'PUT' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(`❌ Failed: ${data.error || 'Unknown error'}`);
+        return;
+      }
+
+      alert(`✅ Officer ${action === 'disable' ? 'disabled' : 're-enabled'} successfully.`);
+
+setOfficers((prev) =>
+  prev.map((o) =>
+    o._id === id
+      ? { ...o, status: data.user.status, verify: data.user.verify }
+      : o
+  )
+);
+
+
+
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    }
+  };
+
   return (
     <div className="max-w-2xl mx-auto mt-8 p-6 border rounded shadow">
-      {/* Officers List FIRST */}
+      {/* Officers List */}
       <h2 className="text-xl font-semibold mb-4">Officers List</h2>
       {officers.length === 0 ? (
         <p className="text-gray-500">No officers found.</p>
@@ -104,17 +142,41 @@ export default function CreateOfficerForm() {
                 <p className="font-medium">{officer.fullName}</p>
                 <p className="text-sm text-gray-600">{officer.email}</p>
               </div>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                {officer.role}
-              </span>
+
+              <div className="flex items-center gap-2">
+                <span
+                  className={`text-xs px-2 py-1 rounded ${
+                    officer.accountDisabled
+                      ? 'bg-gray-300 text-gray-700'
+                      : 'bg-blue-100 text-blue-800'
+                  }`}
+                >
+                  {officer.status === 'disabled' ? 'Disabled' : 'Active'}
+                </span>
+
+                {officer.status === 'disabled' ? (
+                  <button
+                    onClick={() => handleStatusChange(officer._id, officer.fullName, 'enable')}
+                    className="text-xs text-white bg-green-600 hover:bg-green-700 px-3 py-1 rounded"
+                  >
+                    Re-enable
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleStatusChange(officer._id, officer.fullName, 'disable')}
+                    className="text-xs text-white bg-red-600 hover:bg-red-700 px-3 py-1 rounded"
+                  >
+                    Disable
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Create Officer Form SECOND */}
+      {/* Create Officer Form */}
       <h1 className="text-2xl font-semibold mb-4">Create Officer Account</h1>
-
       <form onSubmit={handleSubmit} className="flex flex-col gap-4 mb-6">
         <input
           type="text"
@@ -139,7 +201,7 @@ export default function CreateOfficerForm() {
         <input
           type="password"
           name="password"
-          placeholder="Temporary Password"
+          placeholder="Password"
           value={formData.password}
           onChange={handleChange}
           required
@@ -162,7 +224,9 @@ export default function CreateOfficerForm() {
           type="submit"
           disabled={loading}
           className={`px-4 py-2 rounded text-white transition ${
-            loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+            loading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
           }`}
         >
           {loading ? 'Creating...' : 'Create Officer'}
