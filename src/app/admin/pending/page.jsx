@@ -1,17 +1,30 @@
 'use client';
 
-import Sidebar from '../../components/businessaccount/sidebar';
-import PendingRequestForm from '../../components/admin/PendingForm';
+import { Box, Button } from '@mui/material';
+import { useRouter } from 'next/navigation';
+import ViewPendingForm from '../../components/admin/ViewPendingForm';
 
-export default function PendingRequestPage() {
+export default function ViewPendingPage() {
+  const router = useRouter();
+
+  const handleBack = () => {
+    router.push('/admin');
+  };
+
   return (
     <div className="min-h-screen flex">
-      {/* 🧭 Sidebar */}
-      <Sidebar />
-
       {/* 📄 Main Content */}
-      <main className="flex-1 p-8">
-        <PendingRequestForm />
+      <main className="flex-1 p-8 relative">
+        {/* 🔙 Back Button */}
+        <Button
+          variant="outlined"
+          onClick={handleBack}
+          sx={{ mb: 2 }}
+        >
+          ← Back to Officers Dashboard
+        </Button>
+
+        <ViewPendingForm />
       </main>
     </div>
   );

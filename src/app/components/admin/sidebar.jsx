@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 
 const navItems = [
   { label: 'Dashboard', path: '/admin' },
+    { label: 'Officers', path: '/admin/createofficer' },
   { label: 'Businesses', path: '/admin/businesses' },
-  { label: 'Officers', path: '/admin/createofficer' },
   { label: 'Inspections', path: '/admin/inspections' },
   { label: 'Pending Request', path: '/admin/pending' },
   { label: 'Completed Request', path: '/admin/completed' },

@@ -63,9 +63,10 @@ useEffect(() => {
         b.bidNumber.toLowerCase().includes(searchTerm.toLowerCase());
 
       // Apply the new business visibility rules:
-      const isEligible =
-        (b.requestType === 'new' && b.onlineRequest?.status === 'completed') ||
-        (b.requestType === 'renewal');
+  const isEligible =
+  (b.requestType?.toLowerCase() === 'new' && b.status === 'completed') ||
+  (b.requestType?.toLowerCase() === 'renewal');
+
 
       return matchesSearch && isEligible;
     });

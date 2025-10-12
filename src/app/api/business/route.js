@@ -22,14 +22,15 @@ export async function GET(request) {
       delete queryParams.email;
     }
 
-    let filter = {};
-    if (role === "business") {
-      filter = { ...queryParams, businessAccount: userId };
-    } else if (role === "officer") {
-      filter = { ...queryParams };
-    } else {
-      return NextResponse.json({ error: "Access denied" }, { status: 403 });
-    }
+  let filter = {};
+if (role === "business") {
+  filter = { ...queryParams, businessAccount: userId };
+} else if (role === "officer" || role === "admin") {
+  filter = { ...queryParams };
+} else {
+  return NextResponse.json({ error: "Access denied" }, { status: 403 });
+}
+
 
     const businesses = await Business.find(filter).lean();
     const currentYear = new Date().getFullYear();

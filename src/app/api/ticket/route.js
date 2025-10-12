@@ -1,4 +1,4 @@
-import Violation from "@/models/Violation"; // ✅ Register the model
+import Violation from "@/models/Violation";
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Ticket from "@/models/Ticket";
@@ -6,7 +6,9 @@ import Business from "@/models/Business";
 import { getSession } from "@/lib/Auth";
 import mongoose from "mongoose";
 
+// =========================
 // GET /api/ticket
+// =========================
 export async function GET(request) {
   await connectMongoDB();
 
@@ -16,37 +18,50 @@ export async function GET(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const { role, id: userId } = session.user;
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const businessId = searchParams.get("businessId");
     const year = searchParams.get("year");
 
     const query = {};
+
+    // ✅ Filter by status if provided
     if (status) query.inspectionStatus = status;
 
-    if (businessId) {
+    // ✅ Business filter (allow officer/admin to view any, business only theirs)
+    if (role === "business") {
+      query.businessAccount = userId;
+    } else if (businessId) {
       if (!mongoose.Types.ObjectId.isValid(businessId)) {
         return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
       }
       query.business = new mongoose.Types.ObjectId(businessId);
     }
 
+    // ✅ Year filter
     if (year) {
       const start = new Date(`${year}-01-01T00:00:00Z`);
       const end = new Date(`${year}-12-31T23:59:59Z`);
       query.createdAt = { $gte: start, $lte: end };
     }
 
-    // ✅ FIXED: populate both business & violations
+    // ✅ Restrict access for unknown roles
+    if (!["officer", "admin", "business"].includes(role)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    // ✅ Populate business with requestType included
     const tickets = await Ticket.find(query)
-      .sort({ createdAt: -1 }) // newest first
+      .sort({ createdAt: -1 })
       .populate(
         "business",
-        "businessName bidNumber businessType contactPerson businessAddress"
+        "businessName bidNumber businessType contactPerson businessAddress requestType"
       )
       .populate({
         path: "violations",
-        select: "code ordinanceSection description penalty violationStatus createdAt",
+        select:
+          "code ordinanceSection description penalty violationStatus createdAt",
       })
       .lean();
 
@@ -57,8 +72,9 @@ export async function GET(request) {
   }
 }
 
-
+// =========================
 // POST /api/ticket
+// =========================
 export async function POST(request) {
   await connectMongoDB();
 
@@ -77,12 +93,13 @@ export async function POST(request) {
     } = body;
 
     const session = await getSession();
-    const officerId = session?.user?.id;
-    if (!officerId) {
+    const { id: officerId, role } = session?.user || {};
+
+    if (!officerId || !["officer", "admin"].includes(role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Find business
+    // 🏢 Find business by ID or BID number
     let business;
     if (businessId) business = await Business.findById(businessId);
     else if (bidNumber) business = await Business.findOne({ bidNumber });
@@ -91,18 +108,19 @@ export async function POST(request) {
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
 
-    // Count COMPLETED inspections for the current year
+    // 📅 Get current year range
     const currentYear = new Date().getFullYear();
     const start = new Date(`${currentYear}-01-01T00:00:00Z`);
     const end = new Date(`${currentYear}-12-31T23:59:59Z`);
 
+    // ✅ Count completed inspections for this business this year
     const completedInspectionsThisYear = await Ticket.countDocuments({
       business: business._id,
       inspectionStatus: "completed",
       createdAt: { $gte: start, $lte: end },
     });
 
-    // 🚨 CHANGE: Block only if already 2 completed and this one is also "completed"
+    // 🚫 Limit 2 completed inspections per year
     if (inspectionStatus === "completed" && completedInspectionsThisYear >= 2) {
       return NextResponse.json(
         {
@@ -112,46 +130,52 @@ export async function POST(request) {
       );
     }
 
-    // Generate ticket number
-    const count = await Ticket.countDocuments({ createdAt: { $gte: start, $lte: end } });
+    // 🎫 Generate ticket number (unique per year)
+    const count = await Ticket.countDocuments({
+      createdAt: { $gte: start, $lte: end },
+    });
     const ticketNumber = `TKT-${currentYear}-${String(count + 1).padStart(3, "0")}`;
 
-    // 🚨 CHANGE: inspectionNumber is based on actual completed count (+1 if this one is completed)
+    // 🔢 Compute inspection number
     const inspectionNumber =
       inspectionStatus === "completed"
         ? completedInspectionsThisYear + 1
         : completedInspectionsThisYear;
 
-    // 🚨 CHANGE: fallback type is tied to inspectionNumber
+    // 🔄 Determine inspection type based on count
     const typeToUse = inspectionNumber === 1 ? "routine" : "reinspection";
 
-const ticket = await Ticket.create({
-  ticketNumber,
-  business: business._id,
-  businessAccount: business.businessAccount,
-  officerInCharge: officerId,
-  inspectionDate: inspectionDate ? new Date(inspectionDate) : new Date(),
-  inspectionType: inspectionType || typeToUse,
-  violationType: violationType || "sanitation",
-  violation,
-  remarks,
-  inspectionChecklist: {
-    ...inspectionChecklist,
-    healthCertificates: {
-      actualCount: Number(inspectionChecklist?.healthCertificates?.actualCount) || 0,
-      withCert: Number(inspectionChecklist?.healthCertificates?.withCert) || 0,
-      withoutCert: Number(inspectionChecklist?.healthCertificates?.withoutCert) || 0,
-    },
-  },
-  inspectionStatus: inspectionStatus || "pending",
-  resolutionStatus: "none",
-  inspectionNumber,
-});
+    // 📝 Create ticket
+    const ticket = await Ticket.create({
+      ticketNumber,
+      business: business._id,
+      businessAccount: business.businessAccount,
+      officerInCharge: officerId,
+      inspectionDate: inspectionDate ? new Date(inspectionDate) : new Date(),
+      inspectionType: inspectionType || typeToUse,
+      violationType: violationType || "sanitation",
+      violation,
+      remarks,
+      inspectionChecklist: {
+        ...inspectionChecklist,
+        healthCertificates: {
+          actualCount:
+            Number(inspectionChecklist?.healthCertificates?.actualCount) || 0,
+          withCert:
+            Number(inspectionChecklist?.healthCertificates?.withCert) || 0,
+          withoutCert:
+            Number(inspectionChecklist?.healthCertificates?.withoutCert) || 0,
+        },
+      },
+      inspectionStatus: inspectionStatus || "pending",
+      resolutionStatus: "none",
+      inspectionNumber,
+    });
 
-
+    // ✅ Populate with business (including requestType)
     const populatedTicket = await ticket.populate(
       "business",
-      "businessName bidNumber businessType contactPerson"
+      "businessName bidNumber businessType contactPerson businessAddress requestType"
     );
 
     return NextResponse.json(

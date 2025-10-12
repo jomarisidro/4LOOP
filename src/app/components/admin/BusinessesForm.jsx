@@ -66,28 +66,38 @@ export default function BusinessesForm() {
     }
   };
 
-  const filteredBusinesses = businesses
-    .filter((business) => {
-      const value = business[searchField];
-      if (!value) return false;
-      return String(value).toLowerCase().includes(searchTerm.toLowerCase());
-    })
-    .sort((a, b) => {
-      if (!sortField) return 0;
-      const valA = a[sortField];
-      const valB = b[sortField];
+const filteredBusinesses = businesses
+  .filter((business) => {
+    const value = business[searchField];
+    if (!value) return false;
 
-      if (valA == null) return 1;
-      if (valB == null) return -1;
+    const term = searchTerm.toLowerCase().trim();
 
-      if (typeof valA === 'string') {
-        return sortDirection === 'asc'
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
-      }
+    // ✅ Handle "Line of Business" specifically
+    if (searchField === 'businessType') {
+      const type = String(value).toLowerCase().trim();
 
-      return sortDirection === 'asc' ? valA - valB : valB - valA;
-    });
+      // Only include if the type is "food" or "non-food"
+      const allowed = ['food', 'non-food'];
+      if (!allowed.includes(type)) return false;
+
+      // If user didn't type anything, show both Food and Non-Food
+      if (!term) return true;
+
+      // Normalize spacing/hyphen in search input
+      const normalizedTerm = term.replace(/\s+/g, '-');
+
+      // Match logic
+      if (normalizedTerm === 'food') return type.includes('food');
+      if (normalizedTerm === 'non-food' || term.includes('non')) return type.includes('non-food');
+
+      return type.includes(normalizedTerm);
+    }
+
+    // ✅ Normal case for all other fields
+    return String(value).toLowerCase().includes(term);
+  })
+
 
   return (
     <Paper elevation={2} sx={{ p: 3 }}>

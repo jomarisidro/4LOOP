@@ -17,13 +17,24 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { getSanitationOnlineRequest } from '@/app/services/OnlineRequest';
 
-export default function CompletedRequestForm() {
+export default function ViewPendingForm() {
   const { data } = useQuery({
-    queryKey: ['completed-requests'],
+    queryKey: ['pending-requests'],
     queryFn: async () => {
       const onlinerequest = await getSanitationOnlineRequest();
       const allRequests = [...(onlinerequest?.data || [])];
-      return allRequests.filter(req => req.status === 'completed');
+
+      // ✅ Include any pending status
+      const pendingStatuses = ['pending', 'pending2', 'pending3'];
+      const pending = allRequests.filter(req =>
+        pendingStatuses.includes(req.status)
+      );
+
+      // ✅ Remove duplicates
+      const uniqueRequests = Array.from(
+        new Map(pending.map(req => [`${req._id}`, req])).values()
+      );
+      return uniqueRequests;
     },
     refetchInterval: 5000,
   });
@@ -31,8 +42,8 @@ export default function CompletedRequestForm() {
   const [requests, setRequests] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState('businessName');
-  const [sortField, setSortField] = useState('');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortField, setSortField] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
 
   useEffect(() => {
     if (data) setRequests(data);
@@ -45,6 +56,7 @@ export default function CompletedRequestForm() {
     { label: 'Business Type', field: 'businessType' },
     { label: 'Address', field: 'businessAddress' },
     { label: 'Request Type', field: 'requestType' },
+    { label: 'Status', field: 'status' },
     { label: 'Submitted On', field: 'createdAt' },
   ];
 
@@ -57,7 +69,7 @@ export default function CompletedRequestForm() {
     }
   };
 
-  // ✅ Filtering
+  // ✅ Filter by search term
   const filteredRequests = requests.filter((req) => {
     const value = req[searchField];
     if (!value) return false;
@@ -65,10 +77,9 @@ export default function CompletedRequestForm() {
     return String(value).toLowerCase().includes(term);
   });
 
-  // ✅ Sorting
+  // ✅ Sort
   const sortedRequests = [...filteredRequests].sort((a, b) => {
     if (!sortField) return 0;
-
     const aValue = a[sortField];
     const bValue = b[sortField];
 
@@ -76,7 +87,7 @@ export default function CompletedRequestForm() {
       return sortDirection === 'asc'
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue);
-    } else if (aValue instanceof Date || bValue instanceof Date) {
+    } else if (sortField === 'createdAt') {
       return sortDirection === 'asc'
         ? new Date(aValue) - new Date(bValue)
         : new Date(bValue) - new Date(aValue);
@@ -87,9 +98,11 @@ export default function CompletedRequestForm() {
 
   return (
     <Paper elevation={2} sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom><b>Completed Business Requests</b></Typography>
+      <Typography variant="h6" gutterBottom>
+        <b>Pending Requests</b>
+      </Typography>
 
-      {/* Search Controls */}
+      {/* 🔍 Search Controls */}
       <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
         <TextField
           select
@@ -114,7 +127,7 @@ export default function CompletedRequestForm() {
         />
       </Box>
 
-      {/* Table */}
+      {/* 📋 Table Display */}
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -148,7 +161,7 @@ export default function CompletedRequestForm() {
             ) : (
               <TableRow>
                 <TableCell colSpan={fields.length} align="center">
-                  No completed businesses found.
+                  No pending requests found.
                 </TableCell>
               </TableRow>
             )}

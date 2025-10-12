@@ -48,8 +48,8 @@ export default function PendingPermitApprovalForm() {
       refetch();
 
       // 🧹 Clear accepted request lock
-      localStorage.removeItem('encodingRequestId');
-      router.push('/officers/workbench/encoding')
+      localStorage.removeItem('permitapprovalRequestId');
+      router.push('/officers/workbench/permitapproval');
     } catch (err) {
       console.error('❌ Update failed:', err);
     }

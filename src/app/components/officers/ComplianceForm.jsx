@@ -2,7 +2,7 @@
 
 import { getSanitationOnlineRequest } from '@/app/services/OnlineRequest';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Typography,
@@ -18,34 +18,31 @@ import {
   TableCell,
   TableContainer,
   TableSortLabel,
+  TextField,
+  MenuItem,
 } from '@mui/material';
 
 export default function ComplianceForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-  } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['compliance-requests'],
     queryFn: async () => {
       const onlinerequest = await getSanitationOnlineRequest();
       const allRequests = [...(onlinerequest?.data || [])];
       const pending = allRequests.filter((req) => req.status === 'pending2');
-
       const uniqueRequests = Array.from(
-        new Map(pending.map((req) => [`${req._id}`, req])).values()
+        new Map(pending.map((req) => [req._id, req])).values()
       );
-
       return uniqueRequests;
     },
     refetchInterval: 5000,
   });
 
   const [requests, setRequests] = useState([]);
+  const [searchField, setSearchField] = useState('businessName');
+  const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({
     key: 'createdAt',
     direction: 'desc',
@@ -57,7 +54,7 @@ export default function ComplianceForm() {
 
   const handleEncode = async (_id) => {
     const compliance = requests.find((req) => req._id === _id);
-    console.log('✅ compliance request:', compliance);
+    if (!compliance) return;
 
     try {
       localStorage.setItem('complianceRequestId', _id);
@@ -66,7 +63,7 @@ export default function ComplianceForm() {
       console.error('❌ Failed to navigate for compliance:', err);
     }
 
-    // Optimistically remove it from the list
+    // Optimistically remove from list
     setRequests((prev) => prev.filter((req) => req._id !== _id));
 
     // Trigger background refetch for consistency
@@ -74,21 +71,52 @@ export default function ComplianceForm() {
   };
 
   const handleSort = (key) => {
-    setSortConfig((prev) => {
-      if (prev.key === key) {
-        return { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' };
-      }
-      return { key, direction: 'asc' };
-    });
+    setSortConfig((prev) =>
+      prev.key === key
+        ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
+        : { key, direction: 'asc' }
+    );
   };
 
-  const sortedRequests = [...requests].sort((a, b) => {
-    const aValue = a[sortConfig.key]?.toString().toLowerCase() ?? '';
-    const bValue = b[sortConfig.key]?.toString().toLowerCase() ?? '';
-    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // 🔍 Search + filter
+  const filteredRequests = useMemo(() => {
+    return requests.filter((req) => {
+      const value = req?.[searchField]?.toString().toLowerCase() ?? '';
+      return value.includes(searchTerm.toLowerCase());
+    });
+  }, [requests, searchField, searchTerm]);
+
+  // 🔽 Sort
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      if (!sortConfig.key) return 0;
+      const aValue = a?.[sortConfig.key]?.toString().toLowerCase() ?? '';
+      const bValue = b?.[sortConfig.key]?.toString().toLowerCase() ?? '';
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredRequests, sortConfig]);
+
+  const searchFields = [
+    { value: 'businessName', label: 'Business Name' },
+    { value: 'bidNumber', label: 'BID Number' },
+    { value: 'requestType', label: 'Request Type' },
+    { value: 'businessNickname', label: 'Trade Name' },
+    { value: 'businessType', label: 'Business Type' },
+    { value: 'businessAddress', label: 'Address' },
+  ];
+
+  const columns = [
+    { key: 'requestType', label: 'Request Type' },
+    { key: 'bidNumber', label: 'BID Number' },
+    { key: 'businessName', label: 'Business Name' },
+    { key: 'businessNickname', label: 'Trade Name' },
+    { key: 'businessType', label: 'Business Type' },
+    { key: 'businessAddress', label: 'Address' },
+    { key: 'createdAt', label: 'Submitted On' },
+    { key: 'actions', label: 'Action' },
+  ];
 
   return (
     <Box p={3}>
@@ -106,6 +134,31 @@ export default function ComplianceForm() {
         🧾 Requests Awaiting Compliance
       </Typography>
 
+      {/* 🔍 Search Controls */}
+      <Stack direction="row" spacing={2} mb={3}>
+        <TextField
+          select
+          label="Search Field"
+          value={searchField}
+          onChange={(e) => setSearchField(e.target.value)}
+          sx={{ width: 220 }}
+        >
+          {searchFields.map((f) => (
+            <MenuItem key={f.value} value={f.value}>
+              {f.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        <TextField
+          label={`Search by ${searchFields.find((f) => f.value === searchField)?.label}`}
+          variant="outlined"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          fullWidth
+        />
+      </Stack>
+
       {/* ⏳ Loading */}
       {isLoading && (
         <Stack alignItems="center" mt={4}>
@@ -117,7 +170,7 @@ export default function ComplianceForm() {
       {/* ❌ Error */}
       {isError && (
         <Typography color="error" mt={2}>
-          Error loading requests: {error.message}
+          Error loading requests: {error?.message || 'Unknown error'}
         </Typography>
       )}
 
@@ -127,25 +180,12 @@ export default function ComplianceForm() {
           <Table>
             <TableHead>
               <TableRow>
-                {[
-                  { key: 'requestType', label: 'Request Type' },
-                  { key: 'bidNumber', label: 'BID Number' },
-                  { key: 'businessName', label: 'Business Name' },
-                  { key: 'businessNickname', label: 'Trade Name' },
-                  { key: 'businessType', label: 'Business Type' },
-                  { key: 'businessAddress', label: 'Address' },
-                  { key: 'createdAt', label: 'Submitted On' },
-                  { key: 'actions', label: 'Action' },
-                ].map((col) => (
+                {columns.map((col) => (
                   <TableCell key={col.key}>
                     {col.key !== 'actions' ? (
                       <TableSortLabel
                         active={sortConfig.key === col.key}
-                        direction={
-                          sortConfig.key === col.key
-                            ? sortConfig.direction
-                            : 'asc'
-                        }
+                        direction={sortConfig.key === col.key ? sortConfig.direction : 'asc'}
                         onClick={() => handleSort(col.key)}
                       >
                         {col.label}

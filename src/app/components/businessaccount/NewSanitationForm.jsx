@@ -73,6 +73,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
   const [msrChecklistState, setMsrChecklistState] = useState([]);
 
+
+
   const {
     control,
     register,           // ← added register
@@ -97,6 +99,10 @@ const [healthCertificateChecklistState, setHealthCertificateChecklistState] = us
     },
     resolver: yupResolver(schema),
   });
+
+
+const requestType = watch('requestType') || initialData?.requestType;
+  const isNew = requestType === 'New'; // 🟩 add this line
 
   const bidNumber = watch('bidNumber');
 
@@ -249,6 +255,9 @@ const handleHealthChange = (e) => {
 
   const onSubmit = async (data) => {
     const hasActive = await checkBusinessStatus(data.bidNumber);
+      if (isNew) {
+      console.warn("Inspection section is disabled for 'new' requests — skipping inspection submission.");
+    }
     if (hasActive && data.status !== 'draft') {
       setWarningMessage('🚫 There is already an ongoing sanitation request for this business.');
       return;
@@ -604,33 +613,55 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Sanitary Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertSanitaryFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                  />
-                </div>
+              <div className="flex items-center gap-2">
+  <label className="w-[120px] text-sm font-medium text-gray-700">
+    Sanitary Fee:
+  </label>
+  <RHFTextField
+    control={control}
+    name="healthCertSanitaryFee"
+    type="text"
+    variant="standard"
+    placeholder="Enter amount"
+    fullWidth
+    onBlur={(e) => {
+      const value = parseFloat(e.target.value);
+      if (!isNaN(value)) {
+        // Format to two decimals
+        const formatted = value.toFixed(2);
+        setValue('healthCertSanitaryFee', formatted, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+    }}
+  />
+</div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Health Cert Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                  />
-                </div>
+<div className="flex items-center gap-2">
+  <label className="w-[120px] text-sm font-medium text-gray-700">
+    Health Cert Fee:
+  </label>
+  <RHFTextField
+    control={control}
+    name="healthCertFee"
+    type="text"
+    variant="standard"
+    placeholder="Enter amount"
+    fullWidth
+    onBlur={(e) => {
+      const value = parseFloat(e.target.value);
+      if (!isNaN(value)) {
+        const formatted = value.toFixed(2);
+        setValue('healthCertFee', formatted, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+    }}
+  />
+</div>
+
               </div>
             </div>
 
@@ -810,20 +841,29 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
   </div>
 
   <div className="flex flex-col gap-1">
-    <label
-      htmlFor="balanceToComply"
-      className="text-sm font-medium text-gray-700"
-    >
-      BALANCE TO COMPLY
-    </label>
-    <input
-      id="balanceToComply"
-      type="number"
-      {...register('balanceToComply')}
-      className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-10"
-      placeholder="Enter balance"
-    />
-  </div>
+  <label
+    htmlFor="balanceToComply"
+    className="text-sm font-medium text-gray-700"
+  >
+    BALANCE TO COMPLY
+  </label>
+  <input
+    id="balanceToComply"
+    type="text"
+    {...register('balanceToComply')}
+    className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-10"
+    placeholder="Enter balance"
+    onBlur={(e) => {
+      const formatted = formatToTwoDecimals(e.target.value);
+      // update the RHF field value manually after formatting
+      setValue('balanceToComply', formatted, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }}
+  />
+</div>
+
 
   <div className="flex flex-col gap-1">
     <input
@@ -836,160 +876,146 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
 </div>
           </div>
 
-          {/* Right Column: Inspection Record */}
-          <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-            <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
-            <div className="overflow-x-auto">
-              <table className="min-w-full table-auto border-separate border-spacing-y-4">
-                <thead className="bg-transparent">
-                  <tr>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center"></th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Date</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Actual No. of Personnel Upon Inspection</th>
-                    <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Inspected By</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {['1st', '2nd'].map((label, index) => (
-                    <tr key={label} className="bg-white shadow-sm rounded-md">
-                      <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">{label}</td>
-                      <td className="px-4 py-2">
-                        <RHFTextField
-                          control={control}
-                          name={`inspectionRecords.${index}.date`}
-                          variant="standard"
-                          label=""
-                          error={!!errors?.inspectionRecords?.[index]?.date}
-                          helperText={errors?.inspectionRecords?.[index]?.date?.message}
-                          className="w-full"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <RHFTextField
-                          control={control}
-                          name={`inspectionRecords.${index}.personnelCount`}
-                          variant="standard"
-                          label=""
-                          error={!!errors?.inspectionRecords?.[index]?.personnelCount}
-                          helperText={errors?.inspectionRecords?.[index]?.personnelCount?.message}
-                          className="w-full"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <RHFTextField
-                          control={control}
-                          name={`inspectionRecords.${index}.inspectedBy`}
-                          variant="standard"
-                          label=""
-                          error={!!errors?.inspectionRecords?.[index]?.inspectedBy}
-                          helperText={errors?.inspectionRecords?.[index]?.inspectedBy?.message}
-                          className="w-full"
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+       {/* Right Column: Inspection Record */}
+<fieldset
+  disabled={isNew}
+  className={isNew ? 'opacity-50 pointer-events-none' : ''}
+>
+  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+    <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
+    <div className="overflow-x-auto">
+      <table className="min-w-full table-auto border-separate border-spacing-y-4">
+        <thead className="bg-transparent">
+          <tr>
+            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center"></th>
+            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Date</th>
+            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Actual No. of Personnel Upon Inspection</th>
+            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Inspected By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {['1st', '2nd'].map((label, index) => {
+            const autofillDate =
+              index === 0
+                ? initialData?.createdAt
+                  ? new Date(initialData.createdAt).toISOString().split("T")[0]
+                  : ""
+                : initialData?.dateReinspected
+                ? new Date(initialData.dateReinspected).toISOString().split("T")[0]
+                : "";
+
+            return (
+              <tr key={label} className="bg-white shadow-sm rounded-md">
+                <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">{label}</td>
+                <td className="px-4 py-2">
+                  <RHFTextField
+                    control={control}
+                    name={`inspectionRecords.${index}.date`}
+                    variant="standard"
+                    label=""
+                    type="date"
+                    error={!!errors?.inspectionRecords?.[index]?.date}
+                    helperText={errors?.inspectionRecords?.[index]?.date?.message}
+                    className="w-full"
+                    defaultValue={autofillDate}
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <RHFTextField
+                    control={control}
+                    name={`inspectionRecords.${index}.personnelCount`}
+                    variant="standard"
+                    label=""
+                    error={!!errors?.inspectionRecords?.[index]?.personnelCount}
+                    helperText={errors?.inspectionRecords?.[index]?.personnelCount?.message}
+                    className="w-full"
+                  />
+                </td>
+                <td className="px-4 py-2">
+                  <RHFTextField
+                    control={control}
+                    name={`inspectionRecords.${index}.inspectedBy`}
+                    variant="standard"
+                    label=""
+                    error={!!errors?.inspectionRecords?.[index]?.inspectedBy}
+                    helperText={errors?.inspectionRecords?.[index]?.inspectedBy?.message}
+                    className="w-full"
+                  />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</fieldset>
+
+
         </div>
 
-        <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-          <div className="grid grid-cols-[2fr_1fr] gap-6">
-            {/* Left Column: Table */}
-            <div>
-              <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
-              <div className="overflow-x-auto">
-                <table className="min-w-full table-auto border-separate border-spacing-y-4">
-                  <thead>
-                    <tr className="bg-transparent text-sm text-gray-700 text-center">
-                      <th className="px-2 py-1">Checklist</th>
-                      <th className="px-2 py-1">Offense</th>
-                      <th className="px-2 py-1">Year</th>
-                      <th className="px-2 py-1">OR Date</th>
-                      <th className="px-2 py-1">OR Number</th>
-                      <th className="px-2 py-1">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => (
-                      <tr key={label} className="bg-white shadow-sm rounded-md">
-                        <td className="px-2 py-1 text-sm text-gray-700">
-                          <label className="flex items-center gap-2">
-                            <input type="checkbox" className="form-checkbox text-blue-600" />
-                            {label}
-                          </label>
-                        </td>
-                        <td className="px-2 py-1">
-                          <RHFTextField
-                            control={control}
-                            name={`penaltyRecords.${index}.offense`}
-                            variant="standard"
-                            label=""
-                            error={!!errors?.penaltyRecords?.[index]?.offense}
-                            helperText={errors?.penaltyRecords?.[index]?.offense?.message}
-                            className="w-full"
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <RHFTextField
-                            control={control}
-                            name={`penaltyRecords.${index}.year`}
-                            variant="standard"
-                            label=""
-                            error={!!errors?.penaltyRecords?.[index]?.year}
-                            helperText={errors?.penaltyRecords?.[index]?.year?.message}
-                            className="w-full"
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <RHFTextField
-                            control={control}
-                            name={`penaltyRecords.${index}.orDateHealthCert`}
-                            variant="standard"
-                            label=""
-                            error={!!errors?.penaltyRecords?.[index]?.orDateHealthCert}
-                            helperText={errors?.penaltyRecords?.[index]?.orDateHealthCert?.message}
-                            className="w-full"
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <RHFTextField
-                            control={control}
-                            name={`penaltyRecords.${index}.orNumberHealthCert`}
-                            variant="standard"
-                            label=""
-                            error={!!errors?.penaltyRecords?.[index]?.orNumberHealthCert}
-                            helperText={errors?.penaltyRecords?.[index]?.orNumberHealthCert?.message}
-                            className="w-full"
-                          />
-                        </td>
-                        <td className="px-2 py-1">
-                          <RHFTextField
-                            control={control}
-                            name={`penaltyRecords.${index}.amount`}
-                            variant="standard"
-                            label=""
-                            error={!!errors?.penaltyRecords?.[index]?.amount}
-                            helperText={errors?.penaltyRecords?.[index]?.amount?.message}
-                            className="w-full"
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* Right Column: Verification */}
-            <div className="flex flex-col justify-center text-sm text-gray-700">
-              <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
-              <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
-              <p className="uppercase">Revenue Unit Supervisor</p>
-            </div>
-          </div>
+      {/* Penalty Record Section */}
+<fieldset
+  disabled={isNew}
+  className={isNew ? 'opacity-50 pointer-events-none' : ''}
+>
+  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+    <div className="grid grid-cols-[2fr_1fr] gap-6">
+      <div>
+        <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto border-separate border-spacing-y-4">
+            <thead>
+              <tr className="bg-transparent text-sm text-gray-700 text-center">
+                <th className="px-2 py-1">Checklist</th>
+                <th className="px-2 py-1">Offense</th>
+                <th className="px-2 py-1">Year</th>
+                <th className="px-2 py-1">OR Date</th>
+                <th className="px-2 py-1">OR Number</th>
+                <th className="px-2 py-1">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => (
+                <tr key={label} className="bg-white shadow-sm rounded-md">
+                  <td className="px-2 py-1 text-sm text-gray-700">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" className="form-checkbox text-blue-600" />
+                      {label}
+                    </label>
+                  </td>
+                  <td className="px-2 py-1">
+                    <RHFTextField control={control} name={`penaltyRecords.${index}.offense`} variant="standard" className="w-full" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <RHFTextField control={control} name={`penaltyRecords.${index}.year`} variant="standard" className="w-full" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <RHFTextField control={control} name={`penaltyRecords.${index}.orDateHealthCert`} variant="standard" className="w-full" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <RHFTextField control={control} name={`penaltyRecords.${index}.orNumberHealthCert`} variant="standard" className="w-full" />
+                  </td>
+                  <td className="px-2 py-1">
+                    <RHFTextField control={control} name={`penaltyRecords.${index}.amount`} variant="standard" className="w-full" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
+      </div>
+
+      {/* Right Column: Verification */}
+      <div className="flex flex-col justify-center text-sm text-gray-700">
+        <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
+        <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
+        <p className="uppercase">Revenue Unit Supervisor</p>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
 
 
         {/* Remark Field - Inline Label and Input */}

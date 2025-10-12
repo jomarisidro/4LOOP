@@ -32,7 +32,7 @@ function formatViolationCode(code) {
 }
 
 
-export default function CreateTicketInspectionForm() {
+export default function ViewTicketInspectionForm() {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
 
@@ -55,16 +55,26 @@ export default function CreateTicketInspectionForm() {
     if (data?.data) setFilteredBusinesses(data.data);
   }, [data]);
 
-  useEffect(() => {
-    if (data?.data) {
-      const filtered = data.data.filter(
-        (b) =>
-          b.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          b.bidNumber.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredBusinesses(filtered);
-    }
-  }, [searchTerm, data]);
+useEffect(() => {
+  if (data?.data) {
+    const filtered = data.data.filter((b) => {
+      const matchesSearch =
+        b.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.bidNumber.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Apply the new business visibility rules:
+  const isEligible =
+  (b.requestType?.toLowerCase() === 'new' && b.status === 'completed') ||
+  (b.requestType?.toLowerCase() === 'renewal');
+
+
+      return matchesSearch && isEligible;
+    });
+
+    setFilteredBusinesses(filtered);
+  }
+}, [searchTerm, data]);
+
 
   // Fetch inspection info for each business
   // Fetch inspection + violation info for each business
@@ -169,7 +179,7 @@ export default function CreateTicketInspectionForm() {
       }
 
       router.push(
-        `/officers/inspections/pendinginspections/inspectingcurrentbusiness?id=${ticketToView._id}`
+        `/admin/inspections/pendinginspections/inspectingcurrentbusiness?id=${ticketToView._id}`
       );
     } catch (err) {
       console.error('Error fetching tickets:', err);

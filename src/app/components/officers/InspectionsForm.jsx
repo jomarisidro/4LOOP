@@ -16,17 +16,11 @@ export default function InspectionsForm() {
     router.push(path);
   };
 
-  const handleBack = () => {
-    router.push('/officers');
-  };
 
   return (
     <Box p={4}>
 
-      {/* 🔙 Back Button */}
-      <Button variant="outlined" color="inherit" onClick={handleBack} sx={{ mb: 4 }}>
-        ← Back
-      </Button>
+  
 
       {/* 🧭 Title */}
       <Typography variant="h4" fontWeight="bold" mb={2}>
