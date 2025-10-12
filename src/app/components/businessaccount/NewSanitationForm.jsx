@@ -1,19 +1,15 @@
-// components/NewSanitationForm.jsx
 'use client';
-import React from "react";
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState, useEffect } from 'react';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import { useRouter } from 'next/navigation';
+import * as yup from 'yup';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
-import Button from '@mui/material/Button';
-import Collapse from '@mui/material/Collapse';
-import Alert from '@mui/material/Alert';
-import IconButton from '@mui/material/IconButton';
+import {Alert, Button, Collapse, IconButton, MenuItem, TextField,} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import { getBusinessByBid } from '@/app/services/BusinessService';
+import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
+import {getBusinessByBid, getUserBusinesses,} from '@/app/services/BusinessService';
+
 
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
@@ -105,43 +101,50 @@ const [healthCertificateChecklistState, setHealthCertificateChecklistState] = us
   const bidNumber = watch('bidNumber');
 
   // Fetch existing business data
-  const { data: businessData } = useQuery({
-    queryKey: ['business', bidNumber],
-    queryFn: () => getBusinessByBid(bidNumber),
-    enabled: !!bidNumber,
-  });
+const { data: businessData, isFetching, error } = useQuery({
+  queryKey: ['business', bidNumber],
+  queryFn: () => {
+    if (!bidNumber) return null; // 🛑 Prevent early fetch
+    return getBusinessByBid(bidNumber); // ✅ Only run when a valid bidNumber exists
+  },
+  enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
+});
+
+if (bidNumber && bidNumber.trim() !== '') {
+  console.log('Fetching business data for', bidNumber, { businessData, isFetching, error });
+  console.log('Fetched businessData:', businessData);
+}
+
 
 useEffect(() => {
-  if (businessData) {
-    // ✅ simple text fields
-    setValue('businessNickname', businessData.businessNickname || '');
-    setValue('businessName', businessData.businessName || '');
-    setValue('businessType', businessData.businessType || '');
-    setValue('businessAddress', businessData.businessAddress || '');
-    setValue('businessEstablishment', businessData.businessEstablishment || '');
-    setValue('contactPerson', businessData.contactPerson || '');
-    setValue('contactNumber', businessData.contactNumber || '');
-    setValue('status', businessData.status || '');
+  if (businessData && bidNumber) {
+    // ✅ Populate fields when data is fetched
+    reset({
+      bidNumber,
+      businessName: businessData.businessName || '',
+      businessAddress: businessData.businessAddress || '',
+      businessEstablishment: businessData.businessEstablishment || '',
+      status: businessData.status || '',
+      msrChecklist: businessData.msrChecklist || {},
+      inspectionRecords: businessData.inspectionRecords || [],
+      penaltyRecords: businessData.penaltyRecords || [],
+      remarks: businessData.remarks || '',
+    });
 
-    // ✅ sanitary permit checklist (checkboxes)
+    // set non-form state
     setSanitaryPermitChecklistState(
       businessData.sanitaryPermitChecklist?.map(item => item.id) || []
     );
-
-    // ✅ health certificate checklist (radio)
     setHealthCertificateChecklistState(
       businessData.healthCertificateChecklist?.[0]?.id || ''
     );
-
-    // ✅ MSR checklist (object with selected + dueDate)
-    setValue('msrChecklist', businessData.msrChecklist || {});
-
-    // ✅ optional: inspection & penalty records, remarks
-    setValue('inspectionRecords', businessData.inspectionRecords || []);
-    setValue('penaltyRecords', businessData.penaltyRecords || []);
-    setValue('remarks', businessData.remarks || '');
+  } else if (!bidNumber || bidNumber.trim() === '') {
+    // 🧹 Clear fields when no BID is selected
+    setValue('businessName', '');
+    setValue('businessAddress', '');
+    setValue('businessEstablishment', '');
   }
-}, [businessData, setValue]);
+}, [businessData, bidNumber, reset, setValue]);
 
 
 
@@ -174,12 +177,8 @@ const handleHealthChange = (e) => {
         newBidNumber: data.bidNumber,
         newRequestType: data.requestType,
         newBusinessName: data.businessName,
-        newBusinessNickname: data.businessNickname,
-        newBusinessType: data.businessType,
         newBusinessAddress: data.businessAddress,
         newBusinessEstablishment: data.businessEstablishment,
-        newContactPerson: data.contactPerson,
-        newContactNumber: data.contactNumber,
         newStatus: data.status,
         orDateHealthCert: data.orDateHealthCert || null,
         orNumberHealthCert: data.orNumberHealthCert || null,
@@ -194,7 +193,6 @@ const handleHealthChange = (e) => {
   balanceToComply: data.balanceToComply || null,
   dueDateFinal: data.dueDateFinal || null,
       }),
-
     });
 
     const payload = await res.json();
@@ -305,6 +303,10 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
     setMsrChecklistState([]);
     setWarningMessage('');
   };
+const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
+  queryKey: ['userBusinesses'],
+  queryFn: getUserBusinesses,
+});
 
   return (
     <>
@@ -363,15 +365,35 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
               <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
                 BID NUMBER:
               </span>
-              <RHFTextField
-                control={control}
-                name="bidNumber"
-                variant="standard"
-                label=""
-                error={!!errors.bidNumber}
-                helperText={errors?.bidNumber?.message}
-                className="w-full max-w-[220px]"
-              />
+            <Controller
+  name="bidNumber"
+  control={control}
+  render={({ field }) => (
+    <TextField
+      {...field}
+      select
+      variant="standard"
+      label=""
+      error={!!errors.bidNumber}
+      helperText={errors?.bidNumber?.message}
+      className="w-full max-w-[220px]"
+    >
+      <MenuItem value="">-- Select Business --</MenuItem>
+      {loadingBusinesses ? (
+        <MenuItem disabled>Loading...</MenuItem>
+      ) : userBusinesses.length === 0 ? (
+        <MenuItem disabled>No businesses found</MenuItem>
+      ) : (
+        userBusinesses.map((biz) => (
+          <MenuItem key={biz.bidNumber} value={biz.bidNumber}>
+            {biz.bidNumber} — {biz.businessName}
+          </MenuItem>
+        ))
+      )}
+    </TextField>
+  )}
+/>
+
             </div>
 
             {/* Right Column: Empty or future content */}
@@ -415,7 +437,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
             </span>
           </div>
         </div>
-
 
         <div className="w-full max-w-5xl mx-auto">
           <div className="grid grid-cols-2">
@@ -461,9 +482,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
             </div>
           </div>
         </div>
-
-
-
 
         <div className="w-full max-w-6xl mx-auto px-4 mb-6">
           <div className="grid grid-cols-[2fr_1fr] gap-6">
@@ -642,7 +660,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
           </div>
         </div>
 
-
         {/* C. MINIMUM SANITARY REQUIREMENTS */}
         <div className="w-full max-w-6xl mx-auto px-4 mb-6">
 
@@ -817,10 +834,7 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
     />
   </div>
 </div>
-
-
           </div>
-
 
           {/* Right Column: Inspection Record */}
           <div className="w-full max-w-6xl mx-auto px-4 mb-6">
@@ -879,7 +893,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
             </div>
           </div>
         </div>
-
 
         <div className="w-full max-w-6xl mx-auto px-4 mb-6">
           <div className="grid grid-cols-[2fr_1fr] gap-6">
@@ -1014,8 +1027,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
           <Button variant="text" color="error" onClick={handleClear}>
             Clear
           </Button>
-
-
         </div>
       </form>
     </>

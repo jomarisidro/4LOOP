@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { useState } from 'react';
 
-export default function EncodingOnlineRequestForm() {
+export default function ComplianceOnlineRequestForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
@@ -53,8 +53,8 @@ const handleUpdate = async () => {
       refetch();
 
       // 🧹 Clear accepted request lock
-      localStorage.removeItem('encodingRequestId');
-      router.push('/officers/workbench/encoding')
+      localStorage.removeItem('complianceRequestId');
+      router.push('/officers/workbench/compliance')
     } catch (err) {
       console.error('❌ Update failed:', err);
     }
@@ -85,7 +85,7 @@ const handleUpdate = async () => {
         variant="outlined"
         color="secondary"
         sx={{ ml: 2 }}
-        onClick={() => router.push('/officers/workbench/encoding')}
+        onClick={() => router.push('/officers/workbench/compliance')}
       >
         ↩️ Back to Verification Request Lists
       </Button>

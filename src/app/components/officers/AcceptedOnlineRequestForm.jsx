@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Typography,
   Box,
@@ -17,6 +17,9 @@ export default function AcceptedOnlineRequestForm() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const [remark, setRemark] = useState('');
+
+  // ✅ Add queryClient to manually invalidate cached data
+  const queryClient = useQueryClient();
 
   const {
     data: business,
@@ -51,10 +54,14 @@ export default function AcceptedOnlineRequestForm() {
       setRemark('');
       refetch();
 
-     if (typeof window !== 'undefined') {
-  localStorage.removeItem('acceptedRequestId');
-}
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('acceptedRequestId');
+      }
 
+      // ✅ Instantly invalidate "online-request" cache so the list refreshes right away
+      queryClient.invalidateQueries(['online-request']);
+
+      // ✅ Now go back — data will already be refreshed
       router.push('/officers/workbench/onlinerequest');
     } catch (err) {
       console.error('❌ Update failed:', err);
@@ -118,7 +125,7 @@ export default function AcceptedOnlineRequestForm() {
       </Button>
 
       <Typography variant="h5" fontWeight="bold" mb={2} mt={2}>
-         All Business Data
+        All Business Data
       </Typography>
 
       <Stack spacing={1} mb={3}>
@@ -147,7 +154,9 @@ export default function AcceptedOnlineRequestForm() {
       {/* ✅ Explicit Checklist Rendering */}
       {business.sanitaryPermitChecklist?.length > 0 && (
         <Box sx={{ display: 'flex', mb: 3 }}>
-          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>Sanitary Permit Checklist:</Typography>
+          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>
+            Sanitary Permit Checklist:
+          </Typography>
           <Box>
             <ul className="list-disc list-inside text-sm text-gray-700">
               {business.sanitaryPermitChecklist.map((item, idx) => (
@@ -160,7 +169,9 @@ export default function AcceptedOnlineRequestForm() {
 
       {business.healthCertificateChecklist?.length > 0 && (
         <Box sx={{ display: 'flex', mb: 3 }}>
-          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>Health Certificate Checklist:</Typography>
+          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>
+            Health Certificate Checklist:
+          </Typography>
           <Box>
             <ul className="list-disc list-inside text-sm text-gray-700">
               {business.healthCertificateChecklist.map((item, idx) => (
@@ -192,8 +203,6 @@ export default function AcceptedOnlineRequestForm() {
       )}
 
       {/* ✅ Dynamic Rendering for Remaining Fields */}
-      
-
       <Stack spacing={1} mb={3}>
         {Object.entries(business).map(([key, value]) => {
           if (explicitFields.includes(key)) return null;

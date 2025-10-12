@@ -235,10 +235,12 @@ return (
     { label: 'Landmark', value: business.landmark },
     { label: 'Contact Person', value: business.contactPerson },
     { label: 'Contact Number', value: business.contactNumber },
-    { label: 'Online Request Status', value: statusMapForUser[business.status] },
-    { label: 'Sanitary Permit Status', value: business.permitStatus || '-' },
+
     { label: 'Date Created', value: new Date(business.createdAt).toLocaleString('en-PH') },
     { label: 'Date Updated', value: new Date(business.updatedAt).toLocaleString('en-PH') },
+
+        { label: 'Online Request Status', value: statusMapForUser[business.status] },
+    { label: 'Sanitary Permit Status', value: business.permitStatus || '-' },
 
       { label: 'Total Declared Personnel', value: business.declaredPersonnel ?? '-' },
   { label: 'Due Date to Comply', value: business.dueDateToComply ? new Date(business.dueDateToComply).toLocaleDateString('en-PH') : '-' },

@@ -55,16 +55,25 @@ export default function CreateTicketInspectionForm() {
     if (data?.data) setFilteredBusinesses(data.data);
   }, [data]);
 
-  useEffect(() => {
-    if (data?.data) {
-      const filtered = data.data.filter(
-        (b) =>
-          b.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          b.bidNumber.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredBusinesses(filtered);
-    }
-  }, [searchTerm, data]);
+useEffect(() => {
+  if (data?.data) {
+    const filtered = data.data.filter((b) => {
+      const matchesSearch =
+        b.businessName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        b.bidNumber.toLowerCase().includes(searchTerm.toLowerCase());
+
+      // Apply the new business visibility rules:
+      const isEligible =
+        (b.requestType === 'new' && b.onlineRequest?.status === 'completed') ||
+        (b.requestType === 'renewal');
+
+      return matchesSearch && isEligible;
+    });
+
+    setFilteredBusinesses(filtered);
+  }
+}, [searchTerm, data]);
+
 
   // Fetch inspection info for each business
   // Fetch inspection + violation info for each business

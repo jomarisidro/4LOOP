@@ -18,9 +18,16 @@ const formHeader = {
 };
 
 // 🔍 GET business by bidNumber (query param version)
-export const getBusinessByBid = (bidNumber) => {
-  return axios.get(`/api/business?bidNumber=${bidNumber}`, jsonHeader);
+export const getBusinessByBid = async (bidNumber) => {
+  const res = await axios.get(`/api/business?bidNumber=${bidNumber}`, jsonHeader);
+
+  // 🧠 unwrap the data before returning
+  if (Array.isArray(res.data)) {
+    return res.data[0]; // if backend sends an array
+  }
+  return res.data; // fallback if backend returns an object
 };
+
 
 // ✏️ PUT update business by bidNumber
 export const updateBusinessRequest = (bidNumber, payload) => {
@@ -36,3 +43,9 @@ export const addOwnerBusiness = (data) => {
 export const getAddOwnerBusiness = () => {
   return axios.get(`/api/business`, jsonHeader);
 };
+
+export async function getUserBusinesses() {
+  const res = await fetch('/api/business'); // adjust API endpoint as needed
+  if (!res.ok) throw new Error('Failed to fetch user businesses');
+  return res.json();
+}

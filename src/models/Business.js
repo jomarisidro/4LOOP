@@ -18,8 +18,6 @@ const BusinessSchema = new Schema(
     businessEstablishment: { type: String },
     sanitaryPermitIssuedAt: { type: Date },
 
-
-
     // ✅ Checklist groups (based on your const names)
     sanitaryPermitChecklist: [
       {

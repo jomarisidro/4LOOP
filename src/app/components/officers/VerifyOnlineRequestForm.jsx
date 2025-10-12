@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Typography,
   Box,
@@ -17,6 +17,7 @@ export default function VerifyOnlineRequestForm() {
   const searchParams = useSearchParams();
   const id = searchParams.get('id');
   const [remark, setRemark] = useState('');
+  const queryClient = useQueryClient(); // ✅ Add this
 
   const {
     data: business,
@@ -47,9 +48,13 @@ export default function VerifyOnlineRequestForm() {
       setRemark('');
       refetch();
 
+      // 🧹 Invalidate and refetch verification list before navigation
+      await queryClient.invalidateQueries(['verification-requests']); // ✅ Force refresh
+
       // 🧹 Clear accepted request lock
       localStorage.removeItem('underverificationRequestId');
-      router.push('/officers/workbench/verification')
+
+      router.push('/officers/workbench/verification');
     } catch (err) {
       console.error('❌ Update failed:', err);
     }
@@ -74,8 +79,6 @@ export default function VerifyOnlineRequestForm() {
 
   return (
     <Box p={4}>
-
-      {/* 🔁 Back to Online Request List */}
       <Button
         variant="outlined"
         color="secondary"

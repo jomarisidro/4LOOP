@@ -6,7 +6,7 @@ import { Typography, Button, Stack, Box } from '@mui/material';
 const steps = [
   { label: 'Online Requests', path: '/officers/workbench/onlinerequest' },
   { label: 'Verifications', path: '/officers/workbench/verification' },
-  { label: 'Encoding', path: '/officers/workbench/encoding' },
+  { label: 'Compliance', path: '/officers/workbench/compliance' },
   { label: 'Permit Approval', path: '/officers/workbench/permitapproval' },
   { label: 'Release', path: '/officers/workbench/release' },
 ];
