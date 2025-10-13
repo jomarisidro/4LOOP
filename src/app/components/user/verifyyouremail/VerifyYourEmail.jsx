@@ -8,9 +8,12 @@ export default function VerifyYourEmail() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
+
   const [code, setCode] = useState("");
   const [message, setMessage] = useState("");
   const [resendMsg, setResendMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (!email) router.push("/login");
@@ -19,6 +22,7 @@ export default function VerifyYourEmail() {
   const handleVerify = async (e) => {
     e.preventDefault();
     setMessage("");
+    setLoading(true);
 
     try {
       const res = await axios.post("/api/verify", { email, code });
@@ -28,16 +32,21 @@ export default function VerifyYourEmail() {
       }
     } catch (err) {
       setMessage(err.response?.data?.error || "❌ Invalid or expired verification code.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleResend = async () => {
+    setResending(true);
+    setResendMsg("Sending new code...");
     try {
-      setResendMsg("Sending new code...");
       await axios.post("/api/resend-code", { email });
       setResendMsg("✅ A new verification code has been sent to your email.");
     } catch {
       setResendMsg("❌ Failed to resend code. Try again later.");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -46,8 +55,10 @@ export default function VerifyYourEmail() {
       className="min-h-screen flex flex-col items-center justify-center bg-cover bg-center relative"
       style={{ backgroundImage: "url('/home.png')" }}
     >
+      {/* Dark overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/90"></div>
 
+      {/* Card */}
       <div className="relative bg-white p-8 rounded-lg shadow-lg w-full max-w-md z-10 text-center">
         <h1 className="text-2xl font-semibold mb-2 text-gray-800">Verify Your Email</h1>
         <p className="text-sm text-gray-600 mb-4">
@@ -63,12 +74,16 @@ export default function VerifyYourEmail() {
             value={code}
             onChange={(e) => setCode(e.target.value)}
             className="border border-gray-300 rounded px-3 py-2 text-sm text-center"
+            maxLength={6}
           />
           <button
             type="submit"
-            className="bg-blue-900 text-white py-2 rounded-md hover:bg-blue-800 transition"
+            disabled={loading}
+            className={`bg-blue-900 text-white py-2 rounded-md transition ${
+              loading ? "opacity-70 cursor-not-allowed" : "hover:bg-blue-800"
+            }`}
           >
-            Verify Email
+            {loading ? "Verifying..." : "Verify Email"}
           </button>
         </form>
 
@@ -84,14 +99,18 @@ export default function VerifyYourEmail() {
 
         <button
           onClick={handleResend}
-          className="text-blue-700 text-sm mt-4 underline hover:text-blue-900"
+          disabled={resending}
+          className={`text-blue-700 text-sm mt-4 underline ${
+            resending ? "opacity-70 cursor-not-allowed" : "hover:text-blue-900"
+          }`}
         >
-          Resend Verification Code
+          {resending ? "Resending..." : "Resend Verification Code"}
         </button>
 
         {resendMsg && <p className="text-xs text-gray-600 mt-1">{resendMsg}</p>}
       </div>
 
+      {/* Footer */}
       <footer className="text-white text-xs mt-10 z-10">
         © 2025 CITY GOVERNMENT OF PASIG
       </footer>

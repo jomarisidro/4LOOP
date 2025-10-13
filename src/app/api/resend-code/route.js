@@ -1,53 +1,55 @@
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import User from "@/models/User";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function sendVerificationEmail(email, code) {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const mailOptions = {
-    from: `"Pasig Sanitation" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "New Verification Code - Pasig Sanitation",
-    html: `
-      <h2>Your new verification code</h2>
-      <p>Use this code to verify your email:</p>
-      <h1 style="font-size: 24px; letter-spacing: 3px;">${code}</h1>
-      <p>This code will expire in <strong>15 minutes</strong>.</p>
-    `,
-  };
-
-  await transporter.sendMail(mailOptions);
+  try {
+    await resend.emails.send({
+      from: "Pasig Sanitation <noreply@pasigsanitation.app>", // ✅ use a verified sender domain if possible
+      to: email,
+      subject: "New Verification Code - Pasig Sanitation",
+      html: `
+        <div style="font-family: Arial, sans-serif; line-height: 1.5;">
+          <h2>New Verification Code</h2>
+          <p>Use this code to verify your email address:</p>
+          <h1 style="font-size: 24px; letter-spacing: 3px; background: #004AAD; color: white; display: inline-block; padding: 10px 20px; border-radius: 8px;">${code}</h1>
+          <p>This code will expire in <strong>15 minutes</strong>.</p>
+        </div>
+      `,
+    });
+  } catch (error) {
+    console.error("Resend email error:", error);
+    throw new Error("Failed to send verification email");
+  }
 }
 
 export async function POST(req) {
-  await connectMongoDB();
-  const { email } = await req.json();
-
-  if (!email) return NextResponse.json({ error: "Email required" }, { status: 400 });
-
-  const user = await User.findOne({ email });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
-  if (user.verified)
-    return NextResponse.json({ error: "Email already verified" }, { status: 400 });
-
-  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
-  user.verificationCode = newCode;
-  await user.save();
-
   try {
+    await connectMongoDB();
+    const { email } = await req.json();
+
+    if (!email)
+      return NextResponse.json({ error: "Email is required." }, { status: 400 });
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return NextResponse.json({ error: "User not found." }, { status: 404 });
+
+    if (user.verified)
+      return NextResponse.json({ error: "Email already verified." }, { status: 400 });
+
+    const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.verificationCode = newCode;
+    await user.save();
+
     await sendVerificationEmail(email, newCode);
-    return NextResponse.json({ msg: "New code sent" }, { status: 200 });
-  } catch (err) {
-    console.error("Email send error:", err);
-    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+
+    return NextResponse.json({ msg: "✅ New verification code sent." }, { status: 200 });
+  } catch (error) {
+    console.error("Resend-code route error:", error);
+    return NextResponse.json({ error: "Failed to resend code." }, { status: 500 });
   }
 }
