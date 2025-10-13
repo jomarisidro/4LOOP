@@ -1,178 +1,253 @@
 'use client';
-import { mutate } from 'swr';
 import { useState, useEffect } from 'react';
 
 export default function ProfileForm() {
-  const [preview, setPreview] = useState(null);
-  const [uploading, setUploading] = useState(false);
-  const [isUploadingNewImage, setIsUploadingNewImage] = useState(false);
-  const [message, setMessage] = useState("");
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [message, setMessage] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState('');
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const userId = localStorage.getItem("loggedUserId");
+    const userId = localStorage.getItem('loggedUserId');
     if (userId) {
       fetch(`/api/users/${userId}`)
         .then((res) => res.json())
         .then((data) => {
-          if (data?.user?.profilePicture) setPreview(data.user.profilePicture);
+          if (data?.user) {
+            setFormData((prev) => ({
+              ...prev,
+              fullName: data.user.fullName || '',
+              email: data.user.email || '',
+            }));
+          }
         });
     }
   }, []);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/gif"];
-    if (!allowedTypes.includes(file.type)) {
-      setMessage("❌ Invalid file type. Please upload a JPG, PNG, or similar image.");
+    if (name === 'newPassword') checkPasswordStrength(value);
+  };
+
+  const checkPasswordStrength = (password) => {
+    const lengthReq = password.length >= 8;
+    const upperReq = /[A-Z]/.test(password);
+    const lowerReq = /[a-z]/.test(password);
+    const numReq = /[0-9]/.test(password);
+    const specialReq = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    const passed = [lengthReq, upperReq, lowerReq, numReq, specialReq].filter(Boolean).length;
+
+    if (password.length === 0) return setPasswordStrength('');
+    if (passed <= 2) return setPasswordStrength('Weak');
+    if (passed === 3 || passed === 4) return setPasswordStrength('Medium');
+    if (passed === 5) return setPasswordStrength('Strong');
+  };
+
+  const handlePasswordUpdate = async (e) => {
+    e.preventDefault();
+    setMessage('');
+    setLoading(true);
+
+    const userId = localStorage.getItem('loggedUserId');
+    if (!userId) {
+      setMessage('❌ No user found.');
+      setLoading(false);
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      // show local preview while waiting for upload
-      setPreview(reader.result);
-      setIsUploadingNewImage(true);
-      setMessage("Preview ready. Confirm to save or cancel to discard.");
-    };
-    reader.readAsDataURL(file);
-  };
+    if (!formData.currentPassword || !formData.newPassword || !formData.confirmPassword) {
+      setMessage('❌ Please fill in all password fields.');
+      setLoading(false);
+      return;
+    }
 
-  const confirmUpload = async () => {
-    setUploading(true);
-    setMessage("");
-
-    const userId = localStorage.getItem("loggedUserId");
-    if (!userId) {
-      setUploading(false);
-      setMessage("❌ No loggedUserId found.");
+    if (formData.newPassword !== formData.confirmPassword) {
+      setMessage('❌ New passwords do not match.');
+      setLoading(false);
       return;
     }
 
     try {
-      const res = await fetch("/api/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, imageData: preview }),
+      const res = await fetch(`/api/users/${userId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'changePassword',
+          currentPassword: formData.currentPassword,
+          newPassword: formData.newPassword,
+        }),
       });
 
       const result = await res.json();
-      setUploading(false);
-
-      if (!result.success) {
-        setMessage("❌ Upload failed: " + (result.error || "unknown"));
-        return;
-      }
-
-      // server must return canonical URL for the saved image
-      const finalUrl = result.url;
-      if (!finalUrl) {
-        setMessage("❌ Upload succeeded but server did not return image URL.");
-        return;
-      }
-
-      // keep a canonical copy in localStorage if your sidebar reads it
-      localStorage.setItem("profilePicture", finalUrl);
-
-      // best-effort immediate update: patch SWR cache for the exact key your sidebar uses
-      // 1) update the /api/users/:id cache if you use that key
-      mutate(`/api/users/${userId}`, (prev) => {
-        if (!prev) return prev;
-        return {
+      if (res.ok && result.success) {
+        setMessage('✅ Password updated successfully.');
+        setShowPasswordForm(false);
+        setFormData((prev) => ({
           ...prev,
-          user: {
-            ...prev.user,
-            profilePicture: finalUrl,
-          },
-        };
-      }, false);
-
-      // 2) also mutate any other keys the sidebar might use, e.g., 'currentUser'
-      mutate('currentUser', (prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          profilePicture: finalUrl,
-        };
-      }, false);
-
-      // then revalidate the canonical API to ensure consistency
-      mutate(`/api/users/${userId}`);
-      mutate('currentUser');
-
-      setPreview(finalUrl);
-      setIsUploadingNewImage(false);
-      setMessage("✅ Profile picture updated successfully.");
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: '',
+        }));
+      } else {
+        setMessage('❌ ' + (result.error || 'Failed to update password.'));
+      }
     } catch (error) {
-      setUploading(false);
-      setMessage("❌ Upload error: " + (error?.message || String(error)));
+      setMessage('❌ Error updating password: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const cancelUpload = () => {
-    // revert preview to whatever is in localStorage or server
-    const stored = localStorage.getItem("profilePicture");
-    setPreview(stored || null);
-    setIsUploadingNewImage(false);
-    setMessage("Upload canceled.");
-  };
-
   return (
-    <div>
-      <h1 className="text-2xl font-semibold mb-4">Profile Picture</h1>
+    <div className="max-w-lg mx-auto p-6 bg-white shadow rounded-lg">
+      <h1 className="text-2xl font-semibold mb-6 text-gray-800">Profile Settings</h1>
 
-      <div className="flex flex-col items-center gap-4 mb-8">
-        {preview ? (
-          <img src={preview} alt="Preview" className="w-32 h-32 rounded-full border shadow object-cover" />
-        ) : (
-          <div className="w-32 h-32 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-            No Image
-          </div>
-        )}
-
-        <label
-          className={`px-4 py-2 rounded text-white transition cursor-pointer ${
-            uploading ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"
-          }`}
-        >
-          Choose Image
+      <form className="space-y-4">
+        {/* Full Name (read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Full Name</label>
           <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            disabled={uploading}
-            className="hidden"
+            type="text"
+            name="fullName"
+            value={formData.fullName}
+            disabled
+            className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed text-gray-700"
           />
-        </label>
+        </div>
 
-        {isUploadingNewImage && (
-          <div className="flex gap-4">
-            <button
-              onClick={confirmUpload}
-              disabled={uploading}
-              className={`px-3 py-1 rounded text-white transition ${
-                uploading ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-              }`}
-            >
-              {uploading ? "Uploading..." : "Confirm"}
-            </button>
+        {/* Email (read-only) */}
+        <div>
+          <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+          <input
+            type="email"
+            name="email"
+            value={formData.email}
+            disabled
+            className="w-full border rounded px-3 py-2 bg-gray-100 cursor-not-allowed text-gray-700"
+          />
+        </div>
 
-            <button
-              onClick={cancelUpload}
-              disabled={uploading}
-              className={`px-3 py-1 rounded text-white transition ${
-                uploading ? "bg-gray-300 cursor-not-allowed" : "bg-gray-400 hover:bg-gray-500"
-              }`}
-            >
-              Cancel
-            </button>
+        <hr className="my-4" />
+
+        {/* Change Password Button */}
+        {!showPasswordForm && (
+          <button
+            type="button"
+            onClick={() => setShowPasswordForm(true)}
+            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
+          >
+            Change Password
+          </button>
+        )}
+
+        {/* Change Password Inline Form */}
+        {showPasswordForm && (
+          <div className="space-y-4 border rounded-lg p-4 bg-gray-50">
+            <h2 className="text-lg font-semibold text-gray-700">Change Password</h2>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Current Password
+              </label>
+              <input
+                type="password"
+                name="currentPassword"
+                value={formData.currentPassword}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                New Password
+              </label>
+              <input
+                type="password"
+                name="newPassword"
+                value={formData.newPassword}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200"
+              />
+              {passwordStrength && (
+                <p
+                  className={`text-sm mt-1 ${
+                    passwordStrength === 'Weak'
+                      ? 'text-red-500'
+                      : passwordStrength === 'Medium'
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                  }`}
+                >
+                  Password Strength: {passwordStrength}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1">
+                Confirm New Password
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full border rounded px-3 py-2 focus:outline-none focus:ring focus:ring-blue-200"
+              />
+            </div>
+
+            <div className="flex justify-between gap-2">
+              <button
+                onClick={handlePasswordUpdate}
+                disabled={loading}
+                className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Password'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPasswordForm(false);
+                  setMessage('');
+                  setPasswordStrength('');
+                  setFormData((prev) => ({
+                    ...prev,
+                    currentPassword: '',
+                    newPassword: '',
+                    confirmPassword: '',
+                  }));
+                }}
+                className="flex-1 bg-gray-300 text-gray-800 py-2 rounded hover:bg-gray-400 transition"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
-        {uploading && <p className="text-blue-500 text-sm">Uploading...</p>}
-        {message && <p className="text-sm">{message}</p>}
-      </div>
+        {/* Status Message */}
+        {message && (
+          <p
+            className={`text-center mt-3 text-sm ${
+              message.includes('✅') ? 'text-green-600' : 'text-red-600'
+            }`}
+          >
+            {message}
+          </p>
+        )}
+      </form>
     </div>
   );
 }

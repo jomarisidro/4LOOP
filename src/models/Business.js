@@ -45,30 +45,11 @@ const BusinessSchema = new Schema(
     healthCertSanitaryFee: { type: Number, min: 0 },
     healthCertFee: { type: Number, min: 0 },
 
-
-    // ✅ Personnel and compliance tracking
-    declaredPersonnelChecklist: [
-      {
-        id: { type: String, required: true }, // e.g. 'declared_personnel'
-        label: { type: String, required: true }, // e.g. 'Total Declared Personnel'
-        dueDate: { type: Date } // deadline to comply
-      }
-    ],
-    dueDateToComply: { type: Date },
-
-    healthCertCount: { type: Number, min: 0 },
-    balanceToComply: { type: Number, min: 0 },
-    finalDueDate: { type: Date },
-    
     declaredPersonnel: { type: Number },
-dueDateToComply: { type: Date },
-healthCertificates: { type: Number },
-balanceToComply: { type: Number },
-dueDateFinal: { type: Date },
-
-
-
-    // ✅ Other supporting fields
+    declaredPersonnelDueDate: { type: Date },
+    healthCertificates: { type: Number },
+    healthCertBalanceToComply: { type: Number },
+    healthCertDueDate: { type: Date },
 
     onlineRequest: { type: Boolean, default: false },
 

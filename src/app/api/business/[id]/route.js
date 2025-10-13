@@ -33,7 +33,7 @@ export async function GET(request, context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = context.params;
+  const { id } = await context.params;
   const { role, id: userId } = session.user;
 
   try {
@@ -102,7 +102,7 @@ export async function PUT(request, context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = context.params;
+  const { id } = await context.params;
   const { role, id: userId } = session.user;
   const body = await request.json();
 
@@ -147,17 +147,20 @@ if (typeof body.healthCertFee === "number") {
 if (typeof body.declaredPersonnel === "number") {
   updateFields.declaredPersonnel = body.declaredPersonnel;
 }
-if (body.dueDateToComply) {
-  updateFields.dueDateToComply = new Date(body.dueDateToComply);
+if (body.declaredPersonnelDueDate) {
+  updateFields.declaredPersonnelDueDate = new Date(body.declaredPersonnelDueDate);
 }
 if (typeof body.healthCertificates === "number") {
   updateFields.healthCertificates = body.healthCertificates;
 }
-if (typeof body.balanceToComply === "number") {
-  updateFields.balanceToComply = body.balanceToComply;
+if (typeof body.healthCertBalanceToComply === "number") {
+  updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
 }
-if (body.dueDateFinal) {
-  updateFields.dueDateFinal = new Date(body.dueDateFinal);
+if (body.healthCertDueDate
+) {
+  updateFields.healthCertDueDate
+ = new Date(body.healthCertDueDate
+);
 }
 
 
@@ -195,7 +198,7 @@ export async function DELETE(request, context) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = context.params;
+  const { id } = await context.params;
   const { role, id: userId } = session.user;
 
   try {

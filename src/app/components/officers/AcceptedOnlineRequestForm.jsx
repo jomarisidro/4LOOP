@@ -2,13 +2,13 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import TextField from '@mui/material/TextField';
 import {
   Typography,
   Box,
-  TextField,
   Button,
   CircularProgress,
-  Stack,
+  Divider,
 } from '@mui/material';
 import { useState } from 'react';
 
@@ -18,7 +18,6 @@ export default function AcceptedOnlineRequestForm() {
   const id = searchParams.get('id');
   const [remark, setRemark] = useState('');
 
-  // ✅ Add queryClient to manually invalidate cached data
   const queryClient = useQueryClient();
 
   const {
@@ -50,7 +49,7 @@ export default function AcceptedOnlineRequestForm() {
 
       if (!res.ok) throw new Error(`Server responded with ${res.status}`);
 
-      const result = await res.json();
+      await res.json();
       setRemark('');
       refetch();
 
@@ -58,10 +57,7 @@ export default function AcceptedOnlineRequestForm() {
         localStorage.removeItem('acceptedRequestId');
       }
 
-      // ✅ Instantly invalidate "online-request" cache so the list refreshes right away
       queryClient.invalidateQueries(['online-request']);
-
-      // ✅ Now go back — data will already be refreshed
       router.push('/officers/workbench/onlinerequest');
     } catch (err) {
       console.error('❌ Update failed:', err);
@@ -87,161 +83,233 @@ export default function AcceptedOnlineRequestForm() {
     );
   }
 
-  const explicitFields = [
-    'id',
-    '_id',
-    'bidNumber',
-    'businessName',
-    'businessNickname',
-    'businessType',
-    'businessAddress',
-    'requestType',
-    'status',
-    'contactPerson',
-    'contactNumber',
-    'landmark',
-    'remarks',
-    'createdAt',
-    'updatedAt',
-    'sanitaryPermitChecklist',
-    'healthCertificateChecklist',
-    'msrChecklist',
-    'checklist',
-    'onlineRequest',
-    'businessAccount',
-    '__v',
-    'requirements',
-  ];
-
   return (
-    <Box p={4}>
-      <Button
-        variant="outlined"
-        color="secondary"
-        sx={{ ml: 2 }}
-        onClick={() => router.push('/officers/workbench/onlinerequest')}
-      >
-        ↩️ Back to Online Request Lists
-      </Button>
+    <Box className="w-full bg-white shadow rounded-lg">
+      {/* Back Button */}
+      <div className="flex justify-start mb-6">
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={() => router.push('/officers/workbench/onlinerequest')}
+        >
+          ↩️ Back to Online Request Lists
+        </Button>
+      </div>
 
-      <Typography variant="h5" fontWeight="bold" mb={2} mt={2}>
-        All Business Data
-      </Typography>
+      {/* Header */}
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold text-blue-900 uppercase">
+          All Business Data
+        </h1>
+        <Divider className="my-3" />
+      </div>
 
-      <Stack spacing={1} mb={3}>
-        {[
-          { label: 'BID Number', value: business.bidNumber },
-          { label: 'Business Name', value: business.businessName },
-          { label: 'Trade Name', value: business.businessNickname },
-          { label: 'Business Type', value: business.businessType },
-          { label: 'Business Address', value: business.businessAddress },
-          { label: 'Request Type', value: business.requestType || 'Sanitation' },
-          { label: 'Status', value: business.status },
-          { label: 'Contact Person', value: business.contactPerson },
-          { label: 'Contact Number', value: business.contactNumber },
-          { label: 'Landmark', value: business.landmark },
-          { label: 'Remarks', value: business.remarks || 'None' },
-          { label: 'Created At', value: new Date(business.createdAt).toLocaleString('en-PH') },
-          { label: 'Updated At', value: new Date(business.updatedAt).toLocaleString('en-PH') },
-        ].map(({ label, value }) => (
-          <Box key={label} sx={{ display: 'flex', mb: 1 }}>
-            <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>{label}:</Typography>
-            <Typography>{value}</Typography>
-          </Box>
+  <div className="w-full max-w-4xl mx-auto space-y-6 mb-10">
+  {/* Reusable Row */}
+  {[
+    ['BID Number', business.bidNumber],
+    ['Business Name', business.businessName],
+    ['Trade Name', business.businessNickname],
+    ['Business Type', business.businessType],
+    ['Business Address', business.businessAddress],
+    ['Request Type', business.requestType || 'Sanitation'],
+    ['Status', business.status],
+    ['Contact Person', business.contactPerson],
+    ['Contact Number', business.contactNumber],
+    ['Landmark', business.landmark],
+    ['Created', new Date(business.createdAt).toLocaleString('en-PH')],
+    ['Latest Update', new Date(business.updatedAt).toLocaleString('en-PH')],
+  ].reduce((rows, [label, value]) => {
+    const pair = (
+      <div key={label} className="flex items-start gap-2">
+        <span className="min-w-[140px] text-sm font-semibold text-gray-700">{label}:</span>
+        <span className="flex-1 min-h-[48px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+          {value}
+        </span>
+      </div>
+    );
+    const lastRow = rows[rows.length - 1];
+    if (!lastRow || lastRow.length === 2) rows.push([pair]);
+    else lastRow.push(pair);
+    return rows;
+  }, []).map((row, i) => (
+    <div key={i} className="grid grid-cols-2 gap-6">{row}</div>
+  ))}
+
+
+<div className="grid grid-cols-1">
+  <div className="flex items-start gap-2">
+    <span className="min-w-[140px] text-sm font-semibold text-gray-700">Remarks:</span>
+    <span className="flex-1 min-h-[120px] whitespace-pre-line bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+      {business.remarks || 'None'}
+    </span>
+  </div>
+</div>
+
+</div>
+
+
+
+
+      <Divider className="my-10">
+        <Typography variant="h6" fontWeight="bold" color="primary">
+          MSR
+        </Typography>
+      </Divider>
+
+
+<div className="w-full max-w-4xl mx-auto space-y-6 mb-10">
+ <div>
+    <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
+      A. Sanitary Permit Checklist
+    </h3>
+    {business.sanitaryPermitChecklist?.length > 0 ? (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {business.sanitaryPermitChecklist.map((item, idx) => (
+          <div
+            key={idx}
+            className="bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
+          >
+            {item.label}
+          </div>
         ))}
-      </Stack>
+      </div>
+    ) : (
+      <p className="text-sm text-gray-500 text-center italic">
+        No checklist items available.
+      </p>
+    )}
+  </div>
 
-      {/* ✅ Explicit Checklist Rendering */}
-      {business.sanitaryPermitChecklist?.length > 0 && (
-        <Box sx={{ display: 'flex', mb: 3 }}>
-          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>
-            Sanitary Permit Checklist:
-          </Typography>
-          <Box>
-            <ul className="list-disc list-inside text-sm text-gray-700">
-              {business.sanitaryPermitChecklist.map((item, idx) => (
-                <li key={idx}>{item.label}</li>
-              ))}
-            </ul>
-          </Box>
-        </Box>
-      )}
+  <div>
+    <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
+      B. Health Certificate Checklist
+    </h3>
+    {business.healthCertificateChecklist?.length > 0 ? (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {business.healthCertificateChecklist.map((item, idx) => (
+          <div
+            key={idx}
+            className="bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
+          >
+            {item.label}
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-sm text-gray-500 text-center italic">
+        No checklist items available.
+      </p>
+    )}
+  </div>
 
-      {business.healthCertificateChecklist?.length > 0 && (
-        <Box sx={{ display: 'flex', mb: 3 }}>
-          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>
-            Health Certificate Checklist:
-          </Typography>
-          <Box>
-            <ul className="list-disc list-inside text-sm text-gray-700">
-              {business.healthCertificateChecklist.map((item, idx) => (
-                <li key={idx}>{item.label}</li>
-              ))}
-            </ul>
-          </Box>
-        </Box>
-      )}
+   <div>
+    <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
+      C. Minimum Sanitary Requirements (MSR)
+    </h3>
+    {business.msrChecklist?.length > 0 ? (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {business.msrChecklist.map((item, idx) => (
+          <div
+            key={idx}
+            className="grid grid-cols-4 gap-2 bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
+          >
+            <div className="col-span-3 font-medium">{item.label}</div>
+            <div className="col-span-1 text-red-700 text-right">
+              {item.dueDate
+                ? `Due: ${new Date(item.dueDate).toLocaleDateString('en-PH')}`
+                : 'No due date'}
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p className="text-sm text-gray-500 text-center italic">
+        No checklist items available.
+      </p>
+    )}
+  </div>
 
-      {business.msrChecklist?.length > 0 && (
-        <Box sx={{ display: 'flex', mb: 3 }}>
-          <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>MSR Checklist:</Typography>
-          <Box>
-            <ul className="list-disc list-inside text-sm text-gray-700">
-              {business.msrChecklist.map((item, idx) => (
-                <li key={idx}>
-                  {item.label}
-                  {item.dueDate && (
-                    <span className="text-red-700 ml-2">
-                      (Due: {new Date(item.dueDate).toLocaleDateString('en-PH')})
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </Box>
-        </Box>
-      )}
+ <Divider className="my-10">
+        <Typography variant="h6" fontWeight="bold" color="primary">
+          Inspection and Penalty Records
+        </Typography>
+      </Divider>
 
-      {/* ✅ Dynamic Rendering for Remaining Fields */}
-      <Stack spacing={1} mb={3}>
-        {Object.entries(business).map(([key, value]) => {
-          if (explicitFields.includes(key)) return null;
+<div className="w-full max-w-4xl mx-auto space-y-6 mb-10 mt-10">
+  {/* Other Fields */}
+  {[
+    ['Health Cert Fee', business.healthCertFee ?? '—'],
+    ['Health Cert Sanitary Fee', business.healthCertSanitaryFee ?? '—'],
+    ['OR Date (Health Cert)', business.orDateHealthCert
+      ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
+      : '—'],
+    ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
+    ['Inspection Status', business.inspectionStatus ?? '—'],
+    ['Ticket ID', business.ticketId ?? '—'],
+    ['Inspection Count This Year', business.inspectionCountThisYear ?? 0],
+    ['Recorded Violation', business.recordedViolation ?? '—'],
+    ['Permit Status', business.permitStatus ?? '—'],
+  ].reduce((rows, [label, value]) => {
+    const pair = (
+      <div key={label} className="flex items-start gap-2">
+        <span className="min-w-[180px] text-sm font-semibold text-gray-700">{label}:</span>
+        <span className="flex-1 bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300">
+          {value}
+        </span>
+      </div>
+    );
+    const lastRow = rows[rows.length - 1];
+    if (!lastRow || lastRow.length === 2) rows.push([pair]);
+    else lastRow.push(pair);
+    return rows;
+  }, []).map((row, i) => (
+    <div key={i} className="grid grid-cols-2 gap-6">{row}</div>
+  ))}
+</div>
 
-          if (typeof value === 'object') {
-            return (
-              <Box key={key} sx={{ display: 'flex', mb: 1 }}>
-                <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>{key}:</Typography>
-                <Typography>{JSON.stringify(value)}</Typography>
-              </Box>
-            );
-          }
+</div>
+{/* Officer Remarks Input */}
+<div className="w-full max-w-4xl mx-auto mt-10">
+  <Typography
+    variant="h6"
+    fontWeight="bold"
+    color="primary"
+    gutterBottom
+    className="mb-3"
+  >
+    Remarks
+  </Typography>
+  <TextField
+    fullWidth
+    multiline
+    minRows={5} // taller box
+    label="Enter remarks"
+    variant="outlined"
+    value={remark}
+    onChange={(e) => setRemark(e.target.value)}
+    placeholder="Type your remarks or notes here..."
+    sx={{
+      '& .MuiInputBase-root': {
+        backgroundColor: '#f9fafb', // light gray to match others
+        borderRadius: '8px',
+      },
+      '& .MuiOutlinedInput-notchedOutline': {
+        borderColor: '#d1d5db', // same border tone as info boxes
+      },
+    }}
+  />
+</div>
 
-          return (
-            <Box key={key} sx={{ display: 'flex', mb: 1 }}>
-              <Typography sx={{ minWidth: 400, fontWeight: 'bold' }}>{key}:</Typography>
-              <Typography>{String(value)}</Typography>
-            </Box>
-          );
-        })}
-      </Stack>
 
-      <TextField
-        label="Add Remark"
-        multiline
-        rows={4}
-        fullWidth
-        value={remark}
-        onChange={(e) => setRemark(e.target.value)}
-      />
-
-      <Button
-        variant="contained"
-        color="primary"
-        sx={{ mt: 2 }}
-        onClick={handleUpdate}
-      >
-        Save Remark and Proceed
-      </Button>
+      <div className="flex justify-center gap-4 mt-10">
+        <Button variant="contained" color="primary" onClick={handleUpdate}>
+          Proceed
+        </Button>
+        <Button variant="outlined" color="secondary" onClick={() => router.back()}>
+          Back
+        </Button>
+      </div>
     </Box>
   );
 }

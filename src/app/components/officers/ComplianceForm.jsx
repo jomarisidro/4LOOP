@@ -218,7 +218,7 @@ export default function ComplianceForm() {
                         size="small"
                         onClick={() => handleEncode(req._id)}
                       >
-                        Encode
+                        Check
                       </Button>
                     </TableCell>
                   </TableRow>

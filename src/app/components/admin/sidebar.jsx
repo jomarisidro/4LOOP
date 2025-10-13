@@ -112,29 +112,28 @@ export default function Sidebar() {
       <div className="flex flex-col items-center mb-6">
         {/* 👤 Profile Image with Upload Trigger */}
         <label className="cursor-pointer relative group">
-          {preview ? (
-            <img
-              src={preview}
-              alt="Profile"
-              width={80}
-              height={80}
-              className="rounded-full border border-gray-300 shadow-sm object-cover group-hover:opacity-80 transition"
-            />
-          ) : (
-            <label className="cursor-pointer group relative">
-  <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-gray-300 transition">
-    <span className="text-xs text-center px-2">Click to upload image</span>
+             {preview ? (
+  <div className="w-35 h-35 rounded-full overflow-hidden border border-gray-300 shadow-sm group-hover:opacity-80 transition">
+    <img
+      src={preview}
+      alt="Profile"
+      className="w-full h-full object-cover"
+    />
   </div>
-  <input
-    type="file"
-    accept="image/*"
-    onChange={handleImageChange}
-    disabled={uploading}
-    className="hidden"
-  />
-</label>
-
-          )}
+) : (
+  <label className="cursor-pointer group relative">
+    <div className="w-35 h-35 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 group-hover:bg-gray-300 transition">
+      <span className="text-xs text-center px-2">Click to upload image</span>
+    </div>
+    <input
+      type="file"
+      accept="image/*"
+      onChange={handleImageChange}
+      disabled={uploading}
+      className="hidden"
+    />
+  </label>
+)}
           <input
             type="file"
             accept="image/*"

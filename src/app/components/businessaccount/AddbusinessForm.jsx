@@ -15,7 +15,8 @@ const schema = yup.object().shape({
   bidNumber: yup
     .string()
     .required('BID Number is required')
-    .matches(/^[A-Z]{2}-\d{4}-\d{6}$/, 'Format must be like AM-2025-123456'),
+    .matches(/^[A-Z]{2}-\d{4}-\d{6}$/, 'Format must be like AM-2025-123456')
+    .length(14, 'BID Number must be exactly 14 characters long'),
   businessName: yup.string().required('Name of Company is required'),
   businessNickname: yup.string().required('Trade Name is required'),
   businessType: yup.string().required('Line of Business is required'),
@@ -98,15 +99,64 @@ export default function AddbusinessForm() {
       <h1 className="text-2xl font-semibold mb-6">Add a New Business</h1>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
-        {/* ✅ BID Number — user-input with validation */}
-        <RHFTextField
-          control={control}
-          name="bidNumber"
-          label="BID Number*"
-          placeholder="e.g. AM-2025-123456"
-          error={!!errors.bidNumber}
-          helperText={errors?.bidNumber?.message || ''}
-        />
+<Controller
+  name="bidNumber"
+  control={control}
+  render={({ field }) => (
+    <TextField
+      {...field}
+      label="BID Number*"
+      placeholder="e.g. AB-2025-123456"
+      fullWidth
+      inputProps={{
+        maxLength: 14,
+        style: { textTransform: 'uppercase' },
+      }}
+      onInput={(e) => {
+        let value = e.target.value.toUpperCase();
+
+        // Remove invalid characters (anything not A–Z, 0–9, or -)
+        value = value.replace(/[^A-Z0-9-]/g, '');
+
+        let formatted = '';
+
+        for (let i = 0; i < value.length; i++) {
+          const char = value[i];
+
+          // Enforce strict positions:
+          // 0–1 → letters only
+          if (i < 2) {
+            if (/[A-Z]/.test(char)) formatted += char;
+          }
+          // 2 → must be dash
+          else if (i === 2) {
+            if (char === '-') formatted += '-';
+          }
+          // 3–6 → digits only (year)
+          else if (i > 2 && i < 7) {
+            if (/\d/.test(char)) formatted += char;
+          }
+          // 7 → must be dash
+          else if (i === 7) {
+            if (char === '-') formatted += '-';
+          }
+          // 8–13 → digits only (serial)
+          else if (i > 7 && i < 14) {
+            if (/\d/.test(char)) formatted += char;
+          }
+        }
+
+        e.target.value = formatted.slice(0, 14);
+        field.onChange(e.target.value);
+      }}
+      error={!!errors.bidNumber}
+      helperText={errors?.bidNumber?.message}
+    />
+  )}
+/>
+
+
+
 
         <RHFTextField
           control={control}

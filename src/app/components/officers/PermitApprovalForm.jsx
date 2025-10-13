@@ -26,6 +26,7 @@ export default function PermitApprovalForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // 🧾 Fetch all requests
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['permitapproval-requests'],
     queryFn: async () => {
@@ -52,29 +53,29 @@ export default function PermitApprovalForm() {
     if (data) setRequests(data);
   }, [data]);
 
+  // 🟢 Handle opening request for approval
   const handleCheck = async (_id) => {
     const approvalRequest = requests.find((req) => req._id === _id);
     if (!approvalRequest) return;
 
     try {
-      await fetch(`/api/officer/${_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
+      // Store selected request for later use
       localStorage.setItem('permitapprovalRequestId', _id);
+
+      // Navigate to detailed request page
       router.push(`/officers/workbench/pendingpermitapproval?id=${_id}`);
     } catch (err) {
-      console.error('❌ Failed to update status:', err);
+      console.error('❌ Failed to navigate for permit approval:', err);
     }
 
-    // Optimistic UI update
+    // Optimistic UI update (remove item from current table)
     setRequests((prev) => prev.filter((req) => req._id !== _id));
 
-    // Refresh the query cache
+    // Refresh the query cache in background
     queryClient.invalidateQueries(['permitapproval-requests']);
   };
 
+  // 🔽 Sorting logic
   const handleSort = (key) => {
     setSortConfig((prev) =>
       prev.key === key
@@ -91,7 +92,7 @@ export default function PermitApprovalForm() {
     });
   }, [requests, searchField, searchTerm]);
 
-  // 🔽 Sorting logic
+  // 🔽 Apply sorting
   const sortedRequests = useMemo(() => {
     return [...filteredRequests].sort((a, b) => {
       if (!sortConfig.key) return 0;
@@ -190,7 +191,11 @@ export default function PermitApprovalForm() {
                     {col.key !== 'actions' ? (
                       <TableSortLabel
                         active={sortConfig.key === col.key}
-                        direction={sortConfig.key === col.key ? sortConfig.direction : 'asc'}
+                        direction={
+                          sortConfig.key === col.key
+                            ? sortConfig.direction
+                            : 'asc'
+                        }
                         onClick={() => handleSort(col.key)}
                       >
                         {col.label}
@@ -231,7 +236,7 @@ export default function PermitApprovalForm() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} align="center">
-                    No pending requests awaiting approval.
+                    No pending requests awaiting permit approval.
                   </TableCell>
                 </TableRow>
               )}

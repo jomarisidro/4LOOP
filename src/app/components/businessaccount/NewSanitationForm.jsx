@@ -10,7 +10,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
 import {getBusinessByBid, getUserBusinesses,} from '@/app/services/BusinessService';
 
-
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
   businessName: yup.string().required('Business Name is required'),
@@ -18,23 +17,24 @@ const schema = yup.object().shape({
   businessEstablishment: yup.string(),
   requestType: yup.string().required('Request Type is required'),
   status: yup.string(),
+  remarks: yup.string(),
 
   // ✅ Health certificate fields
   orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  orNumberHealthCert: yup.string().nullable().optional(),
+    orNumberHealthCert: yup
+    .string()
+    .required('O.R. Number is required')
+    .matches(/^\d+$/, 'O.R. Number must contain digits only'),
   healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).optional(),
   healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).optional(),
 
   // ✅ New personnel & compliance fields
   declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  dueDateToComply: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  declaredPersonnelDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
   healthCertificates: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  balanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  dueDateFinal: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  healthCertBalanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
 });
-
-
-
 
 const sanitaryPermitChecklist = [
   { id: 'tax_order_of_payment_TOP', label: 'Tax Order of Payment (TOP)' },
@@ -70,10 +70,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
   const queryClient = useQueryClient();
   const [warningMessage, setWarningMessage] = useState('');
   const [sanitaryPermitChecklistState, setSanitaryPermitChecklistState] = useState([]);
-const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
+  const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
   const [msrChecklistState, setMsrChecklistState] = useState([]);
-
-
 
   const {
     control,
@@ -96,10 +94,11 @@ const [healthCertificateChecklistState, setHealthCertificateChecklistState] = us
       contactPerson: '',
       contactNumber: '',
       status: '',
+            remarks: '',
+
     },
     resolver: yupResolver(schema),
   });
-
 
 const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New'; // 🟩 add this line
@@ -121,36 +120,78 @@ if (bidNumber && bidNumber.trim() !== '') {
   console.log('Fetched businessData:', businessData);
 }
 
-
 useEffect(() => {
   if (businessData && bidNumber) {
-    // ✅ Populate fields when data is fetched
+    // ✅ Populate basic fields when BID is selected
     reset({
       bidNumber,
       businessName: businessData.businessName || '',
       businessAddress: businessData.businessAddress || '',
       businessEstablishment: businessData.businessEstablishment || '',
       status: businessData.status || '',
-      msrChecklist: businessData.msrChecklist || {},
-      inspectionRecords: businessData.inspectionRecords || [],
-      penaltyRecords: businessData.penaltyRecords || [],
-      remarks: businessData.remarks || '',
+      requestType,
     });
 
-    // set non-form state
-    setSanitaryPermitChecklistState(
-      businessData.sanitaryPermitChecklist?.map(item => item.id) || []
-    );
-    setHealthCertificateChecklistState(
-      businessData.healthCertificateChecklist?.[0]?.id || ''
-    );
+    // ✅ Populate Renewal-specific fields if requestType is "Renewal"
+    if (requestType === "Renewal") {
+      setValue('inspectionRecords', businessData.inspectionRecords || []);
+      setValue('penaltyRecords', businessData.penaltyRecords || []);
+      setValue('remarks', businessData.remarks || '');
+      setValue('declaredPersonnel', businessData.declaredPersonnel || '');
+      setValue('declaredPersonnelDueDate', businessData.declaredPersonnelDueDate || null);
+      setValue('healthCertificates', businessData.healthCertificates || '');
+      setValue('healthCertBalanceToComply', businessData.healthCertBalanceToComply || '');
+      setValue('healthCertDueDate', businessData.healthCertDueDate || null);
+
+      // set non-form state
+      // setSanitaryPermitChecklistState(
+      //   businessData.sanitaryPermitChecklist?.map(item => item.id) || []
+      // );
+      // setHealthCertificateChecklistState(
+      //   businessData.healthCertificateChecklist?.[0]?.id || ''
+      // );
+    }
   } else if (!bidNumber || bidNumber.trim() === '') {
     // 🧹 Clear fields when no BID is selected
     setValue('businessName', '');
     setValue('businessAddress', '');
     setValue('businessEstablishment', '');
+    setValue('status', '');
+    setValue('msrChecklist', {});
+    setValue('inspectionRecords', []);
+    setValue('penaltyRecords', []);
+    setValue('remarks', '');
+    setValue('declaredPersonnel', '');
+    setValue('declaredPersonnelDueDate', '');
+    setValue('healthCertificates', '');
+    setValue('healthCertBalanceToComply', '');
+    setValue('healthCertDueDate', '');
+    setValue('orDateHealthCert', '');
+    setValue('orNumberHealthCert', '');
+    setValue('healthCertSanitaryFee', '');
+    setValue('healthCertFee', '');
+
+    // 🧼 Clear all checklists
+    setSanitaryPermitChecklistState([]);
+    setHealthCertificateChecklistState('');
+    setMsrChecklistState([]);
   }
-}, [businessData, bidNumber, reset, setValue]);
+}, [businessData, bidNumber, reset, setValue, requestType]);
+
+useEffect(() => {
+  if (requestType === 'New') {
+    // 🧹 Clear Renewal-specific fields when switching to New
+    setValue('inspectionRecords', []);
+    setValue('penaltyRecords', []);
+    setValue('remarks', '');
+    setValue('declaredPersonnel', '');
+    setValue('declaredPersonnelDueDate', '');
+    setValue('healthCertificates', '');
+    setValue('healthCertBalanceToComply', '');
+    setValue('healthCertDueDate', '');
+
+  }
+}, [requestType, setValue]);
 
 
 
@@ -190,14 +231,16 @@ const handleHealthChange = (e) => {
         orNumberHealthCert: data.orNumberHealthCert || null,
         healthCertSanitaryFee: data.healthCertSanitaryFee || null,
         healthCertFee: data.healthCertFee || null,
-        sanitaryPermitChecklist: sanitaryPermitChecklist,
+        sanitaryPermitChecklist: sanitaryPermitChecklistState,
         healthCertificateChecklist: data.healthCertificateChecklist,
         msrChecklist: data.msrChecklist,
           declaredPersonnel: data.declaredPersonnel || null,
-  dueDateToComply: data.dueDateToComply || null,
+  declaredPersonnelDueDate: data.declaredPersonnelDueDate || null,
   healthCertificates: data.healthCertificates || null,
-  balanceToComply: data.balanceToComply || null,
-  dueDateFinal: data.dueDateFinal || null,
+  healthCertBalanceToComply: data.healthCertBalanceToComply || null,
+  healthCertDueDate: data.healthCertDueDate || null,
+newRemarks: data.remarks || '',
+
       }),
     });
 
@@ -502,23 +545,26 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
                 </h2>
               </div>
 
-              <div className="flex flex-col gap-2 text-sm">
-                {sanitaryPermitChecklist.map((item) => (
-                  <label
-                    key={item.id}
-                    className="flex items-center gap-2 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      value={item.id}
-                      checked={sanitaryPermitChecklistState.includes(item.id)}
-                      onChange={handleSanitaryChange}
-                      className="transform scale-125"
-                    />
-                    {item.label}
-                  </label>
-                ))}
-              </div>
+           <div className="flex flex-col gap-2 text-sm">
+  {sanitaryPermitChecklist.map((item) => (
+    <label
+      key={item.id}
+      className="flex items-center gap-2 cursor-pointer"
+    >
+      <input
+        type="checkbox"
+        value={item.id}
+        checked={sanitaryPermitChecklistState.includes(item.id)}
+        onChange={handleSanitaryChange}
+        className="transform scale-125"
+        autoComplete="off" // ✅ prevents browser autofill
+        name={`sanitary-${item.id}`} // ✅ unique names also prevent autofill
+      />
+      {item.label}
+    </label>
+  ))}
+</div>
+
             </div>
 
             {/* Right column */}
@@ -600,36 +646,51 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
                   />
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    O.R. Number:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="orNumberHealthCert"
-                    variant="standard"
-                    placeholder="Enter O.R. Number"
-                    fullWidth
-                  />
-                </div>
+          <div className="flex items-center gap-2">
+  <label className="w-[120px] text-sm font-medium text-gray-700">
+    O.R. Number:
+  </label>
+  <RHFTextField
+    control={control}
+    name="orNumberHealthCert"
+    type="text"
+    variant="standard"
+    placeholder="Enter O.R. Number"
+    fullWidth
+    inputProps={{
+      inputMode: 'numeric',
+      maxLength: 20,
+    }}
+    onChange={(e) => {
+      const digitsOnly = e.target.value.replace(/\D/g, '');
+      setValue('orNumberHealthCert', digitsOnly, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }}
+  />
+</div>
 
-              <div className="flex items-center gap-2">
+
+<div className="flex items-center gap-2">
   <label className="w-[120px] text-sm font-medium text-gray-700">
     Sanitary Fee:
   </label>
   <RHFTextField
     control={control}
     name="healthCertSanitaryFee"
-    type="text"
+    type="number"
     variant="standard"
     placeholder="Enter amount"
     fullWidth
+    inputProps={{
+      step: '0.01', // allows decimal input
+      min: 0,
+    }}
     onBlur={(e) => {
       const value = parseFloat(e.target.value);
       if (!isNaN(value)) {
-        // Format to two decimals
-        const formatted = value.toFixed(2);
-        setValue('healthCertSanitaryFee', formatted, {
+        setValue('healthCertSanitaryFee', value, {
           shouldValidate: true,
           shouldDirty: true,
         });
@@ -645,15 +706,18 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
   <RHFTextField
     control={control}
     name="healthCertFee"
-    type="text"
+    type="number"
     variant="standard"
     placeholder="Enter amount"
     fullWidth
+    inputProps={{
+      step: '0.01',
+      min: 0,
+    }}
     onBlur={(e) => {
       const value = parseFloat(e.target.value);
       if (!isNaN(value)) {
-        const formatted = value.toFixed(2);
-        setValue('healthCertFee', formatted, {
+        setValue('healthCertFee', value, {
           shouldValidate: true,
           shouldDirty: true,
         });
@@ -661,6 +725,7 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
     }}
   />
 </div>
+
 
               </div>
             </div>
@@ -808,15 +873,15 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
   {/* Column 2: Due Date to Comply */}
   <div className="flex flex-col gap-1 ml-10">
     <label
-      htmlFor="dueDateToComply"
+      htmlFor="declaredPersonnelDueDate"
       className="text-sm font-medium text-gray-700"
     >
       DUE DATE TO COMPLY
     </label>
     <input
-      id="dueDateToComply"
+      id="declaredPersonnelDueDate"
       type="date"
-      {...register('dueDateToComply')}
+      {...register('declaredPersonnelDueDate')}
       className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px]"
     />
   </div>
@@ -840,23 +905,27 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
     />
   </div>
 
-  <div className="flex flex-col gap-1">
+<div className="flex flex-col gap-1">
   <label
-    htmlFor="balanceToComply"
+    htmlFor="healthCertBalanceToComply"
     className="text-sm font-medium text-gray-700"
   >
     BALANCE TO COMPLY
   </label>
   <input
-    id="balanceToComply"
+    id="healthCertBalanceToComply"
     type="text"
-    {...register('balanceToComply')}
+    {...register('healthCertBalanceToComply')}
     className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-10"
     placeholder="Enter balance"
     onBlur={(e) => {
+      const formatToTwoDecimals = (value) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? '' : num.toFixed(2);
+      };
+
       const formatted = formatToTwoDecimals(e.target.value);
-      // update the RHF field value manually after formatting
-      setValue('balanceToComply', formatted, {
+      setValue('healthCertBalanceToComply', formatted, {
         shouldValidate: true,
         shouldDirty: true,
       });
@@ -865,11 +934,12 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
 </div>
 
 
+
   <div className="flex flex-col gap-1">
     <input
-      id="dueDateFinal"
+      id="healthCertDueDate"
       type="date"
-      {...register('dueDateFinal')}
+      {...register('healthCertDueDate')}
       className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] mt-16"
     />
   </div>

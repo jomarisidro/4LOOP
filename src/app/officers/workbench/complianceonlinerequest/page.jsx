@@ -2,9 +2,9 @@
 
 import ComplianceOnlineRequestForm from "@/app/components/officers/ComplianceOnlineRequestForm";
 
-export default function EncodingOnlineRequestPage() {
+export default function ComplianceOnlineRequestPage() {
   return (
-    <main className="p-6 space-y-8 bg-gray-50 min-h-screen">
+    <main >
       <ComplianceOnlineRequestForm />
     </main>
   );

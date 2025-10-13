@@ -119,10 +119,10 @@ const {
   healthCertSanitaryFee = null,  // ✅ add this
   healthCertFee = null,           // ✅ add this
    declaredPersonnel = null,
-  dueDateToComply = null,
+  declaredPersonnelDueDate = null,
   healthCertificates = null,
-  balanceToComply = null,
-  dueDateFinal = null,
+healthCertBalanceToComply = null,
+  healthCertDueDate = null,
 } = await request.json();
 
 
@@ -171,9 +171,15 @@ const {
   if (requirements) businessQuery.requirements = requirements;
   if (sanitaryPermitIssuedAt) businessQuery.sanitaryPermitIssuedAt = new Date(sanitaryPermitIssuedAt);
 
-  if (sanitaryPermitChecklist.length) businessQuery.sanitaryPermitChecklist = sanitaryPermitChecklist;
-  if (healthCertificateChecklist.length) businessQuery.healthCertificateChecklist = healthCertificateChecklist;
-  if (msrChecklist.length) businessQuery.msrChecklist = msrChecklist;
+if (sanitaryPermitChecklist?.length > 0)
+  businessQuery.sanitaryPermitChecklist = sanitaryPermitChecklist;
+
+if (healthCertificateChecklist?.length > 0)
+  businessQuery.healthCertificateChecklist = healthCertificateChecklist;
+
+if (msrChecklist?.length > 0)
+  businessQuery.msrChecklist = msrChecklist;
+
 
 if (orDateHealthCert) businessQuery.orDateHealthCert = new Date(orDateHealthCert);
 if (orNumberHealthCert) businessQuery.orNumberHealthCert = orNumberHealthCert;
@@ -181,10 +187,10 @@ if (typeof healthCertSanitaryFee === "number") businessQuery.healthCertSanitaryF
 if (typeof healthCertFee === "number") businessQuery.healthCertFee = healthCertFee;
 
 if (declaredPersonnel !== null) businessQuery.declaredPersonnel = declaredPersonnel;
-if (dueDateToComply) businessQuery.dueDateToComply = new Date(dueDateToComply);
+if (declaredPersonnelDueDate) businessQuery.declaredPersonnelDueDate = new Date(declaredPersonnelDueDate);
 if (healthCertificates !== null) businessQuery.healthCertificates = healthCertificates;
-if (balanceToComply !== null) businessQuery.balanceToComply = balanceToComply;
-if (dueDateFinal) businessQuery.dueDateFinal = new Date(dueDateFinal);
+if (healthCertBalanceToComply !== null) businessQuery.healthCertBalanceToComply = healthCertBalanceToComply;
+if (healthCertDueDate) businessQuery.healthCertDueDate = new Date(healthCertDueDate);
 
 
 
@@ -194,6 +200,7 @@ if (dueDateFinal) businessQuery.dueDateFinal = new Date(dueDateFinal);
     return NextResponse.json(business, { status: 200 });
   } catch (err) {
     console.error("❌ Error saving business:", err.message);
+      console.error("📦 Payload:", businessQuery);
     return NextResponse.json({ error: "Failed to save business" }, { status: 500 });
   }
 }
