@@ -8,7 +8,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 async function sendVerificationEmail(email, code) {
   try {
     await resend.emails.send({
-      from: "Pasig Sanitation <noreply@pasigsanitation.app>", // ✅ use a verified sender domain if possible
+      from: "Pasig Sanitation <noreply@send.pasigsanitation-project.site>", // ✅ use a verified sender domain if possible
       to: email,
       subject: "New Verification Code - Pasig Sanitation",
       html: `
