@@ -6,7 +6,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 export const sendVerificationEmail = async (to, verificationCode) => {
   try {
     await resend.emails.send({
-      from: "Pasig City Sanitation <pasigsanitation-project.site>",
+      from: "Pasig City Sanitation <noreply@send.pasigsanitation-project.site>",
       to,
       subject: "Verify Your Pasig Sanitation Account",
       html: `
