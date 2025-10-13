@@ -10,7 +10,7 @@ async function sendVerificationEmail(email, code) {
 
   try {
     await resend.emails.send({
-      from: "Pasig City Sanitation <noreply@resend.dev>", // or your verified sender domain
+      from: "Pasig City Sanitation <noreply@pasigsanitation-project.site>", // or your verified sender domain
       to: email,
       subject: "Verify your email - Pasig Sanitation Online Service",
       html: `
