@@ -2,31 +2,30 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
-// ✅ Helper: Send verification email
+// ✅ Helper: Send verification email using Resend
 async function sendVerificationEmail(email, code) {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-  const mailOptions = {
-    from: `"Pasig Sanitation" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "Verify your email - Pasig Sanitation Online Service",
-    html: `
-      <h2>Welcome to Pasig Sanitation Online Service</h2>
-      <p>Use the code below to verify your account:</p>
-      <h1 style="font-size: 24px; letter-spacing: 3px;">${code}</h1>
-      <p>This code will expire in <strong>15 minutes</strong>. Please verify your account promptly.</p>
-    `,
-  };
+  try {
+    await resend.emails.send({
+      from: "Pasig City Sanitation <noreply@resend.dev>", // or your verified sender domain
+      to: email,
+      subject: "Verify your email - Pasig Sanitation Online Service",
+      html: `
+        <h2>Welcome to Pasig Sanitation Online Service</h2>
+        <p>Use the code below to verify your account:</p>
+        <h1 style="font-size: 24px; letter-spacing: 3px;">${code}</h1>
+        <p>This code will expire in <strong>15 minutes</strong>. Please verify your account promptly.</p>
+      `,
+    });
 
-  await transporter.sendMail(mailOptions);
+    console.log("✅ Verification email sent to", email);
+  } catch (err) {
+    console.error("❌ Failed to send verification email:", err);
+    throw err;
+  }
 }
 
 export async function GET(request) {
@@ -37,20 +36,16 @@ export async function GET(request) {
     const role = searchParams.get("role");
 
     const query = role ? { role } : {};
-const users = await User.find(query)
-  .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
-  .lean();
+    const users = await User.find(query)
+      .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
+      .lean();
 
-const formattedUsers = users.map(u => ({
-  ...u,
-  status: u.accountDisabled ? 'disabled' : 'active',
-}));
+    const formattedUsers = users.map(u => ({
+      ...u,
+      status: u.accountDisabled ? "disabled" : "active",
+    }));
 
-return NextResponse.json({ users: formattedUsers }, { status: 200 });
-
-
-
-    return NextResponse.json({ users }, { status: 200 });
+    return NextResponse.json({ users: formattedUsers }, { status: 200 });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
@@ -64,7 +59,7 @@ export async function POST(request) {
     const body = await request.json();
     const { role, email, password, fullName } = body;
 
-    // ✅ Role normalization
+    // ✅ Normalize role
     const normalizedRole =
       role === "Business Owner" || role === "business"
         ? "business"
@@ -79,7 +74,7 @@ export async function POST(request) {
       );
     }
 
-    // ✅ Required fields
+    // ✅ Required fields validation
     if (normalizedRole === "officer" && (!fullName || !email || !password)) {
       return NextResponse.json(
         { error: "Full name, email, and password are required for officer accounts." },
@@ -94,25 +89,22 @@ export async function POST(request) {
       );
     }
 
-    // ✅ Check for duplicates
+    // ✅ Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
     }
 
     // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // ✅ Generate verification code & expiration (for business)
+    // ✅ Create verification code for business
     let verificationCode = null;
     let verificationExpiry = null;
 
     if (normalizedRole === "business") {
       verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-      verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // expires in 15 minutes
+      verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     }
 
     // ✅ Create user
@@ -126,32 +118,33 @@ export async function POST(request) {
       verificationExpiry,
     });
 
-    // ✅ Business users link to themselves
+    // ✅ Link business account
     if (normalizedRole === "business") {
       newUser.businessAccount = newUser._id;
       await newUser.save();
     }
 
-   // ✅ Send verification email for business users
-if (normalizedRole === "business" && verificationCode) {
-  try {
-    console.log("📨 Attempting to send email to:", email);
-    await sendVerificationEmail(email, verificationCode);
-    console.log("✅ Verification email sent to", email);
-  } catch (emailErr) {
-    console.error("❌ Failed to send verification email:", emailErr.response || emailErr.message || emailErr);
-  }
-}
-return NextResponse.json(
-  {
-    msg: "Registration successful! Please check your email for the verification code.",
-    userId: newUser._id,
-    email: newUser.email,
-  },
-  { status: 201 }
-);
+    // ✅ Send verification email for business
+    if (normalizedRole === "business" && verificationCode) {
+      try {
+        console.log("📨 Sending verification email to:", email);
+        await sendVerificationEmail(email, verificationCode);
+      } catch (emailErr) {
+        console.error("❌ Email send failed:", emailErr);
+      }
+    }
 
-  
+    // ✅ Response (formatted for frontend)
+    return NextResponse.json(
+      {
+        data: {
+          msg: "Registration successful! Please check your email for the verification code.",
+          userId: newUser._id,
+          email: newUser.email,
+        },
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error("Registration error:", err);
     return NextResponse.json({ error: "Failed to register user" }, { status: 500 });
