@@ -8,7 +8,9 @@ import os
 app = Flask(__name__)
 CORS(app)
 
+# === Load dataset path ===
 file_path = os.path.join(os.path.dirname(__file__), "ML_DATASET.csv")
+
 
 # === Helper for regression ===
 def linear_forecast(df, target_col, year_range):
@@ -22,10 +24,12 @@ def linear_forecast(df, target_col, year_range):
         preds.append({"registrationYear": int(year), target_col: float(pred)})
     return preds
 
-# === Home ===
+
+# === Root route ===
 @app.route('/')
 def home():
     return jsonify({"message": "✅ Flask ML API running fine!"})
+
 
 # === 1️⃣ Renewal prediction ===
 @app.route('/predict-renewals', methods=['GET'])
@@ -60,13 +64,12 @@ def predict_renewals():
             })
         ])
 
-        # 🧹 Clean before jsonify
         summary = summary.replace([np.nan, np.inf, -np.inf], 0)
-
         return jsonify({"message": "✅ Renewal prediction successful!", "data": summary.to_dict(orient='records')})
     except Exception as e:
         print("Error /predict-renewals:", e)
         return jsonify({"error": str(e)}), 500
+
 
 # === 2️⃣ New Business prediction ===
 @app.route('/predict-new-business', methods=['GET'])
@@ -86,13 +89,12 @@ def predict_new_business():
         new_preds = linear_forecast(new_business, 'NewBusiness', [2026])
         new_business = pd.concat([new_business, pd.DataFrame(new_preds)])
 
-        # 🧹 Clean
         new_business = new_business.replace([np.nan, np.inf, -np.inf], 0)
-
         return jsonify({"message": "✅ New Business prediction successful!", "data": new_business.to_dict(orient='records')})
     except Exception as e:
         print("Error /predict-new-business:", e)
         return jsonify({"error": str(e)}), 500
+
 
 # === 3️⃣ Total Forecast ===
 @app.route('/predict-total-forecast', methods=['GET'])
@@ -117,15 +119,14 @@ def predict_total_forecast():
         preds = linear_forecast(total, 'TotalForecast', [2026])
         total = pd.concat([total, pd.DataFrame(preds)])
 
-        # 🧹 Clean
         total = total.replace([np.nan, np.inf, -np.inf], 0)
-
         return jsonify({"message": "✅ Total forecast successful!", "data": total.to_dict(orient='records')})
     except Exception as e:
         print("Error /predict-total-forecast:", e)
         return jsonify({"error": str(e)}), 500
 
-# === 4️⃣ Comparison ===
+
+# === 4️⃣ Comparison prediction ===
 @app.route('/predict-comparison', methods=['GET'])
 def predict_comparison():
     try:
@@ -149,14 +150,15 @@ def predict_comparison():
         merged_preds = pd.merge(pd.DataFrame(renew_preds), pd.DataFrame(new_preds), on='registrationYear')
         comp = pd.concat([comp, merged_preds])
 
-        # 🧹 Clean
         comp = comp.replace([np.nan, np.inf, -np.inf], 0)
-
         return jsonify({"message": "✅ Comparison prediction successful!", "data": comp.to_dict(orient='records')})
     except Exception as e:
         print("Error /predict-comparison:", e)
         return jsonify({"error": str(e)}), 500
 
+
+# === Run app ===
 if __name__ == '__main__':
-    print("🚀 Flask ML API running at http://localhost:5000")
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    print(f"🚀 Flask ML API running on port {port}")
+    app.run(host='0.0.0.0', port=port, debug=True)

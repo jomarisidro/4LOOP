@@ -15,8 +15,9 @@ export default function AdminDashboardForm() {
   const [totalForecastData, setTotalForecastData] = useState([]);
   const [comparisonData, setComparisonData] = useState([]);
   const [error, setError] = useState("");
-const API_URL = "http://127.0.0.1:5000";
 
+  
+  const API_URL = process.env.NEXT_PUBLIC_FLASK_URL;
   // ✅ All hooks must come before any return
   useEffect(() => {
     const role = localStorage.getItem("loggedUserRole");
