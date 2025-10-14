@@ -96,8 +96,6 @@ export async function GET(request, { params }) {
     );
   }
 }
-
-// 🔹 PUT handler
 export async function PUT(request, { params }) {
   await connectMongoDB();
 
@@ -119,30 +117,7 @@ export async function PUT(request, { params }) {
   if (body.newBusinessEstablishment) updateFields.businessEstablishment = body.newBusinessEstablishment;
   if (body.newBusinessType) updateFields.businessType = body.newBusinessType;
   if (body.newBusinessAddress) updateFields.businessAddress = body.newBusinessAddress;
-
-if (body.newStatus) {
-  updateFields.status = body.newStatus;
-
-  if (body.newStatus === "completed") {
-    const expiration = new Date("2025-12-31T23:59:59.999Z");
-    const gracePeriod = new Date(expiration);
-    gracePeriod.setDate(gracePeriod.getDate() + 15);
-
-    updateFields.expirationDate = expiration;
-    updateFields.gracePeriodDate = gracePeriod;
-
-    // Auto-expire if current date is past grace period
-    const now = new Date();
-    if (now > gracePeriod) {
-      updateFields.status = "expired";
-    }
-  } else {
-    // Clear expiration fields if status is not completed
-    updateFields.expirationDate = undefined;
-    updateFields.gracePeriodDate = undefined;
-  }
-}
-
+  if (body.newStatus) updateFields.status = body.newStatus;
   if (body.newRequirements) updateFields.requirements = body.newRequirements;
   if (body.newContactPerson) updateFields.contactPerson = body.newContactPerson;
   if (body.newContactNumber) updateFields.contactNumber = body.newContactNumber;
@@ -161,9 +136,6 @@ if (body.newStatus) {
   if (typeof body.healthCertificates === "number") updateFields.healthCertificates = body.healthCertificates;
   if (typeof body.healthCertBalanceToComply === "number") updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
   if (body.healthCertDueDate) updateFields.healthCertDueDate = new Date(body.healthCertDueDate);
-
-
-
 
   try {
     const business = await findBusiness(id, userId, role);

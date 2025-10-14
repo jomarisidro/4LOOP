@@ -18,22 +18,17 @@ const schema = yup.object().shape({
   requestType: yup.string().required('Request Type is required'),
   remarks: yup.string(),
 
-
   // ✅ Health certificate fields
   orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).required('Health Certifcate Date is required'),
-  orNumberHealthCert: yup
-    .string()
-    .required('O.R. Number is required')
-    .matches(/^\d+$/, 'O.R. Number must contain digits only'),
-  healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)) .required('Sanitary Fee is required'),
-  healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)) .required('Health Cert Fee is required'),
+  orNumberHealthCert: yup.string().required('O.R. Number is required').matches(/^\d+$/, 'O.R. Number must contain digits only'),
+  healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).required('Sanitary Fee is required'),
+  healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).required('Health Cert Fee is required'),
 
-  // ✅ New personnel & compliance fields
-  declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  declaredPersonnelDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  healthCertificates: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  healthCertBalanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Declared personnel is required'),
+  declaredPersonnelDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)),
+  healthCertificates: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Health certificates count is required'),
+  healthCertBalanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Balance to comply is required'),
+  healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).required('Health certificate due date is required'),
 });
 
 const sanitaryPermitChecklist = [
@@ -102,6 +97,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
   const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New'; // 🟩 add this line
+
   const bidNumber = watch('bidNumber');
 
   // Fetch existing business data
@@ -113,6 +109,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     },
     enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
   });
+
 
   const handleSanitaryChange = (e) => {
     const { value, checked } = e.target;
@@ -133,6 +130,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     );
   };
 
+
   // Structured error throwing
   const updateBusinessRequest = async (data) => {
     const res = await fetch(`/api/business/${data.bidNumber}`, {
@@ -149,7 +147,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         orNumberHealthCert: data.orNumberHealthCert || null,
         healthCertSanitaryFee: data.healthCertSanitaryFee || null,
         healthCertFee: data.healthCertFee || null,
-        sanitaryPermitChecklist: sanitaryPermitChecklistState,
+        sanitaryPermitChecklist: data.sanitaryPermitChecklistState,
         healthCertificateChecklist: data.healthCertificateChecklist,
         msrChecklist: data.msrChecklist,
         declaredPersonnel: data.declaredPersonnel || null,
@@ -606,116 +604,104 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
               </h1>
               <h1 className="ml-12 mb-4">- Health Certificate Fee</h1>
 
-        <div className="grid grid-cols-2 gap-4">
-  {/* O.R. Date */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      O.R. Date:
-    </label>
-    <RHFTextField
-      control={control}
-      name="orDateHealthCert"
-      type="date"
-      variant="standard"
-      fullWidth
-      InputLabelProps={{ shrink: true }}
-      onBlur={(e) => {
-        const value = e.target.value;
-        if (value) {
-          setValue('orDateHealthCert', value, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
+              {/* Input fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    O.R. Date:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="orDateHealthCert"
+                    type="date"
+                    variant="standard"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
 
-  {/* O.R. Number */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      O.R. Number:
-    </label>
-    <RHFTextField
-      control={control}
-      name="orNumberHealthCert"
-      type="text"
-      variant="standard"
-      placeholder="Enter O.R. Number"
-      fullWidth
-      inputProps={{
-        inputMode: 'numeric',
-        maxLength: 20,
-      }}
-      onBlur={(e) => {
-        const digitsOnly = e.target.value.replace(/\D/g, '');
-        if (digitsOnly) {
-          setValue('orNumberHealthCert', digitsOnly, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    O.R. Number:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="orNumberHealthCert"
+                    type="text"
+                    variant="standard"
+                    placeholder="Enter O.R. Number"
+                    fullWidth
+                    inputProps={{
+                      inputMode: 'numeric',
+                      maxLength: 20,
+                    }}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '');
+                      setValue('orNumberHealthCert', digitsOnly, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                  />
+                </div>
 
-  {/* Sanitary Fee */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      Sanitary Fee:
-    </label>
-    <RHFTextField
-      control={control}
-      name="healthCertSanitaryFee"
-      type="number"
-      variant="standard"
-      placeholder="Enter amount"
-      fullWidth
-      inputProps={{
-        step: '0.01',
-        min: 0,
-      }}
-      onBlur={(e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value)) {
-          setValue('healthCertSanitaryFee', value, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
 
-  {/* Health Cert Fee */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      Health Cert Fee:
-    </label>
-    <RHFTextField
-      control={control}
-      name="healthCertFee"
-      type="number"
-      variant="standard"
-      placeholder="Enter amount"
-      fullWidth
-      inputProps={{
-        step: '0.01',
-        min: 0,
-      }}
-      onBlur={(e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value)) {
-          setValue('healthCertFee', value, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
-</div>
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Sanitary Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertSanitaryFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{
+                      step: '0.01', // allows decimal input
+                      min: 0,
+                    }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertSanitaryFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
 
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Health Cert Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{
+                      step: '0.01',
+                      min: 0,
+                    }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+
+
+              </div>
             </div>
 
             {/* Right column: Bulk Personnel Instructions */}
