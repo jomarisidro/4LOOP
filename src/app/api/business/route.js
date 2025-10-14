@@ -22,14 +22,14 @@ export async function GET(request) {
       delete queryParams.email;
     }
 
-  let filter = {};
-if (role === "business") {
-  filter = { ...queryParams, businessAccount: userId };
-} else if (role === "officer" || role === "admin") {
-  filter = { ...queryParams };
-} else {
-  return NextResponse.json({ error: "Access denied" }, { status: 403 });
-}
+    let filter = {};
+    if (role === "business") {
+      filter = { ...queryParams, businessAccount: userId };
+    } else if (role === "officer" || role === "admin") {
+      filter = { ...queryParams };
+    } else {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
 
 
     const businesses = await Business.find(filter).lean();
@@ -95,35 +95,35 @@ export async function POST(request) {
   const { role, id: userId } = session.user;
   if (role !== "business") return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-const {
-  bidNumber = null,
-  businessNickname = null,
-  businessName = null,
-  businessEstablishment = null,
-  businessType = null,
-  businessAddress = null,
-  landmark = null,
-  contactPerson = null,
-  contactNumber = null,
-  onlineRequest = null,
-  requestType = null,
-  remarks = null,
-  status = null,
-  requirements = null,
-  sanitaryPermitChecklist = [],
-  healthCertificateChecklist = [],
-  msrChecklist = [],
-  sanitaryPermitIssuedAt = null, // ✅ existing
-  orDateHealthCert = null,       // ✅ add this
-  orNumberHealthCert = null,     // ✅ add this
-  healthCertSanitaryFee = null,  // ✅ add this
-  healthCertFee = null,           // ✅ add this
-   declaredPersonnel = null,
-  declaredPersonnelDueDate = null,
-  healthCertificates = null,
-healthCertBalanceToComply = null,
-  healthCertDueDate = null,
-} = await request.json();
+  const {
+    bidNumber = null,
+    businessNickname = null,
+    businessName = null,
+    businessEstablishment = null,
+    businessType = null,
+    businessAddress = null,
+    landmark = null,
+    contactPerson = null,
+    contactNumber = null,
+    onlineRequest = null,
+    requestType = null,
+    remarks = null,
+    status = null,
+    requirements = null,
+    sanitaryPermitChecklist = [],
+    healthCertificateChecklist = [],
+    msrChecklist = [],
+    sanitaryPermitIssuedAt = null, // ✅ existing
+    orDateHealthCert = null,       // ✅ add this
+    orNumberHealthCert = null,     // ✅ add this
+    healthCertSanitaryFee = null,  // ✅ add this
+    healthCertFee = null,           // ✅ add this
+    declaredPersonnel = null,
+    declaredPersonnelDueDate = null,
+    healthCertificates = null,
+    healthCertBalanceToComply = null,
+    healthCertDueDate = null,
+  } = await request.json();
 
 
   const noRequestStatus = status || "draft";
@@ -171,28 +171,26 @@ healthCertBalanceToComply = null,
   if (requirements) businessQuery.requirements = requirements;
   if (sanitaryPermitIssuedAt) businessQuery.sanitaryPermitIssuedAt = new Date(sanitaryPermitIssuedAt);
 
-if (sanitaryPermitChecklist?.length > 0)
-  businessQuery.sanitaryPermitChecklist = sanitaryPermitChecklist;
+  if (sanitaryPermitChecklist?.length > 0)
+    businessQuery.sanitaryPermitChecklist = sanitaryPermitChecklist;
 
-if (healthCertificateChecklist?.length > 0)
-  businessQuery.healthCertificateChecklist = healthCertificateChecklist;
+  if (healthCertificateChecklist?.length > 0)
+    businessQuery.healthCertificateChecklist = healthCertificateChecklist;
 
-if (msrChecklist?.length > 0)
-  businessQuery.msrChecklist = msrChecklist;
-
-
-if (orDateHealthCert) businessQuery.orDateHealthCert = new Date(orDateHealthCert);
-if (orNumberHealthCert) businessQuery.orNumberHealthCert = orNumberHealthCert;
-if (typeof healthCertSanitaryFee === "number") businessQuery.healthCertSanitaryFee = healthCertSanitaryFee;
-if (typeof healthCertFee === "number") businessQuery.healthCertFee = healthCertFee;
-
-if (declaredPersonnel !== null) businessQuery.declaredPersonnel = declaredPersonnel;
-if (declaredPersonnelDueDate) businessQuery.declaredPersonnelDueDate = new Date(declaredPersonnelDueDate);
-if (healthCertificates !== null) businessQuery.healthCertificates = healthCertificates;
-if (healthCertBalanceToComply !== null) businessQuery.healthCertBalanceToComply = healthCertBalanceToComply;
-if (healthCertDueDate) businessQuery.healthCertDueDate = new Date(healthCertDueDate);
+  if (msrChecklist?.length > 0)
+    businessQuery.msrChecklist = msrChecklist;
 
 
+  if (orDateHealthCert) businessQuery.orDateHealthCert = new Date(orDateHealthCert);
+  if (orNumberHealthCert) businessQuery.orNumberHealthCert = orNumberHealthCert;
+  if (typeof healthCertSanitaryFee === "number") businessQuery.healthCertSanitaryFee = healthCertSanitaryFee;
+  if (typeof healthCertFee === "number") businessQuery.healthCertFee = healthCertFee;
+
+  if (declaredPersonnel !== null) businessQuery.declaredPersonnel = declaredPersonnel;
+  if (declaredPersonnelDueDate) businessQuery.declaredPersonnelDueDate = new Date(declaredPersonnelDueDate);
+  if (healthCertificates !== null) businessQuery.healthCertificates = healthCertificates;
+  if (healthCertBalanceToComply !== null) businessQuery.healthCertBalanceToComply = healthCertBalanceToComply;
+  if (healthCertDueDate) businessQuery.healthCertDueDate = new Date(healthCertDueDate);
 
   try {
     const business = new Business(businessQuery);
@@ -200,7 +198,7 @@ if (healthCertDueDate) businessQuery.healthCertDueDate = new Date(healthCertDueD
     return NextResponse.json(business, { status: 200 });
   } catch (err) {
     console.error("❌ Error saving business:", err.message);
-      console.error("📦 Payload:", businessQuery);
+    console.error("📦 Payload:", businessQuery);
     return NextResponse.json({ error: "Failed to save business" }, { status: 500 });
   }
 }

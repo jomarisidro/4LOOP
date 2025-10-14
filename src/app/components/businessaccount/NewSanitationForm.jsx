@@ -14,19 +14,19 @@ const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
   businessName: yup.string().required('Business Name is required'),
   businessAddress: yup.string().required('Business Address is required'),
-  businessEstablishment: yup.string(),
+  businessEstablishment: yup.string('Same Employee / Name of Establishment is required'),
   requestType: yup.string().required('Request Type is required'),
-  status: yup.string(),
   remarks: yup.string(),
 
+
   // ✅ Health certificate fields
-  orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).required('Health Certifcate Date is required'),
   orNumberHealthCert: yup
     .string()
     .required('O.R. Number is required')
     .matches(/^\d+$/, 'O.R. Number must contain digits only'),
-  healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-  healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).optional(),
+  healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)) .required('Sanitary Fee is required'),
+  healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)) .required('Health Cert Fee is required'),
 
   // ✅ New personnel & compliance fields
   declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
@@ -102,7 +102,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
   const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New'; // 🟩 add this line
-
   const bidNumber = watch('bidNumber');
 
   // Fetch existing business data
@@ -114,29 +113,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     },
     enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
   });
-
-  // if (bidNumber && bidNumber.trim() !== '') {
-  //   console.log('Fetching business data for', bidNumber, { businessData, isFetching, error });
-  //   console.log('Fetched businessData:', businessData);
-  // }
-
-
-
-  // useEffect(() => {
-  //   if (requestType === 'New') {
-  //     // 🧹 Clear Renewal-specific fields when switching to New
-  //     setValue('inspectionRecords', []);
-  //     setValue('penaltyRecords', []);
-  //     setValue('remarks', '');
-  //     setValue('declaredPersonnel', '');
-  //     setValue('declaredPersonnelDueDate', '');
-  //     setValue('healthCertificates', '');
-  //     setValue('healthCertBalanceToComply', '');
-  //     setValue('healthCertDueDate', '');
-  //   }
-  // }, [requestType, setValue]);
-
-
 
   const handleSanitaryChange = (e) => {
     const { value, checked } = e.target;
@@ -156,7 +132,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
       checked ? [...prev, value] : prev.filter(id => id !== value)
     );
   };
-
 
   // Structured error throwing
   const updateBusinessRequest = async (data) => {
@@ -631,104 +606,116 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
               </h1>
               <h1 className="ml-12 mb-4">- Health Certificate Fee</h1>
 
-              {/* Input fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    O.R. Date:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="orDateHealthCert"
-                    type="date"
-                    variant="standard"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
+        <div className="grid grid-cols-2 gap-4">
+  {/* O.R. Date */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      O.R. Date:
+    </label>
+    <RHFTextField
+      control={control}
+      name="orDateHealthCert"
+      type="date"
+      variant="standard"
+      fullWidth
+      InputLabelProps={{ shrink: true }}
+      onBlur={(e) => {
+        const value = e.target.value;
+        if (value) {
+          setValue('orDateHealthCert', value, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    O.R. Number:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="orNumberHealthCert"
-                    type="text"
-                    variant="standard"
-                    placeholder="Enter O.R. Number"
-                    fullWidth
-                    inputProps={{
-                      inputMode: 'numeric',
-                      maxLength: 20,
-                    }}
-                    onChange={(e) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, '');
-                      setValue('orNumberHealthCert', digitsOnly, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }}
-                  />
-                </div>
+  {/* O.R. Number */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      O.R. Number:
+    </label>
+    <RHFTextField
+      control={control}
+      name="orNumberHealthCert"
+      type="text"
+      variant="standard"
+      placeholder="Enter O.R. Number"
+      fullWidth
+      inputProps={{
+        inputMode: 'numeric',
+        maxLength: 20,
+      }}
+      onBlur={(e) => {
+        const digitsOnly = e.target.value.replace(/\D/g, '');
+        if (digitsOnly) {
+          setValue('orNumberHealthCert', digitsOnly, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
 
+  {/* Sanitary Fee */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      Sanitary Fee:
+    </label>
+    <RHFTextField
+      control={control}
+      name="healthCertSanitaryFee"
+      type="number"
+      variant="standard"
+      placeholder="Enter amount"
+      fullWidth
+      inputProps={{
+        step: '0.01',
+        min: 0,
+      }}
+      onBlur={(e) => {
+        const value = parseFloat(e.target.value);
+        if (!isNaN(value)) {
+          setValue('healthCertSanitaryFee', value, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Sanitary Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertSanitaryFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                    inputProps={{
-                      step: '0.01', // allows decimal input
-                      min: 0,
-                    }}
-                    onBlur={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value)) {
-                        setValue('healthCertSanitaryFee', value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    }}
-                  />
-                </div>
+  {/* Health Cert Fee */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      Health Cert Fee:
+    </label>
+    <RHFTextField
+      control={control}
+      name="healthCertFee"
+      type="number"
+      variant="standard"
+      placeholder="Enter amount"
+      fullWidth
+      inputProps={{
+        step: '0.01',
+        min: 0,
+      }}
+      onBlur={(e) => {
+        const value = parseFloat(e.target.value);
+        if (!isNaN(value)) {
+          setValue('healthCertFee', value, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
+</div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Health Cert Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                    inputProps={{
-                      step: '0.01',
-                      min: 0,
-                    }}
-                    onBlur={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value)) {
-                        setValue('healthCertFee', value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    }}
-                  />
-                </div>
-
-
-              </div>
             </div>
 
             {/* Right column: Bulk Personnel Instructions */}

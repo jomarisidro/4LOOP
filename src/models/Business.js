@@ -41,6 +41,12 @@ const BusinessSchema = new Schema(
         dueDate: { type: Date },
       }
     ],
+    history: [
+      {
+        remarks: { type: String, required: true },
+        date: { type: Date },
+      }
+    ],
 
     orDateHealthCert: { type: Date },
     orNumberHealthCert: { type: String },
@@ -63,7 +69,8 @@ const BusinessSchema = new Schema(
         'pending',
         'pending2',
         'pending3',
-        'completed'
+        'completed',
+        'expired'
       ],
       default: 'draft'
     },

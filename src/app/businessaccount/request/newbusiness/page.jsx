@@ -5,11 +5,11 @@ import NewSanitationForm from '../../../components/businessaccount/NewSanitation
 
 export default function BusinessRequestPage() {
   return (
-    <div className="min-h-screen flex">
+    <div>
    
 
       {/* 📄 Main Content */}
-      <main className="flex-1 p-8">
+      <main>
         <NewSanitationForm />
       </main>
     </div>

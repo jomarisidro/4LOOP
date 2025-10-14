@@ -49,15 +49,11 @@ export default function BusinesslistForm() {
   const [searchType, setSearchType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState({}); // ✅ track expanded businesses
-const validateBusiness = () => {
+  
+  const validateBusiness = () => {
   const errors = {};
-
-
-
-  // Add other field validations here if needed
-
-  return errors;
-};
+    return errors;
+  };
 
   useEffect(() => {
     async function fetchInspectionDetails() {
@@ -128,97 +124,97 @@ const validateBusiness = () => {
     setNewBusiness({});
   };
 
-const handleSave = async () => {
-  const {
-    bidNumber,
-    status,
-    businessName,
-    businessNickname,
-    businessType,
-    businessAddress,
-    landmark,
-    contactPerson,
-    contactNumber
-  } = newBusiness;
+  const handleSave = async () => {
+    const {
+      bidNumber,
+      status,
+      businessName,
+      businessNickname,
+      businessType,
+      businessAddress,
+      landmark,
+      contactPerson,
+      contactNumber
+    } = newBusiness;
 
-  // Manual validation
-  const errors = [];
+    // Manual validation
+    const errors = [];
 
-  if (!bidNumber?.trim()) {
-    errors.push('BID Number is required');
-  } else if (!/^[A-Z]{2}-\d{4}-\d{6}$/.test(bidNumber)) {
-    errors.push('BID Number format must be like AM-2025-123456');
-  } else if (bidNumber.length !== 14) {
-    errors.push('BID Number must be exactly 14 characters long');
-  }
+    if (!bidNumber?.trim()) {
+      errors.push('BID Number is required');
+    } else if (!/^[A-Z]{2}-\d{4}-\d{6}$/.test(bidNumber)) {
+      errors.push('BID Number format must be like AM-2025-123456');
+    } else if (bidNumber.length !== 14) {
+      errors.push('BID Number must be exactly 14 characters long');
+    }
 
-  if (!status?.trim()) {
-    errors.push('Permit Status is required');
-  }
+    if (!status?.trim()) {
+      errors.push('Permit Status is required');
+    }
 
-  if (!businessName?.trim()) {
-    errors.push('Business Name is required');
-  }
+    if (!businessName?.trim()) {
+      errors.push('Business Name is required');
+    }
 
-  if (!businessNickname?.trim()) {
-    errors.push('Trade Name is required');
-  }
+    if (!businessNickname?.trim()) {
+      errors.push('Trade Name is required');
+    }
 
-  if (!businessType?.trim()) {
-    errors.push('Line of Business is required');
-  }
+    if (!businessType?.trim()) {
+      errors.push('Line of Business is required');
+    }
 
-  if (!businessAddress?.trim()) {
-    errors.push('Business Address is required');
-  }
+    if (!businessAddress?.trim()) {
+      errors.push('Business Address is required');
+    }
 
-  if (!landmark?.trim()) {
-    errors.push('Landmark is required');
-  }
+    if (!landmark?.trim()) {
+      errors.push('Landmark is required');
+    }
 
-  if (!contactPerson?.trim()) {
-    errors.push('Contact Person is required');
-  }
+    if (!contactPerson?.trim()) {
+      errors.push('Contact Person is required');
+    }
 
-  if (!contactNumber?.trim()) {
-    errors.push('Contact Number is required');
-  } else if (!/^09\d{9}$/.test(contactNumber)) {
-    errors.push('Contact Number must be exactly 11 digits and start with 09 (e.g. 09123456789)');
-  }
+    if (!contactNumber?.trim()) {
+      errors.push('Contact Number is required');
+    } else if (!/^09\d{9}$/.test(contactNumber)) {
+      errors.push('Contact Number must be exactly 11 digits and start with 09 (e.g. 09123456789)');
+    }
 
-  if (errors.length > 0) {
-    alert(errors.join('\n'));
-    return; // Block submission
-  }
+    if (errors.length > 0) {
+      alert(errors.join('\n'));
+      return; // Block submission
+    }
 
-  // Proceed with save
-  try {
-    const res = await fetch(`/api/business/${newId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        newBidNumber: bidNumber,
-        newBusinessName: businessName,
-        newBusinessNickname: businessNickname,
-        newBusinessType: businessType,
-        newBusinessAddress: businessAddress,
-        newLandmark: landmark,
-        newContactPerson: contactPerson,
-        newContactNumber: contactNumber,
-        newStatus: status
-      }),
-    });
+    // Proceed with save
+    try {
+      const res = await fetch(`/api/business/${newId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          newBidNumber: bidNumber,
+          newBusinessName: businessName,
+          newBusinessNickname: businessNickname,
+          newBusinessType: businessType,
+          newBusinessAddress: businessAddress,
+          newLandmark: landmark,
+          newContactPerson: contactPerson,
+          newContactNumber: contactNumber,
+          newStatus: status
+        }),
+      });
 
-    if (!res.ok) throw new Error('Failed to update');
-    await res.json();
-    await queryClient.invalidateQueries(['business-list']);
+      if (!res.ok) throw new Error('Failed to update');
+      await res.json();
+      await queryClient.invalidateQueries(['business-list']);
 
-    setNewId(null);
-    setNewBusiness({});
-  } catch (err) {
-    console.error('Update failed:', err);
-  }
-};
+      setNewId(null);
+      setNewBusiness({});
+    } catch (err) {
+      console.error('Update failed:', err);
+    }
+  };
 
 
   const handleChange = (field, value) => {
@@ -417,57 +413,57 @@ const handleSave = async () => {
                       <span className="min-w-[180px] text-sm font-semibold text-gray-700">
                         {label}:
                       </span>
-                    {isEditing && field === 'businessType' ? (
-  <select
-    value={newBusiness.businessType || ''}
-    onChange={(e) => handleChange('businessType', e.target.value)}
-    className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-  >
-    <option value="Food">Food</option>
-    <option value="Non-Food">Non-Food</option>
-  </select>
-) : isEditing && field === 'bidNumber' ? (
-  <input
-    type="text"
-    value={newBusiness.bidNumber || ''}
-    onChange={(e) => {
-      let value = e.target.value.toUpperCase();
-      value = value.replace(/[^A-Z0-9-]/g, '');
+                      {isEditing && field === 'businessType' ? (
+                        <select
+                          value={newBusiness.businessType || ''}
+                          onChange={(e) => handleChange('businessType', e.target.value)}
+                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+                        >
+                          <option value="Food">Food</option>
+                          <option value="Non-Food">Non-Food</option>
+                        </select>
+                      ) : isEditing && field === 'bidNumber' ? (
+                        <input
+                          type="text"
+                          value={newBusiness.bidNumber || ''}
+                          onChange={(e) => {
+                            let value = e.target.value.toUpperCase();
+                            value = value.replace(/[^A-Z0-9-]/g, '');
 
-      let formatted = '';
-      for (let i = 0; i < value.length; i++) {
-        const char = value[i];
-        if (i < 2) {
-          if (/[A-Z]/.test(char)) formatted += char;
-        } else if (i === 2) {
-          if (char === '-') formatted += '-';
-        } else if (i > 2 && i < 7) {
-          if (/\d/.test(char)) formatted += char;
-        } else if (i === 7) {
-          if (char === '-') formatted += '-';
-        } else if (i > 7 && i < 14) {
-          if (/\d/.test(char)) formatted += char;
-        }
-      }
+                            let formatted = '';
+                            for (let i = 0; i < value.length; i++) {
+                              const char = value[i];
+                              if (i < 2) {
+                                if (/[A-Z]/.test(char)) formatted += char;
+                              } else if (i === 2) {
+                                if (char === '-') formatted += '-';
+                              } else if (i > 2 && i < 7) {
+                                if (/\d/.test(char)) formatted += char;
+                              } else if (i === 7) {
+                                if (char === '-') formatted += '-';
+                              } else if (i > 7 && i < 14) {
+                                if (/\d/.test(char)) formatted += char;
+                              }
+                            }
 
-      handleChange('bidNumber', formatted.slice(0, 14));
-    }}
-    maxLength={14}
-    placeholder="e.g. AB-2025-123456"
-    className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-  />
-) : isEditing && field !== 'status' ? (
-  <input
-    type="text"
-    value={value}
-    onChange={(e) => handleChange(field, e.target.value)}
-    className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-  />
-) : (
-  <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
-    {value}
-  </span>
-)}
+                            handleChange('bidNumber', formatted.slice(0, 14));
+                          }}
+                          maxLength={14}
+                          placeholder="e.g. AB-2025-123456"
+                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+                        />
+                      ) : isEditing && field !== 'status' ? (
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => handleChange(field, e.target.value)}
+                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+                        />
+                      ) : (
+                        <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+                          {value}
+                        </span>
+                      )}
 
 
                     </div>
