@@ -5,10 +5,10 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter } from 'next/navigation';
 import * as yup from 'yup';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {Alert, Button, Collapse, IconButton, MenuItem, TextField,} from '@mui/material';
+import { Alert, Button, Collapse, IconButton, MenuItem, TextField, } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
-import {getBusinessByBid, getUserBusinesses,} from '@/app/services/BusinessService';
+import { getBusinessByBid, getUserBusinesses, } from '@/app/services/BusinessService';
 
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
@@ -21,7 +21,7 @@ const schema = yup.object().shape({
 
   // ✅ Health certificate fields
   orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).optional(),
-    orNumberHealthCert: yup
+  orNumberHealthCert: yup
     .string()
     .required('O.R. Number is required')
     .matches(/^\d+$/, 'O.R. Number must contain digits only'),
@@ -94,104 +94,47 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
       contactPerson: '',
       contactNumber: '',
       status: '',
-            remarks: '',
+      remarks: '',
 
     },
     resolver: yupResolver(schema),
   });
 
-const requestType = watch('requestType') || initialData?.requestType;
+  const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New'; // 🟩 add this line
 
   const bidNumber = watch('bidNumber');
 
   // Fetch existing business data
-const { data: businessData, isFetching, error } = useQuery({
-  queryKey: ['business', bidNumber],
-  queryFn: () => {
-    if (!bidNumber) return null; // 🛑 Prevent early fetch
-    return getBusinessByBid(bidNumber); // ✅ Only run when a valid bidNumber exists
-  },
-  enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
-});
+  const { data: businessData, isFetching, error } = useQuery({
+    queryKey: ['business', bidNumber],
+    queryFn: () => {
+      if (!bidNumber) return null; // 🛑 Prevent early fetch
+      return getBusinessByBid(bidNumber); // ✅ Only run when a valid bidNumber exists
+    },
+    enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
+  });
 
-if (bidNumber && bidNumber.trim() !== '') {
-  console.log('Fetching business data for', bidNumber, { businessData, isFetching, error });
-  console.log('Fetched businessData:', businessData);
-}
+  // if (bidNumber && bidNumber.trim() !== '') {
+  //   console.log('Fetching business data for', bidNumber, { businessData, isFetching, error });
+  //   console.log('Fetched businessData:', businessData);
+  // }
 
-useEffect(() => {
-  if (businessData && bidNumber) {
-    // ✅ Populate basic fields when BID is selected
-    reset({
-      bidNumber,
-      businessName: businessData.businessName || '',
-      businessAddress: businessData.businessAddress || '',
-      businessEstablishment: businessData.businessEstablishment || '',
-      status: businessData.status || '',
-      requestType,
-    });
 
-    // ✅ Populate Renewal-specific fields if requestType is "Renewal"
-    if (requestType === "Renewal") {
-      setValue('inspectionRecords', businessData.inspectionRecords || []);
-      setValue('penaltyRecords', businessData.penaltyRecords || []);
-      setValue('remarks', businessData.remarks || '');
-      setValue('declaredPersonnel', businessData.declaredPersonnel || '');
-      setValue('declaredPersonnelDueDate', businessData.declaredPersonnelDueDate || null);
-      setValue('healthCertificates', businessData.healthCertificates || '');
-      setValue('healthCertBalanceToComply', businessData.healthCertBalanceToComply || '');
-      setValue('healthCertDueDate', businessData.healthCertDueDate || null);
 
-      // set non-form state
-      // setSanitaryPermitChecklistState(
-      //   businessData.sanitaryPermitChecklist?.map(item => item.id) || []
-      // );
-      // setHealthCertificateChecklistState(
-      //   businessData.healthCertificateChecklist?.[0]?.id || ''
-      // );
-    }
-  } else if (!bidNumber || bidNumber.trim() === '') {
-    // 🧹 Clear fields when no BID is selected
-    setValue('businessName', '');
-    setValue('businessAddress', '');
-    setValue('businessEstablishment', '');
-    setValue('status', '');
-    setValue('msrChecklist', {});
-    setValue('inspectionRecords', []);
-    setValue('penaltyRecords', []);
-    setValue('remarks', '');
-    setValue('declaredPersonnel', '');
-    setValue('declaredPersonnelDueDate', '');
-    setValue('healthCertificates', '');
-    setValue('healthCertBalanceToComply', '');
-    setValue('healthCertDueDate', '');
-    setValue('orDateHealthCert', '');
-    setValue('orNumberHealthCert', '');
-    setValue('healthCertSanitaryFee', '');
-    setValue('healthCertFee', '');
-
-    // 🧼 Clear all checklists
-    setSanitaryPermitChecklistState([]);
-    setHealthCertificateChecklistState('');
-    setMsrChecklistState([]);
-  }
-}, [businessData, bidNumber, reset, setValue, requestType]);
-
-useEffect(() => {
-  if (requestType === 'New') {
-    // 🧹 Clear Renewal-specific fields when switching to New
-    setValue('inspectionRecords', []);
-    setValue('penaltyRecords', []);
-    setValue('remarks', '');
-    setValue('declaredPersonnel', '');
-    setValue('declaredPersonnelDueDate', '');
-    setValue('healthCertificates', '');
-    setValue('healthCertBalanceToComply', '');
-    setValue('healthCertDueDate', '');
-
-  }
-}, [requestType, setValue]);
+  // useEffect(() => {
+  //   if (requestType === 'New') {
+  //     // 🧹 Clear Renewal-specific fields when switching to New
+  //     setValue('inspectionRecords', []);
+  //     setValue('penaltyRecords', []);
+  //     setValue('remarks', '');
+  //     setValue('declaredPersonnel', '');
+  //     setValue('declaredPersonnelDueDate', '');
+  //     setValue('healthCertificates', '');
+  //     setValue('healthCertBalanceToComply', '');
+  //     setValue('healthCertDueDate', '');
+  //   }
+  // }, [requestType, setValue]);
 
 
 
@@ -202,9 +145,9 @@ useEffect(() => {
     );
   };
 
-const handleHealthChange = (e) => {
-  setHealthCertificateChecklistState(e.target.value);
-};
+  const handleHealthChange = (e) => {
+    setHealthCertificateChecklistState(e.target.value);
+  };
 
 
   const handleMsrChange = (e) => {
@@ -234,12 +177,12 @@ const handleHealthChange = (e) => {
         sanitaryPermitChecklist: sanitaryPermitChecklistState,
         healthCertificateChecklist: data.healthCertificateChecklist,
         msrChecklist: data.msrChecklist,
-          declaredPersonnel: data.declaredPersonnel || null,
-  declaredPersonnelDueDate: data.declaredPersonnelDueDate || null,
-  healthCertificates: data.healthCertificates || null,
-  healthCertBalanceToComply: data.healthCertBalanceToComply || null,
-  healthCertDueDate: data.healthCertDueDate || null,
-newRemarks: data.remarks || '',
+        declaredPersonnel: data.declaredPersonnel || null,
+        declaredPersonnelDueDate: data.declaredPersonnelDueDate || null,
+        healthCertificates: data.healthCertificates || null,
+        healthCertBalanceToComply: data.healthCertBalanceToComply || null,
+        healthCertDueDate: data.healthCertDueDate || null,
+        newRemarks: data.remarks || '',
 
       }),
     });
@@ -298,7 +241,7 @@ newRemarks: data.remarks || '',
 
   const onSubmit = async (data) => {
     const hasActive = await checkBusinessStatus(data.bidNumber);
-      if (isNew) {
+    if (isNew) {
       console.warn("Inspection section is disabled for 'new' requests — skipping inspection submission.");
     }
     if (hasActive && data.status !== 'draft') {
@@ -313,12 +256,12 @@ newRemarks: data.remarks || '',
     });
 
     // 🔑 Transform Health Certificate checklist into array of { id, label }
-const healthCertificateChecklistPayload = healthCertificateChecklistState
-  ? (() => {
-      const def = healthCertificateChecklist.find(item => item.id === healthCertificateChecklistState);
-      return [{ id: def?.id, label: def?.label || healthCertificateChecklistState }];
-    })()
-  : [];
+    const healthCertificateChecklistPayload = healthCertificateChecklistState
+      ? (() => {
+        const def = healthCertificateChecklist.find(item => item.id === healthCertificateChecklistState);
+        return [{ id: def?.id, label: def?.label || healthCertificateChecklistState }];
+      })()
+      : [];
 
 
     // 🔑 Transform MSR checklist into array of { id, label, dueDate }
@@ -342,8 +285,6 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
     });
   };
 
-
-
   const handleSaveDraft = () => {
     mutate({ ...getValues(), status: 'draft' });
   };
@@ -355,10 +296,70 @@ const healthCertificateChecklistPayload = healthCertificateChecklistState
     setMsrChecklistState([]);
     setWarningMessage('');
   };
-const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
-  queryKey: ['userBusinesses'],
-  queryFn: getUserBusinesses,
-});
+  const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
+    queryKey: ['userBusinesses'],
+    queryFn: getUserBusinesses,
+  });
+
+  useEffect(() => {
+    const hasBusiness = businessData && bidNumber;
+
+    if (hasBusiness) {
+      reset({
+        bidNumber,
+        businessName: businessData?.businessName || '',
+        businessAddress: businessData?.businessAddress || '',
+        status: businessData?.status || '',
+        businessEstablishment: businessData?.businessEstablishment || '',
+      });
+    } else if (!businessData && !bidNumber) {
+      setValue('businessName', '');
+      setValue('businessAddress', '');
+      setValue('businessEstablishment', '');
+      setValue('status', '');
+      setValue('msrChecklist', {});
+      setValue('inspectionRecords', []);
+      setValue('penaltyRecords', []);
+      setValue('remarks', '');
+      setValue('declaredPersonnel', '');
+      setValue('declaredPersonnelDueDate', '');
+      setValue('healthCertificates', '');
+      setValue('healthCertBalanceToComply', '');
+      setValue('healthCertDueDate', '');
+      setValue('orDateHealthCert', '');
+      setValue('orNumberHealthCert', '');
+      setValue('healthCertSanitaryFee', '');
+      setValue('healthCertFee', '');
+      setValue('requestType', '');
+
+      setSanitaryPermitChecklistState([]);
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+    }
+  }, [businessData, bidNumber, reset, setValue]);
+
+  useEffect(() => {
+    if (requestType === 'New') {
+      setValue('inspectionRecords', []);
+      setValue('penaltyRecords', []);
+      setValue('remarks', '');
+      setValue('declaredPersonnel', '');
+      setValue('declaredPersonnelDueDate', '');
+      setValue('healthCertificates', '');
+      setValue('healthCertBalanceToComply', '');
+      setValue('healthCertDueDate', '');
+    }
+    else if (requestType === 'Renewal') {
+      setValue('inspectionRecords', businessData?.inspectionRecords || []);
+      setValue('penaltyRecords', businessData?.penaltyRecords || []);
+      setValue('remarks', businessData?.remarks || '');
+      setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
+      setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
+      setValue('healthCertificates', businessData?.healthCertificates || '');
+      setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
+      setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
+    }
+  }, [requestType]);
 
   return (
     <>
@@ -417,34 +418,34 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
               <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
                 BID NUMBER:
               </span>
-            <Controller
-  name="bidNumber"
-  control={control}
-  render={({ field }) => (
-    <TextField
-      {...field}
-      select
-      variant="standard"
-      label=""
-      error={!!errors.bidNumber}
-      helperText={errors?.bidNumber?.message}
-      className="w-full max-w-[220px]"
-    >
-      <MenuItem value="">-- Select Business --</MenuItem>
-      {loadingBusinesses ? (
-        <MenuItem disabled>Loading...</MenuItem>
-      ) : userBusinesses.length === 0 ? (
-        <MenuItem disabled>No businesses found</MenuItem>
-      ) : (
-        userBusinesses.map((biz) => (
-          <MenuItem key={biz.bidNumber} value={biz.bidNumber}>
-            {biz.bidNumber} — {biz.businessName}
-          </MenuItem>
-        ))
-      )}
-    </TextField>
-  )}
-/>
+              <Controller
+                name="bidNumber"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    variant="standard"
+                    label=""
+                    error={!!errors.bidNumber}
+                    helperText={errors?.bidNumber?.message}
+                    className="w-full max-w-[220px]"
+                  >
+                    <MenuItem value="">-- Select Business --</MenuItem>
+                    {loadingBusinesses ? (
+                      <MenuItem disabled>Loading...</MenuItem>
+                    ) : userBusinesses.length === 0 ? (
+                      <MenuItem disabled>No businesses found</MenuItem>
+                    ) : (
+                      userBusinesses.map((biz) => (
+                        <MenuItem key={biz.bidNumber} value={biz.bidNumber}>
+                          {biz.bidNumber} — {biz.businessName}
+                        </MenuItem>
+                      ))
+                    )}
+                  </TextField>
+                )}
+              />
 
             </div>
 
@@ -545,25 +546,25 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
                 </h2>
               </div>
 
-           <div className="flex flex-col gap-2 text-sm">
-  {sanitaryPermitChecklist.map((item) => (
-    <label
-      key={item.id}
-      className="flex items-center gap-2 cursor-pointer"
-    >
-      <input
-        type="checkbox"
-        value={item.id}
-        checked={sanitaryPermitChecklistState.includes(item.id)}
-        onChange={handleSanitaryChange}
-        className="transform scale-125"
-        autoComplete="off" // ✅ prevents browser autofill
-        name={`sanitary-${item.id}`} // ✅ unique names also prevent autofill
-      />
-      {item.label}
-    </label>
-  ))}
-</div>
+              <div className="flex flex-col gap-2 text-sm">
+                {sanitaryPermitChecklist.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      value={item.id}
+                      checked={sanitaryPermitChecklistState.includes(item.id)}
+                      onChange={handleSanitaryChange}
+                      className="transform scale-125"
+                      autoComplete="off" // ✅ prevents browser autofill
+                      name={`sanitary-${item.id}`} // ✅ unique names also prevent autofill
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
 
             </div>
 
@@ -599,24 +600,24 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
               </h1>
 
               {/* Checklist items */}
-            <div className="flex flex-col gap-2 mb-2">
-  {healthCertificateChecklist.map((item) => (
-    <label
-      key={item.id}
-      className="flex items-center gap-2 text-sm cursor-pointer"
-    >
-      <input
-        type="radio"
-        name="healthExam" // same name groups them together
-        value={item.id}
-        checked={healthCertificateChecklistState === item.id}
-        onChange={handleHealthChange}
-        className="transform scale-110 accent-blue-600"
-      />
-      {item.label}
-    </label>
-  ))}
-</div>
+              <div className="flex flex-col gap-2 mb-2">
+                {healthCertificateChecklist.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-center gap-2 text-sm cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="healthExam" // same name groups them together
+                      value={item.id}
+                      checked={healthCertificateChecklistState === item.id}
+                      onChange={handleHealthChange}
+                      className="transform scale-110 accent-blue-600"
+                    />
+                    {item.label}
+                  </label>
+                ))}
+              </div>
 
               <h1 className="font-bold ml-6 mt-3">
                 Present the following to Environmental Sanitation Office
@@ -646,85 +647,85 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
                   />
                 </div>
 
-          <div className="flex items-center gap-2">
-  <label className="w-[120px] text-sm font-medium text-gray-700">
-    O.R. Number:
-  </label>
-  <RHFTextField
-    control={control}
-    name="orNumberHealthCert"
-    type="text"
-    variant="standard"
-    placeholder="Enter O.R. Number"
-    fullWidth
-    inputProps={{
-      inputMode: 'numeric',
-      maxLength: 20,
-    }}
-    onChange={(e) => {
-      const digitsOnly = e.target.value.replace(/\D/g, '');
-      setValue('orNumberHealthCert', digitsOnly, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }}
-  />
-</div>
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    O.R. Number:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="orNumberHealthCert"
+                    type="text"
+                    variant="standard"
+                    placeholder="Enter O.R. Number"
+                    fullWidth
+                    inputProps={{
+                      inputMode: 'numeric',
+                      maxLength: 20,
+                    }}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '');
+                      setValue('orNumberHealthCert', digitsOnly, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                  />
+                </div>
 
 
-<div className="flex items-center gap-2">
-  <label className="w-[120px] text-sm font-medium text-gray-700">
-    Sanitary Fee:
-  </label>
-  <RHFTextField
-    control={control}
-    name="healthCertSanitaryFee"
-    type="number"
-    variant="standard"
-    placeholder="Enter amount"
-    fullWidth
-    inputProps={{
-      step: '0.01', // allows decimal input
-      min: 0,
-    }}
-    onBlur={(e) => {
-      const value = parseFloat(e.target.value);
-      if (!isNaN(value)) {
-        setValue('healthCertSanitaryFee', value, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-      }
-    }}
-  />
-</div>
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Sanitary Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertSanitaryFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{
+                      step: '0.01', // allows decimal input
+                      min: 0,
+                    }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertSanitaryFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
 
-<div className="flex items-center gap-2">
-  <label className="w-[120px] text-sm font-medium text-gray-700">
-    Health Cert Fee:
-  </label>
-  <RHFTextField
-    control={control}
-    name="healthCertFee"
-    type="number"
-    variant="standard"
-    placeholder="Enter amount"
-    fullWidth
-    inputProps={{
-      step: '0.01',
-      min: 0,
-    }}
-    onBlur={(e) => {
-      const value = parseFloat(e.target.value);
-      if (!isNaN(value)) {
-        setValue('healthCertFee', value, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-      }
-    }}
-  />
-</div>
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Health Cert Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{
+                      step: '0.01',
+                      min: 0,
+                    }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
 
 
               </div>
@@ -851,240 +852,240 @@ const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
           {/* Left Column: Form */}
           <div className="border border-blue-600 bg-blue-50 rounded-md p-4 space-y-6 -ml-13">
 
-      {/* Row 1: Declared Personnel + Due Date to Comply */}
-<div className="grid [grid-template-columns:1.5fr_1fr] gap-6 mt-2">
-  {/* Column 1: Declared Personnel */}
-  <div className="flex items-center gap-2">
-    <label
-      htmlFor="declaredPersonnel"
-      className="text-sm font-medium text-gray-700 min-w-[160px]"
-    >
-      TOTAL NUMBER OF DECLARED PERSONNEL
-    </label>
-    <input
-      id="declaredPersonnel"
-      type="number"
-      {...register('declaredPersonnel')}
-      className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-5"
-      placeholder="Enter total"
-    />
-  </div>
+            {/* Row 1: Declared Personnel + Due Date to Comply */}
+            <div className="grid [grid-template-columns:1.5fr_1fr] gap-6 mt-2">
+              {/* Column 1: Declared Personnel */}
+              <div className="flex items-center gap-2">
+                <label
+                  htmlFor="declaredPersonnel"
+                  className="text-sm font-medium text-gray-700 min-w-[160px]"
+                >
+                  TOTAL NUMBER OF DECLARED PERSONNEL
+                </label>
+                <input
+                  id="declaredPersonnel"
+                  type="number"
+                  {...register('declaredPersonnel')}
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-5"
+                  placeholder="Enter total"
+                />
+              </div>
 
-  {/* Column 2: Due Date to Comply */}
-  <div className="flex flex-col gap-1 ml-10">
-    <label
-      htmlFor="declaredPersonnelDueDate"
-      className="text-sm font-medium text-gray-700"
-    >
-      DUE DATE TO COMPLY
-    </label>
-    <input
-      id="declaredPersonnelDueDate"
-      type="date"
-      {...register('declaredPersonnelDueDate')}
-      className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px]"
-    />
-  </div>
-</div>
+              {/* Column 2: Due Date to Comply */}
+              <div className="flex flex-col gap-1 ml-10">
+                <label
+                  htmlFor="declaredPersonnelDueDate"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  DUE DATE TO COMPLY
+                </label>
+                <input
+                  id="declaredPersonnelDueDate"
+                  type="date"
+                  {...register('declaredPersonnelDueDate')}
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px]"
+                />
+              </div>
+            </div>
 
-{/* Row 2: Health Certificates + Balance to Comply + Due Date */}
-<div className="grid grid-cols-3 gap-6 mt-15">
-  <div className="flex flex-col gap-1">
-    <label
-      htmlFor="healthCertificates"
-      className="text-sm font-medium text-gray-700"
-    >
-      TOTAL NUMBER WITH HEALTH CERTIFICATES
-    </label>
-    <input
-      id="healthCertificates"
-      type="number"
-      {...register('healthCertificates')}
-      className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px]"
-      placeholder="Enter total"
-    />
-  </div>
+            {/* Row 2: Health Certificates + Balance to Comply + Due Date */}
+            <div className="grid grid-cols-3 gap-6 mt-15">
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="healthCertificates"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  TOTAL NUMBER WITH HEALTH CERTIFICATES
+                </label>
+                <input
+                  id="healthCertificates"
+                  type="number"
+                  {...register('healthCertificates')}
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px]"
+                  placeholder="Enter total"
+                />
+              </div>
 
-<div className="flex flex-col gap-1">
-  <label
-    htmlFor="healthCertBalanceToComply"
-    className="text-sm font-medium text-gray-700"
-  >
-    BALANCE TO COMPLY
-  </label>
-  <input
-    id="healthCertBalanceToComply"
-    type="text"
-    {...register('healthCertBalanceToComply')}
-    className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-10"
-    placeholder="Enter balance"
-    onBlur={(e) => {
-      const formatToTwoDecimals = (value) => {
-        const num = parseFloat(value);
-        return isNaN(num) ? '' : num.toFixed(2);
-      };
+              <div className="flex flex-col gap-1">
+                <label
+                  htmlFor="healthCertBalanceToComply"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  BALANCE TO COMPLY
+                </label>
+                <input
+                  id="healthCertBalanceToComply"
+                  type="text"
+                  {...register('healthCertBalanceToComply')}
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[160px] mt-10"
+                  placeholder="Enter balance"
+                  onBlur={(e) => {
+                    const formatToTwoDecimals = (value) => {
+                      const num = parseFloat(value);
+                      return isNaN(num) ? '' : num.toFixed(2);
+                    };
 
-      const formatted = formatToTwoDecimals(e.target.value);
-      setValue('healthCertBalanceToComply', formatted, {
-        shouldValidate: true,
-        shouldDirty: true,
-      });
-    }}
-  />
-</div>
+                    const formatted = formatToTwoDecimals(e.target.value);
+                    setValue('healthCertBalanceToComply', formatted, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
+                  }}
+                />
+              </div>
 
 
 
-  <div className="flex flex-col gap-1">
-    <input
-      id="healthCertDueDate"
-      type="date"
-      {...register('healthCertDueDate')}
-      className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] mt-16"
-    />
-  </div>
-</div>
+              <div className="flex flex-col gap-1">
+                <input
+                  id="healthCertDueDate"
+                  type="date"
+                  {...register('healthCertDueDate')}
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] mt-16"
+                />
+              </div>
+            </div>
           </div>
 
-       {/* Right Column: Inspection Record */}
-<fieldset
-  disabled={isNew}
-  className={isNew ? 'opacity-50 pointer-events-none' : ''}
->
-  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-    <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
-    <div className="overflow-x-auto">
-      <table className="min-w-full table-auto border-separate border-spacing-y-4">
-        <thead className="bg-transparent">
-          <tr>
-            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center"></th>
-            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Date</th>
-            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Actual No. of Personnel Upon Inspection</th>
-            <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Inspected By</th>
-          </tr>
-        </thead>
-        <tbody>
-          {['1st', '2nd'].map((label, index) => {
-            const autofillDate =
-              index === 0
-                ? initialData?.createdAt
-                  ? new Date(initialData.createdAt).toISOString().split("T")[0]
-                  : ""
-                : initialData?.dateReinspected
-                ? new Date(initialData.dateReinspected).toISOString().split("T")[0]
-                : "";
+          {/* Right Column: Inspection Record */}
+          <fieldset
+            disabled={isNew}
+            className={isNew ? 'opacity-50 pointer-events-none' : ''}
+          >
+            <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+              <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full table-auto border-separate border-spacing-y-4">
+                  <thead className="bg-transparent">
+                    <tr>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center"></th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Date</th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Actual No. of Personnel Upon Inspection</th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Inspected By</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['1st', '2nd'].map((label, index) => {
+                      const autofillDate =
+                        index === 0
+                          ? initialData?.createdAt
+                            ? new Date(initialData.createdAt).toISOString().split("T")[0]
+                            : ""
+                          : initialData?.dateReinspected
+                            ? new Date(initialData.dateReinspected).toISOString().split("T")[0]
+                            : "";
 
-            return (
-              <tr key={label} className="bg-white shadow-sm rounded-md">
-                <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">{label}</td>
-                <td className="px-4 py-2">
-                  <RHFTextField
-                    control={control}
-                    name={`inspectionRecords.${index}.date`}
-                    variant="standard"
-                    label=""
-                    type="date"
-                    error={!!errors?.inspectionRecords?.[index]?.date}
-                    helperText={errors?.inspectionRecords?.[index]?.date?.message}
-                    className="w-full"
-                    defaultValue={autofillDate}
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <RHFTextField
-                    control={control}
-                    name={`inspectionRecords.${index}.personnelCount`}
-                    variant="standard"
-                    label=""
-                    error={!!errors?.inspectionRecords?.[index]?.personnelCount}
-                    helperText={errors?.inspectionRecords?.[index]?.personnelCount?.message}
-                    className="w-full"
-                  />
-                </td>
-                <td className="px-4 py-2">
-                  <RHFTextField
-                    control={control}
-                    name={`inspectionRecords.${index}.inspectedBy`}
-                    variant="standard"
-                    label=""
-                    error={!!errors?.inspectionRecords?.[index]?.inspectedBy}
-                    helperText={errors?.inspectionRecords?.[index]?.inspectedBy?.message}
-                    className="w-full"
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</fieldset>
+                      return (
+                        <tr key={label} className="bg-white shadow-sm rounded-md">
+                          <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">{label}</td>
+                          <td className="px-4 py-2">
+                            <RHFTextField
+                              control={control}
+                              name={`inspectionRecords.${index}.date`}
+                              variant="standard"
+                              label=""
+                              type="date"
+                              error={!!errors?.inspectionRecords?.[index]?.date}
+                              helperText={errors?.inspectionRecords?.[index]?.date?.message}
+                              className="w-full"
+                              defaultValue={autofillDate}
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <RHFTextField
+                              control={control}
+                              name={`inspectionRecords.${index}.personnelCount`}
+                              variant="standard"
+                              label=""
+                              error={!!errors?.inspectionRecords?.[index]?.personnelCount}
+                              helperText={errors?.inspectionRecords?.[index]?.personnelCount?.message}
+                              className="w-full"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <RHFTextField
+                              control={control}
+                              name={`inspectionRecords.${index}.inspectedBy`}
+                              variant="standard"
+                              label=""
+                              error={!!errors?.inspectionRecords?.[index]?.inspectedBy}
+                              helperText={errors?.inspectionRecords?.[index]?.inspectedBy?.message}
+                              className="w-full"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </fieldset>
 
 
         </div>
 
-      {/* Penalty Record Section */}
-<fieldset
-  disabled={isNew}
-  className={isNew ? 'opacity-50 pointer-events-none' : ''}
->
-  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-    <div className="grid grid-cols-[2fr_1fr] gap-6">
-      <div>
-        <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-separate border-spacing-y-4">
-            <thead>
-              <tr className="bg-transparent text-sm text-gray-700 text-center">
-                <th className="px-2 py-1">Checklist</th>
-                <th className="px-2 py-1">Offense</th>
-                <th className="px-2 py-1">Year</th>
-                <th className="px-2 py-1">OR Date</th>
-                <th className="px-2 py-1">OR Number</th>
-                <th className="px-2 py-1">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => (
-                <tr key={label} className="bg-white shadow-sm rounded-md">
-                  <td className="px-2 py-1 text-sm text-gray-700">
-                    <label className="flex items-center gap-2">
-                      <input type="checkbox" className="form-checkbox text-blue-600" />
-                      {label}
-                    </label>
-                  </td>
-                  <td className="px-2 py-1">
-                    <RHFTextField control={control} name={`penaltyRecords.${index}.offense`} variant="standard" className="w-full" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <RHFTextField control={control} name={`penaltyRecords.${index}.year`} variant="standard" className="w-full" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <RHFTextField control={control} name={`penaltyRecords.${index}.orDateHealthCert`} variant="standard" className="w-full" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <RHFTextField control={control} name={`penaltyRecords.${index}.orNumberHealthCert`} variant="standard" className="w-full" />
-                  </td>
-                  <td className="px-2 py-1">
-                    <RHFTextField control={control} name={`penaltyRecords.${index}.amount`} variant="standard" className="w-full" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* Penalty Record Section */}
+        <fieldset
+          disabled={isNew}
+          className={isNew ? 'opacity-50 pointer-events-none' : ''}
+        >
+          <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+            <div className="grid grid-cols-[2fr_1fr] gap-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-auto border-separate border-spacing-y-4">
+                    <thead>
+                      <tr className="bg-transparent text-sm text-gray-700 text-center">
+                        <th className="px-2 py-1">Checklist</th>
+                        <th className="px-2 py-1">Offense</th>
+                        <th className="px-2 py-1">Year</th>
+                        <th className="px-2 py-1">OR Date</th>
+                        <th className="px-2 py-1">OR Number</th>
+                        <th className="px-2 py-1">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => (
+                        <tr key={label} className="bg-white shadow-sm rounded-md">
+                          <td className="px-2 py-1 text-sm text-gray-700">
+                            <label className="flex items-center gap-2">
+                              <input type="checkbox" className="form-checkbox text-blue-600" />
+                              {label}
+                            </label>
+                          </td>
+                          <td className="px-2 py-1">
+                            <RHFTextField control={control} name={`penaltyRecords.${index}.offense`} variant="standard" className="w-full" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <RHFTextField control={control} name={`penaltyRecords.${index}.year`} variant="standard" className="w-full" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <RHFTextField control={control} name={`penaltyRecords.${index}.orDateHealthCert`} variant="standard" className="w-full" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <RHFTextField control={control} name={`penaltyRecords.${index}.orNumberHealthCert`} variant="standard" className="w-full" />
+                          </td>
+                          <td className="px-2 py-1">
+                            <RHFTextField control={control} name={`penaltyRecords.${index}.amount`} variant="standard" className="w-full" />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-      {/* Right Column: Verification */}
-      <div className="flex flex-col justify-center text-sm text-gray-700">
-        <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
-        <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
-        <p className="uppercase">Revenue Unit Supervisor</p>
-      </div>
-    </div>
-  </div>
-</fieldset>
+              {/* Right Column: Verification */}
+              <div className="flex flex-col justify-center text-sm text-gray-700">
+                <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
+                <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
+                <p className="uppercase">Revenue Unit Supervisor</p>
+              </div>
+            </div>
+          </div>
+        </fieldset>
 
 
 

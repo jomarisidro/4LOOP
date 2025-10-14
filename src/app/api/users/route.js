@@ -103,10 +103,8 @@ export async function POST(request) {
         { status: 409 }
       );
     }
-
     // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
     // ✅ Create verification code for business
     let verificationCode = null;
     let verificationExpiry = null;
@@ -115,7 +113,6 @@ export async function POST(request) {
       verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     }
-
     // ✅ Create user
     const newUser = await User.create({
       email,
@@ -147,13 +144,11 @@ export async function POST(request) {
     // ✅ Response (formatted for frontend)
     return NextResponse.json(
       {
-        data: {
-          msg: "Registration successful! Please check your email for the verification code.",
-          userId: newUser._id,
-          email: newUser.email,
-          verified: newUser.verified,
-        },
-      },
+        msg: "Registration successful! Please check your email for the verification code.",
+        userId: newUser._id,
+        email: newUser.email,
+        verified: newUser.verified,
+    },
       { status: 201 }
     );
   } catch (err) {

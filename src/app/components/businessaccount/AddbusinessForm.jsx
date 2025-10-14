@@ -98,7 +98,7 @@ export default function AddbusinessForm() {
 
       <h1 className="text-2xl font-semibold mb-6">Add a New Business</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2 space-y-6 max-w-3xl">
 <Controller
   name="bidNumber"
   control={control}
@@ -154,9 +154,6 @@ export default function AddbusinessForm() {
     />
   )}
 />
-
-
-
 
         <RHFTextField
           control={control}

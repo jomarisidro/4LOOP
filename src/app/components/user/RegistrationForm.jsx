@@ -42,13 +42,13 @@ export default function RegistrationForm() {
     mutationFn: signUpWithCompleteInfo,
     onSuccess: (data) => {
       const { email, verified } = data?.data || {};
+      console.log("Registration successful:", data?.data);
 
-      if (verified) {
-        router.push("/login"); // Already verified, skip verification
-      } else if (email) {
-        router.push(`/registration/verifyemail?email=${encodeURIComponent(email)}`);
-      } else {
-        router.push("/registration/verifyemail");
+      if (!verified && email) {
+        router.push(`/registration/verifyemail?email=${email}`);
+      } 
+      else {
+        router.push("/login");
       }
     },
     onError: (err) => {
