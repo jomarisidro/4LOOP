@@ -25,7 +25,7 @@ const UserSchema = new Schema(
 
     systemRole: {
       type: Number,
-      enum: [0, 1, 2], // 0 = Super Admin, 1 = Admin, 2 = Moderator
+      enum: [0, 1, 2],
     },
     systemRoleAssignedBy: { type: Schema.Types.ObjectId, ref: "User" },
 
@@ -33,16 +33,13 @@ const UserSchema = new Schema(
     accountWhoDisabled: { type: Schema.Types.ObjectId, ref: "User" },
 
     assignedArea: { type: String },
-    hiredDate: { type: Date },
 
     businessAccount: { type: Schema.Types.ObjectId, ref: "User" },
 
     verified: { type: Boolean, default: false },
-    paid: { type: Boolean, default: false },
     verificationCode: { type: String },
     verificationExpiry: { type: Date },
     systemMessageEnabled: { type: Boolean, default: false },
-    accountLocked: { type: Boolean, default: false },
   },
   {
     timestamps: true,
