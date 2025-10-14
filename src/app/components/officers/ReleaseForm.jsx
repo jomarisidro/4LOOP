@@ -60,6 +60,7 @@ export default function ReleaseForm() {
     if (!releaseRequest) return;
 
     try {
+
       // ✅ store id consistently like in PermitApprovalForm
       localStorage.setItem('releaseRequestId', _id);
       router.push(`/officers/workbench/releaseofpermit?id=${_id}`);
