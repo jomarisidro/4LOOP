@@ -5,7 +5,7 @@ import Ticket from "@/models/Ticket";
 import mongoose from "mongoose";
 import { getSession } from "@/lib/Auth";
 
-// Shared finder
+// 🔹 Helper function to locate a business
 async function findBusiness(id, userId, role) {
   const isOid = mongoose.Types.ObjectId.isValid(id);
 
@@ -25,15 +25,16 @@ async function findBusiness(id, userId, role) {
   return null;
 }
 
-// GET handler
-export async function GET(request, context) {
+// 🔹 GET handler
+export async function GET(request, { params }) {
   await connectMongoDB();
+
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await context.params;
+  const { id } = params;
   const { role, id: userId } = session.user;
 
   try {
@@ -60,10 +61,9 @@ export async function GET(request, context) {
       },
     });
 
-    // ✅ Compute sanitation permit status
     const now = new Date();
-    const yearEnd = new Date(now.getFullYear(), 11, 31); // Dec 31
-    const graceEnd = new Date(now.getFullYear() + 1, 0, 15); // Jan 15 next year
+    const yearEnd = new Date(now.getFullYear(), 11, 31);
+    const graceEnd = new Date(now.getFullYear() + 1, 0, 15);
 
     let permitStatus = "unknown";
     if (business.sanitaryPermitIssuedAt) {
@@ -84,29 +84,34 @@ export async function GET(request, context) {
       inspectionCountThisYear,
       recordedViolation: latestTicket?.violation || "-",
       checklist: latestTicket?.checklist || null,
-      permitStatus, // ✅ added
+      permitStatus,
     };
 
     return NextResponse.json(enriched, { status: 200 });
   } catch (err) {
     console.error("GET error:", err);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal Server Error", details: err.message },
+      { status: 500 }
+    );
   }
 }
 
-// PUT handler
-export async function PUT(request, context) {
+// 🔹 PUT handler
+export async function PUT(request, { params }) {
   await connectMongoDB();
+
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await context.params;
+  const { id } = params;
   const { role, id: userId } = session.user;
   const body = await request.json();
 
   const updateFields = {};
+
   if (body.newRequestType) updateFields.requestType = body.newRequestType;
   if (body.newBidNumber) updateFields.bidNumber = body.newBidNumber;
   if (body.newBusinessName) updateFields.businessName = body.newBusinessName;
@@ -121,64 +126,28 @@ export async function PUT(request, context) {
   if (body.newLandmark) updateFields.landmark = body.newLandmark;
   if (body.newRemarks) updateFields.remarks = body.newRemarks;
   if (body.sanitaryPermitIssuedAt) updateFields.sanitaryPermitIssuedAt = new Date(body.sanitaryPermitIssuedAt);
-   if (body.healthCertificateChecklist) updateFields.healthCertificateChecklist = body.healthCertificateChecklist;
-
-  if (Array.isArray(body.sanitaryPermitChecklist)) {
-    updateFields.sanitaryPermitChecklist = body.sanitaryPermitChecklist;
-  }
-  if (Array.isArray(body.msrChecklist)) {
-    updateFields.msrChecklist = body.msrChecklist;
-  }
-  
-
-  if (body.orDateHealthCert) {
-  updateFields.orDateHealthCert = new Date(body.orDateHealthCert);
-}
-if (body.orNumberHealthCert) {
-  updateFields.orNumberHealthCert = body.orNumberHealthCert;
-}
-if (typeof body.healthCertSanitaryFee === "number") {
-  updateFields.healthCertSanitaryFee = body.healthCertSanitaryFee;
-}
-if (typeof body.healthCertFee === "number") {
-  updateFields.healthCertFee = body.healthCertFee;
-}
-
-if (typeof body.declaredPersonnel === "number") {
-  updateFields.declaredPersonnel = body.declaredPersonnel;
-}
-if (body.declaredPersonnelDueDate) {
-  updateFields.declaredPersonnelDueDate = new Date(body.declaredPersonnelDueDate);
-}
-if (typeof body.healthCertificates === "number") {
-  updateFields.healthCertificates = body.healthCertificates;
-}
-if (typeof body.healthCertBalanceToComply === "number") {
-  updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
-}
-if (body.healthCertDueDate
-) {
-  updateFields.healthCertDueDate
- = new Date(body.healthCertDueDate
-);
-}
-
-
+  if (body.healthCertificateChecklist) updateFields.healthCertificateChecklist = body.healthCertificateChecklist;
+  if (Array.isArray(body.sanitaryPermitChecklist)) updateFields.sanitaryPermitChecklist = body.sanitaryPermitChecklist;
+  if (Array.isArray(body.msrChecklist)) updateFields.msrChecklist = body.msrChecklist;
+  if (body.orDateHealthCert) updateFields.orDateHealthCert = new Date(body.orDateHealthCert);
+  if (body.orNumberHealthCert) updateFields.orNumberHealthCert = body.orNumberHealthCert;
+  if (typeof body.healthCertSanitaryFee === "number") updateFields.healthCertSanitaryFee = body.healthCertSanitaryFee;
+  if (typeof body.healthCertFee === "number") updateFields.healthCertFee = body.healthCertFee;
+  if (typeof body.declaredPersonnel === "number") updateFields.declaredPersonnel = body.declaredPersonnel;
+  if (body.declaredPersonnelDueDate) updateFields.declaredPersonnelDueDate = new Date(body.declaredPersonnelDueDate);
+  if (typeof body.healthCertificates === "number") updateFields.healthCertificates = body.healthCertificates;
+  if (typeof body.healthCertBalanceToComply === "number") updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
+  if (body.healthCertDueDate) updateFields.healthCertDueDate = new Date(body.healthCertDueDate);
 
   try {
     const business = await findBusiness(id, userId, role);
     if (!business) {
-      return NextResponse.json(
-        { error: "Business not found." },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Business not found." }, { status: 404 });
     }
 
-    const updated = await Business.findByIdAndUpdate(
-      business._id,
-      updateFields,
-      { new: true }
-    ).lean();
+    const updated = await Business.findByIdAndUpdate(business._id, updateFields, {
+      new: true,
+    }).lean();
 
     return NextResponse.json(
       { msg: "Business updated", business: updated },
@@ -186,19 +155,23 @@ if (body.healthCertDueDate
     );
   } catch (err) {
     console.error("PUT error:", err);
-    return NextResponse.json({ error: "Failed to update business" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to update business", details: err.message },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE handler
-export async function DELETE(request, context) {
+// 🔹 DELETE handler
+export async function DELETE(request, { params }) {
   await connectMongoDB();
+
   const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await context.params;
+  const { id } = params;
   const { role, id: userId } = session.user;
 
   try {
@@ -217,6 +190,9 @@ export async function DELETE(request, context) {
     );
   } catch (err) {
     console.error("DELETE error:", err);
-    return NextResponse.json({ error: "Failed to delete business" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete business", details: err.message },
+      { status: 500 }
+    );
   }
 }

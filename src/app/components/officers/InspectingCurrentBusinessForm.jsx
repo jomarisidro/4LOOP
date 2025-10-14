@@ -104,68 +104,70 @@ export default function InspectingCurrentBusinessForm() {
   };
 
   const handleCompleteInspection = async () => {
-    if (isReadOnly) return;
+  if (isReadOnly) return;
 
-    try {
-      const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
-      const inspectionsThisYear = res.data || [];
+  try {
+    const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
+    const inspectionsThisYear = res.data || [];
 
-      const completedInspectionsCount = inspectionsThisYear.filter(
-        (t) => t.inspectionStatus === 'completed' && t._id !== currentTicket._id
-      ).length;
+    const completedInspectionsCount = inspectionsThisYear.filter(
+      (t) => t.inspectionStatus === 'completed' && t._id !== currentTicket._id
+    ).length;
 
-      if (completedInspectionsCount >= 2) {
-        alert('Only 2 inspections are allowed per year.');
-        return;
-      }
-
-      const inspectionNumber = completedInspectionsCount + 1;
-      const inspectionDate =
-        inspectionNumber === 1
-          ? currentTicket?.createdAt || new Date().toISOString()
-          : dateReinspected;
-
-      if (inspectionNumber === 1) {
-        // First inspection → create
-        await axios.post(`/api/ticket`, {
-          businessId,
-          inspectionDate,
-          inspectionType: 'routine',
-          violationType: 'sanitation',
-          remarks,
-          inspectionChecklist: {
-            ...scores,
-            hc_ac: Number(scores.hc_ac) || 0,
-            hc_with: Number(scores.hc_with) || 0,
-            hc_without: Number(scores.hc_without) || 0,
-          },
-          inspectionStatus: 'completed',
-        });
-      } else {
-        // Reinspection → update
-        await axios.put(`/api/ticket/${currentTicket._id}`, {
-          inspectionDate,
-          inspectionType: 'reinspection',
-          violationType: 'sanitation',
-          remarks,
-          inspectionChecklist: {
-            ...scores,
-            hc_ac: Number(scores.hc_ac) || 0,
-            hc_with: Number(scores.hc_with) || 0,
-            hc_without: Number(scores.hc_without) || 0,
-          },
-          inspectionStatus: 'completed',
-          inspectionNumber,
-        });
-      }
-
-      queryClient.invalidateQueries(['tickets', businessId, year]);
-      queryClient.invalidateQueries(['pending-inspections']);
-      router.push('/officers/inspections/pendinginspections');
-    } catch (err) {
-      console.error('❌ Ticket error:', err.response?.data || err);
+    if (completedInspectionsCount >= 2) {
+      alert('Only 2 inspections are allowed per year.');
+      return;
     }
-  };
+
+    const inspectionNumber = completedInspectionsCount + 1;
+    const inspectionDate =
+      inspectionNumber === 1
+        ? currentTicket?.createdAt || new Date().toISOString()
+        : dateReinspected;
+
+    const inspectionChecklist = {
+      sanitaryPermit: scores.sanitaryPermit,
+      healthCertificates: {
+        actualCount: Number(scores.healthCertificates?.actualCount) || 0,
+        withCert: Number(scores.healthCertificates?.withCert) || 0,
+        withoutCert: Number(scores.healthCertificates?.withoutCert) || 0,
+      },
+      certificateOfPotability: scores.certificateOfPotability,
+      pestControl: scores.pestControl,
+      sanitaryOrder01: scores.sanitaryOrder1, // renamed
+      sanitaryOrder02: scores.sanitaryOrder2, // renamed
+    };
+
+    if (inspectionNumber === 1) {
+      await axios.post(`/api/ticket`, {
+        businessId,
+        inspectionDate,
+        inspectionType: 'routine',
+        violationType: 'sanitation',
+        remarks,
+        inspectionChecklist,
+        inspectionStatus: 'completed',
+      });
+    } else {
+      await axios.put(`/api/ticket/${currentTicket._id}`, {
+        inspectionDate,
+        inspectionType: 'reinspection',
+        violationType: 'sanitation',
+        remarks,
+        inspectionChecklist,
+        inspectionStatus: 'completed',
+        inspectionNumber,
+      });
+    }
+
+    queryClient.invalidateQueries(['tickets', businessId, year]);
+    queryClient.invalidateQueries(['pending-inspections']);
+    router.push('/officers/inspections/pendinginspections');
+  } catch (err) {
+    console.error('❌ Ticket error:', err.response?.data || err);
+  }
+};
+
 
   if (!id) return <Typography color="error">❌ No ticket ID provided</Typography>;
   if (loadingTicket || isLoading) return <Typography>Loading…</Typography>;

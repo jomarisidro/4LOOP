@@ -1,25 +1,25 @@
-import Business from "@/models/Business";
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Ticket from "@/models/Ticket";
+import Business from "@/models/Business";
+import Violation from "@/models/Violation";
 import { getSession } from "@/lib/Auth";
-import Violation from "@/models/Violation"; // ✅ Import Violation model
 
+// 🟢 GET Ticket
 export async function GET(request, { params }) {
   await connectMongoDB();
 
   try {
     const { id } = params;
-
     const session = await getSession();
+
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const ticket = await Ticket.findById(id).populate(
-      "business",
-      "businessName bidNumber businessType contactPerson businessAddress"
-    );
+    const ticket = await Ticket.findById(id)
+      .populate("business", "businessName bidNumber businessType contactPerson businessAddress")
+      .populate("officerInCharge", "fullName email");
 
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
@@ -32,6 +32,7 @@ export async function GET(request, { params }) {
   }
 }
 
+// 🟡 UPDATE Ticket
 export async function PUT(request, { params }) {
   await connectMongoDB();
 
@@ -42,11 +43,13 @@ export async function PUT(request, { params }) {
 
     const session = await getSession();
     const officerId = session?.user?.id;
+
     if (!officerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const ticket = await Ticket.findById(id).populate("business");
+
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
@@ -71,7 +74,6 @@ export async function PUT(request, { params }) {
 
     // 🟢 COMPLETION FLOW
     if (inspectionStatus === "completed") {
-      // Count completed inspections for this business this year, excluding current ticket
       const year = new Date().getFullYear();
       const start = new Date(`${year}-01-01T00:00:00Z`);
       const end = new Date(`${year}-12-31T23:59:59Z`);
@@ -80,7 +82,7 @@ export async function PUT(request, { params }) {
         business: ticket.business._id,
         inspectionStatus: "completed",
         createdAt: { $gte: start, $lte: end },
-        _id: { $ne: ticket._id }, // exclude current ticket
+        _id: { $ne: ticket._id },
       });
 
       if (completedThisYear >= 2) {
@@ -94,7 +96,6 @@ export async function PUT(request, { params }) {
       if (inspectionDate) ticket.inspectionDate = new Date(inspectionDate);
       if (remarks !== undefined) ticket.remarks = remarks;
 
-      // ✅ Normalize checklist structure
       if (inspectionChecklist) {
         ticket.inspectionChecklist = {
           ...inspectionChecklist,
@@ -107,13 +108,11 @@ export async function PUT(request, { params }) {
         ticket.markModified("inspectionChecklist");
       }
 
-      // Assign inspectionNumber strictly 1 or 2
       ticket.inspectionNumber = completedThisYear + 1;
 
-      // 🆕 Detect non-compliance after 2nd inspection
+      // 🧾 Check violations on 2nd inspection
       if (ticket.inspectionNumber === 2) {
         const checklist = inspectionChecklist || {};
-
         const noSP = checklist.sanitaryPermit === "without";
         const hcData = checklist.healthCertificates || {};
         const noHC = hcData.withoutCert > 0;
@@ -138,31 +137,28 @@ export async function PUT(request, { params }) {
             description = "No valid pest control compliance after 2nd inspection.";
           }
 
-          // ✅ Create violation record
           const violation = await Violation.create({
             ticket: ticket._id,
             code: violationCode,
             description,
-            penalty: 2000, // Can be adjusted based on Ordinance No. 53, s.2022
+            penalty: 2000,
             ordinanceSection: "Ordinance No. 53, s.2022",
             offenseCount: 1,
-            violationStatus: "pending", // ✅ updated field name
-
+            violationStatus: "pending",
           });
 
-          // Link the violation to this ticket
           ticket.violations.push(violation._id);
-          ticket.resolutionStatus = "for compliance"; // Optional: case now under review
+          ticket.resolutionStatus = "for compliance";
         }
       }
     }
 
     await ticket.save();
 
-    const populatedTicket = await ticket.populate(
-      "business",
-      "businessName bidNumber businessType contactPerson"
-    );
+    const populatedTicket = await ticket.populate([
+      { path: "business", select: "businessName bidNumber businessType contactPerson businessAddress" },
+      { path: "officerInCharge", select: "fullName email" },
+    ]);
 
     return NextResponse.json(
       { msg: "Ticket updated", ticket: populatedTicket },
@@ -174,19 +170,21 @@ export async function PUT(request, { params }) {
   }
 }
 
+// 🔴 DELETE Ticket
 export async function DELETE(request, { params }) {
   await connectMongoDB();
 
   try {
     const { id } = params;
-
     const session = await getSession();
     const officerId = session?.user?.id;
+
     if (!officerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const ticket = await Ticket.findByIdAndDelete(id);
+
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }

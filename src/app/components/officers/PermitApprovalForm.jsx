@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import {
   Typography,
   Box,
+  Paper,
   Button,
   Stack,
   CircularProgress,
-  Paper,
   Table,
   TableHead,
   TableBody,
@@ -48,6 +48,8 @@ export default function PermitApprovalForm() {
     key: 'createdAt',
     direction: 'desc',
   });
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     if (data) setRequests(data);
@@ -59,24 +61,19 @@ export default function PermitApprovalForm() {
     if (!approvalRequest) return;
 
     try {
-      // Store selected request for later use
       localStorage.setItem('permitapprovalRequestId', _id);
-
-      // Navigate to detailed request page
       router.push(`/officers/workbench/pendingpermitapproval?id=${_id}`);
     } catch (err) {
       console.error('❌ Failed to navigate for permit approval:', err);
     }
 
-    // Optimistic UI update (remove item from current table)
     setRequests((prev) => prev.filter((req) => req._id !== _id));
-
-    // Refresh the query cache in background
     queryClient.invalidateQueries(['permitapproval-requests']);
   };
 
   // 🔽 Sorting logic
   const handleSort = (key) => {
+    if (key === 'actions') return;
     setSortConfig((prev) =>
       prev.key === key
         ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
@@ -84,7 +81,7 @@ export default function PermitApprovalForm() {
     );
   };
 
-  // 🔍 Search + filter logic
+  // 🔍 Filter + search
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
       const value = req?.[searchField]?.toString().toLowerCase() ?? '';
@@ -92,18 +89,35 @@ export default function PermitApprovalForm() {
     });
   }, [requests, searchField, searchTerm]);
 
-  // 🔽 Apply sorting
+  // 🔽 Sort results
   const sortedRequests = useMemo(() => {
     return [...filteredRequests].sort((a, b) => {
       if (!sortConfig.key) return 0;
-      const aValue = a?.[sortConfig.key]?.toString().toLowerCase() ?? '';
-      const bValue = b?.[sortConfig.key]?.toString().toLowerCase() ?? '';
+
+      let aValue = a?.[sortConfig.key];
+      let bValue = b?.[sortConfig.key];
+
+      if (sortConfig.key === 'createdAt') {
+        aValue = new Date(aValue).getTime();
+        bValue = new Date(bValue).getTime();
+      } else {
+        aValue = aValue?.toString().toLowerCase() ?? '';
+        bValue = bValue?.toString().toLowerCase() ?? '';
+      }
+
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
   }, [filteredRequests, sortConfig]);
 
+  // 📄 Pagination logic
+  const total = sortedRequests.length;
+  const totalPages = Math.ceil(total / limit);
+  const startIndex = (page - 1) * limit;
+  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + limit);
+
+  // 📋 Search field options
   const searchFields = [
     { value: 'businessName', label: 'Business Name' },
     { value: 'bidNumber', label: 'BID Number' },
@@ -113,6 +127,7 @@ export default function PermitApprovalForm() {
     { value: 'businessAddress', label: 'Address' },
   ];
 
+  // 🧱 Table columns
   const columns = [
     { key: 'requestType', label: 'Request Type' },
     { key: 'bidNumber', label: 'BID Number' },
@@ -140,13 +155,16 @@ export default function PermitApprovalForm() {
         🧾 Requests Awaiting Permit Approval
       </Typography>
 
-      {/* 🔍 Search Section */}
-      <Stack direction="row" spacing={2} mb={3}>
+      {/* 🔍 Search + Filter Rows */}
+      <Stack direction="row" spacing={2} mb={3} alignItems="center">
         <TextField
           select
           label="Search Field"
           value={searchField}
-          onChange={(e) => setSearchField(e.target.value)}
+          onChange={(e) => {
+            setSearchField(e.target.value);
+            setPage(1);
+          }}
           sx={{ width: 220 }}
         >
           {searchFields.map((f) => (
@@ -157,12 +175,34 @@ export default function PermitApprovalForm() {
         </TextField>
 
         <TextField
-          label={`Search by ${searchFields.find((f) => f.value === searchField)?.label}`}
+          label={`Search by ${
+            searchFields.find((f) => f.value === searchField)?.label
+          }`}
           variant="outlined"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+          }}
           fullWidth
         />
+
+        <TextField
+          select
+          label="Rows per page"
+          value={limit}
+          onChange={(e) => {
+            setLimit(Number(e.target.value));
+            setPage(1);
+          }}
+          sx={{ width: 160 }}
+        >
+          {[10, 20, 30, 50].map((num) => (
+            <MenuItem key={num} value={num}>
+              {num}
+            </MenuItem>
+          ))}
+        </TextField>
       </Stack>
 
       {/* ⏳ Loading */}
@@ -182,67 +222,116 @@ export default function PermitApprovalForm() {
 
       {/* 📊 Table */}
       {!isLoading && !isError && (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableCell key={col.key}>
-                    {col.key !== 'actions' ? (
-                      <TableSortLabel
-                        active={sortConfig.key === col.key}
-                        direction={
-                          sortConfig.key === col.key
-                            ? sortConfig.direction
-                            : 'asc'
-                        }
-                        onClick={() => handleSort(col.key)}
-                      >
-                        {col.label}
-                      </TableSortLabel>
-                    ) : (
-                      col.label
-                    )}
-                  </TableCell>
-                ))}
-              </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {sortedRequests.length > 0 ? (
-                sortedRequests.map((req) => (
-                  <TableRow key={req._id} hover>
-                    <TableCell>{req.requestType}</TableCell>
-                    <TableCell>{req.bidNumber}</TableCell>
-                    <TableCell>{req.businessName}</TableCell>
-                    <TableCell>{req.businessNickname}</TableCell>
-                    <TableCell>{req.businessType}</TableCell>
-                    <TableCell>{req.businessAddress}</TableCell>
-                    <TableCell>
-                      {new Date(req.createdAt).toLocaleString('en-PH')}
+        <>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  {columns.map((col) => (
+                    <TableCell
+                      key={col.key}
+                      sx={{
+                        fontWeight: 'bold',
+                        cursor: col.key === 'actions' ? 'default' : 'pointer',
+                      }}
+                      onClick={
+                        col.key === 'actions'
+                          ? undefined
+                          : () => handleSort(col.key)
+                      }
+                    >
+                      {col.key !== 'actions' ? (
+                        <TableSortLabel
+                          active={sortConfig.key === col.key}
+                          direction={
+                            sortConfig.key === col.key
+                              ? sortConfig.direction
+                              : 'asc'
+                          }
+                        >
+                          {col.label}
+                        </TableSortLabel>
+                      ) : (
+                        col.label
+                      )}
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={() => handleCheck(req._id)}
-                      >
-                        Check Request
-                      </Button>
+                  ))}
+                </TableRow>
+              </TableHead>
+
+              <TableBody>
+                {paginatedRequests.length > 0 ? (
+                  paginatedRequests.map((req) => (
+                    <TableRow key={req._id} hover>
+                      <TableCell>{req.requestType}</TableCell>
+                      <TableCell>{req.bidNumber}</TableCell>
+                      <TableCell>{req.businessName}</TableCell>
+                      <TableCell>{req.businessNickname}</TableCell>
+                      <TableCell>{req.businessType}</TableCell>
+                      <TableCell>{req.businessAddress}</TableCell>
+                      <TableCell>
+                        {new Date(req.createdAt).toLocaleString('en-PH')}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          size="small"
+                          onClick={() => handleCheck(req._id)}
+                        >
+                          Check Request
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} align="center">
+                      No pending requests awaiting permit approval.
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    No pending requests awaiting permit approval.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* 📄 Pagination (bottom-right only) */}
+          {!isLoading && !isError && total > 0 && (
+            <Stack
+              direction="row"
+              spacing={2}
+              justifyContent="flex-end"
+              alignItems="center"
+              sx={{ mt: 2 }}
+            >
+              <Typography
+                component="span"
+                variant="body2"
+                sx={{ mr: 2 }}
+              >
+                Page {page} of {totalPages || 1}
+              </Typography>
+
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={page === 1}
+                onClick={() => setPage((p) => Math.max(p - 1, 1))}
+                sx={{ mr: 1 }}
+              >
+                Prev
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              >
+                Next
+              </Button>
+            </Stack>
+          )}
+        </>
       )}
     </Box>
   );

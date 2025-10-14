@@ -1,35 +1,21 @@
-  import axios from "axios";
+import axios from "axios";
 
-  const URL = process.env.NEXT_PUBLIC_URL_AND_PORT
+const baseURL = process.env.NEXT_PUBLIC_URL_AND_PORT;
 
-  const headers = {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  }
+// ✅ Create a shared Axios instance
+const axiosInstance = axios.create({
+  baseURL,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
 
-  const jsonHeader = {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  };
+// ✅ Registration service
+export const signUpWithCompleteInfo = (data) => {
+  return axiosInstance.post("/api/users", data);
+};
 
-
-  export const signUpWithCompleteInfo = (data) => {
-    return axios.post(
-      `/api/users`,
-      data,
-      jsonHeader
-    );
-  };
-
-  export const userLogin = (data) => {
-    return axios.post(
-      `/api/login`,
-      data,
-      jsonHeader
-    );
-  };
-
-
-
+// ✅ Login service
+export const userLogin = (data) => {
+  return axiosInstance.post("/api/login", data);
+};

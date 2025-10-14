@@ -9,18 +9,20 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get("businessId");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = 10;
+    const skip = (page - 1) * limit;
 
     if (!businessId) {
       return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
     }
 
-    // ✅ Find all tickets for this business
-    const tickets = await Ticket.find({ business: businessId }).select("_id");
-    const ticketIds = tickets.map((t) => t._id);
+    const ticketIds = await Ticket.distinct("_id", { business: businessId });
 
-    // ✅ Fetch related violations (sorted newest first)
     const violations = await Violation.find({ ticket: { $in: ticketIds } })
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .lean();
 
     return NextResponse.json(violations || [], { status: 200 });

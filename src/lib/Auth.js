@@ -1,7 +1,7 @@
-
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 
 // 🔐 Use environment variable for secret
 const secretKey = process.env.JWT_SECRET || "fallback_secret";
@@ -10,12 +10,16 @@ const key = new TextEncoder().encode(secretKey);
 // 🧠 Session duration (15 days)
 const SESSION_DURATION_MS = 15 * 24 * 60 * 60 * 1000;
 
+// 🔑 Generate a secure random nonce
+function generateNonce() {
+  return crypto.randomBytes(16).toString("hex");
+}
+
 // 🔒 Encrypt a payload into a JWT
 export async function encrypt(payload) {
-  return await new SignJWT(payload)
+  const now = Math.floor(Date.now() / 1000); // current time in seconds
+  return await new SignJWT({ ...payload, iat: now, exp: now + SESSION_DURATION_MS / 1000 })
     .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime(Math.floor((Date.now() + SESSION_DURATION_MS) / 1000))
     .sign(key);
 }
 
@@ -35,12 +39,12 @@ export async function login(user) {
       email: user.email,
       role: user.role,
     },
+    nonce: generateNonce(),
   };
 
   const session = await encrypt(sessionPayload);
 
-  // ✅ Await cookies() before using it
-  const cookieStore = await cookies();
+  const cookieStore = await cookies(); // ✅ await required
   cookieStore.set("session", session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -52,7 +56,7 @@ export async function login(user) {
 
 // 🚪 Logout helper — clears the cookie
 export async function logout() {
-  const cookieStore = await cookies();
+  const cookieStore = await cookies(); // ✅ await required
   cookieStore.set("session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -64,7 +68,7 @@ export async function logout() {
 
 // 🧩 Get the current session (decoded JWT)
 export async function getSession() {
-  const cookieStore = await cookies();
+  const cookieStore = await cookies(); // ✅ await required
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
 
@@ -72,7 +76,11 @@ export async function getSession() {
     const session = await decrypt(token);
     return session;
   } catch (err) {
-    console.error("Session decode failed:", err);
+    if (err.code === "ERR_JWT_EXPIRED") {
+      console.warn("Session expired");
+    } else {
+      console.error("Session decode failed:", err);
+    }
     return null;
   }
 }
@@ -84,8 +92,9 @@ export async function updateSession(request) {
 
   try {
     const parsed = await decrypt(token);
-    const refreshed = await encrypt(parsed);
+    parsed.nonce = generateNonce(); // 🔁 rotate nonce
 
+    const refreshed = await encrypt(parsed);
     const res = NextResponse.next();
     res.cookies.set("session", refreshed, {
       httpOnly: true,
@@ -100,4 +109,10 @@ export async function updateSession(request) {
     console.warn("Session refresh failed:", err);
     return NextResponse.next();
   }
+}
+
+// 🔍 Check if user is authenticated
+export async function isAuthenticated() {
+  const session = await getSession();
+  return !!session?.user;
 }

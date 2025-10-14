@@ -7,10 +7,10 @@ import { useRouter } from 'next/navigation';
 import {
   Typography,
   Box,
+  Paper,
   Button,
   Stack,
   CircularProgress,
-  Paper,
   Table,
   TableHead,
   TableBody,
@@ -20,6 +20,9 @@ import {
   TableSortLabel,
   TextField,
   MenuItem,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
 
 export default function ComplianceForm() {
@@ -47,6 +50,8 @@ export default function ComplianceForm() {
     key: 'createdAt',
     direction: 'desc',
   });
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
   useEffect(() => {
     if (data) setRequests(data);
@@ -71,6 +76,7 @@ export default function ComplianceForm() {
   };
 
   const handleSort = (key) => {
+    if (key === 'actions') return; // 🚫 disable sorting on Action
     setSortConfig((prev) =>
       prev.key === key
         ? { key, direction: prev.direction === 'asc' ? 'desc' : 'asc' }
@@ -98,6 +104,12 @@ export default function ComplianceForm() {
     });
   }, [filteredRequests, sortConfig]);
 
+  // 📄 Pagination
+  const total = sortedRequests.length;
+  const totalPages = Math.ceil(total / limit);
+  const startIndex = (page - 1) * limit;
+  const paginatedRequests = sortedRequests.slice(startIndex, startIndex + limit);
+
   const searchFields = [
     { value: 'businessName', label: 'Business Name' },
     { value: 'bidNumber', label: 'BID Number' },
@@ -118,9 +130,8 @@ export default function ComplianceForm() {
     { key: 'actions', label: 'Action' },
   ];
 
-  return (
+ return (
     <Box p={3}>
-      {/* 🔙 Back Button */}
       <Button
         variant="outlined"
         color="secondary"
@@ -131,10 +142,10 @@ export default function ComplianceForm() {
       </Button>
 
       <Typography variant="h6" fontWeight="bold" mb={3}>
-        🧾 Requests Awaiting Compliance
+        🧾 Requests Awaiting Verification
       </Typography>
 
-      {/* 🔍 Search Controls */}
+      {/* 🔍 Search + Rows per page */}
       <Stack direction="row" spacing={2} mb={3}>
         <TextField
           select
@@ -154,16 +165,41 @@ export default function ComplianceForm() {
           label={`Search by ${searchFields.find((f) => f.value === searchField)?.label}`}
           variant="outlined"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1);
+          }}
           fullWidth
         />
+
+        <FormControl sx={{ width: 160 }}>
+          <InputLabel>Rows per page</InputLabel>
+          <Select
+            value={limit}
+            label="Rows per page"
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            {[10, 20, 30, 50].map((size) => (
+              <MenuItem key={size} value={size}>
+                {size}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Stack>
+
+      <Typography variant="body2" sx={{ mb: 1, fontStyle: 'italic' }}>
+        Showing {startIndex + 1}–{Math.min(startIndex + limit, total)} of {total} requests
+      </Typography>
 
       {/* ⏳ Loading */}
       {isLoading && (
         <Stack alignItems="center" mt={4}>
           <CircularProgress />
-          <Typography mt={2}>Loading compliance requests...</Typography>
+          <Typography mt={2}>Loading verification requests...</Typography>
         </Stack>
       )}
 
@@ -174,19 +210,22 @@ export default function ComplianceForm() {
         </Typography>
       )}
 
-      {/* 📊 Table */}
+      {/* 📋 Table */}
       {!isLoading && !isError && (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
               <TableRow>
                 {columns.map((col) => (
-                  <TableCell key={col.key}>
+                  <TableCell
+                    key={col.key}
+                    sx={{ cursor: col.key !== 'actions' ? 'pointer' : 'default', fontWeight: 'bold' }}
+                    onClick={() => handleSort(col.key)}
+                  >
                     {col.key !== 'actions' ? (
                       <TableSortLabel
                         active={sortConfig.key === col.key}
                         direction={sortConfig.key === col.key ? sortConfig.direction : 'asc'}
-                        onClick={() => handleSort(col.key)}
                       >
                         {col.label}
                       </TableSortLabel>
@@ -199,8 +238,8 @@ export default function ComplianceForm() {
             </TableHead>
 
             <TableBody>
-              {sortedRequests.length > 0 ? (
-                sortedRequests.map((req) => (
+              {paginatedRequests.length > 0 ? (
+                paginatedRequests.map((req) => (
                   <TableRow key={req._id} hover>
                     <TableCell>{req.requestType}</TableCell>
                     <TableCell>{req.bidNumber}</TableCell>
@@ -209,16 +248,18 @@ export default function ComplianceForm() {
                     <TableCell>{req.businessType}</TableCell>
                     <TableCell>{req.businessAddress}</TableCell>
                     <TableCell>
-                      {new Date(req.createdAt).toLocaleString('en-PH')}
+                      {req.createdAt
+                        ? new Date(req.createdAt).toLocaleString('en-PH')
+                        : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Button
                         variant="contained"
                         color="primary"
                         size="small"
-                        onClick={() => handleEncode(req._id)}
+                        onClick={() => handleVerify(req._id)}
                       >
-                        Check
+                        Verify
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -226,13 +267,44 @@ export default function ComplianceForm() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} align="center">
-                    No requests awaiting compliance.
+                    No pending verification requests found.
                   </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
+      )}
+
+      {/* 📄 Pagination */}
+      {!isLoading && !isError && total > 0 && (
+        <Stack
+          direction="row"
+          spacing={2}
+          justifyContent="flex-end"
+          alignItems="center"
+          sx={{ mt: 2 }}
+        >
+          <Typography variant="body2">
+            Page {page} of {totalPages || 1}
+          </Typography>
+
+          <Box>
+            <button
+              onClick={() => setPage((p) => Math.max(p - 1, 1))}
+              disabled={page === 1}
+              style={{ marginRight: '8px' }}
+            >
+              Prev
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+              disabled={page === totalPages}
+            >
+              Next
+            </button>
+          </Box>
+        </Stack>
       )}
     </Box>
   );

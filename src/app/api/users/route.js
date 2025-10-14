@@ -10,7 +10,7 @@ async function sendVerificationEmail(email, code) {
 
   try {
     await resend.emails.send({
-      from: "Pasig City Sanitation <noreply@pasigsanitation-project.site>", // or your verified sender domain
+      from: "Pasig City Sanitation <noreply@pasigsanitation-project.site>",
       to: email,
       subject: "Verify your email - Pasig Sanitation Online Service",
       html: `
@@ -48,7 +48,7 @@ export async function GET(request) {
     return NextResponse.json({ users: formattedUsers }, { status: 200 });
   } catch (err) {
     console.error("❌ Error fetching users:", err);
-    return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to fetch users." }, { status: 500 });
   }
 }
 
@@ -92,7 +92,16 @@ export async function POST(request) {
     // ✅ Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return NextResponse.json({ error: "Email already registered" }, { status: 409 });
+      return NextResponse.json(
+        {
+          error: "Email already registered",
+          data: {
+            email: existingUser.email,
+            verified: existingUser.verified,
+          },
+        },
+        { status: 409 }
+      );
     }
 
     // ✅ Hash password
@@ -131,6 +140,7 @@ export async function POST(request) {
         await sendVerificationEmail(email, verificationCode);
       } catch (emailErr) {
         console.error("❌ Email send failed:", emailErr);
+        // Optional: You could still return success but warn frontend
       }
     }
 
@@ -141,12 +151,13 @@ export async function POST(request) {
           msg: "Registration successful! Please check your email for the verification code.",
           userId: newUser._id,
           email: newUser.email,
+          verified: newUser.verified,
         },
       },
       { status: 201 }
     );
   } catch (err) {
-    console.error("Registration error:", err);
-    return NextResponse.json({ error: "Failed to register user" }, { status: 500 });
+    console.error("❌ Registration error:", err);
+    return NextResponse.json({ error: "Failed to register user." }, { status: 500 });
   }
 }

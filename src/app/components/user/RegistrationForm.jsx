@@ -41,9 +41,12 @@ export default function RegistrationForm() {
   const { mutate, isLoading } = useMutation({
     mutationFn: signUpWithCompleteInfo,
     onSuccess: (data) => {
-      // When registration succeeds, redirect to verify email page
-      if (data?.data?.email) {
-        router.push(`/registration/verifyemail?email=${encodeURIComponent(data.data.email)}`);
+      const { email, verified } = data?.data || {};
+
+      if (verified) {
+        router.push("/login"); // Already verified, skip verification
+      } else if (email) {
+        router.push(`/registration/verifyemail?email=${encodeURIComponent(email)}`);
       } else {
         router.push("/registration/verifyemail");
       }

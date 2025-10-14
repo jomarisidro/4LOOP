@@ -14,14 +14,20 @@ export async function POST(request) {
     const user = await User.findOne({ email });
     if (!user) {
       console.warn(`Login failed: user not found for email ${email}`);
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Invalid credentials." },
+        { status: 401 }
+      );
     }
 
     // 🚫 Block if email not verified
     if (!user.verified) {
       console.warn(`Login blocked: email not verified for ${email}`);
       return NextResponse.json(
-        { error: "Email not verified. Please verify your account before logging in." },
+        {
+          success: false,
+          error: "Email not verified. Please verify your account before logging in.",
+        },
         { status: 403 }
       );
     }
@@ -30,7 +36,10 @@ export async function POST(request) {
     if (user.role === "officer" && user.accountDisabled === true) {
       console.warn(`Login blocked: officer account locked for ${email}`);
       return NextResponse.json(
-        { error: "Your account has been locked by the admin." },
+        {
+          success: false,
+          error: "Your account has been locked by the admin.",
+        },
         { status: 403 }
       );
     }
@@ -39,26 +48,37 @@ export async function POST(request) {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       console.warn(`Login failed: password mismatch for email ${email}`);
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Invalid credentials." },
+        { status: 401 }
+      );
     }
 
     // ✅ Set session cookie
     await login(user);
+    console.log(`✅ Login successful for ${email}`);
 
     // 🧼 Send safe user info
     const safeUser = {
       _id: user._id,
       email: user.email,
       role: user.role,
-      accountDisabled: user.accountDisabled || false, // include for frontend use
+      accountDisabled: user.accountDisabled || false,
     };
 
-    return NextResponse.json({
-      msg: "Login successful",
-      user: safeUser,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Login successful.",
+        user: safeUser,
+      },
+      { status: 200 }
+    );
   } catch (err) {
-    console.error("Login error:", err);
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+    console.error("❌ Login error:", err);
+    return NextResponse.json(
+      { success: false, error: "Login failed due to a server error." },
+      { status: 500 }
+    );
   }
 }

@@ -13,16 +13,18 @@ import {
   TableHead,
   TextField,
   MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { getAddOwnerBusiness } from '@/app/services/BusinessService';
 
 export default function BusinessesForm() {
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   const { data } = useQuery({
     queryKey: ['business-list'],
@@ -34,8 +36,8 @@ export default function BusinessesForm() {
   const [searchField, setSearchField] = useState('businessName');
   const [sortField, setSortField] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
-  const [newId, setNewId] = useState(null);
-  const [newBusiness, setNewBusiness] = useState({});
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
 
   useEffect(() => {
     if (data?.data) {
@@ -66,34 +68,55 @@ export default function BusinessesForm() {
     }
   };
 
-  const filteredBusinesses = businesses
-    .filter((business) => {
-      const value = business[searchField];
-      if (!value) return false;
-      return String(value).toLowerCase().includes(searchTerm.toLowerCase());
-    })
-    .sort((a, b) => {
-      if (!sortField) return 0;
-      const valA = a[sortField];
-      const valB = b[sortField];
+  const filteredBusinesses = useMemo(() => {
+    let result = [...businesses];
 
-      if (valA == null) return 1;
-      if (valB == null) return -1;
+    // 🔍 Search filter (instant)
+    if (searchTerm) {
+      result = result.filter((business) => {
+        const value = business[searchField];
+        return value
+          ? String(value).toLowerCase().includes(searchTerm.toLowerCase())
+          : false;
+      });
+    }
 
-      if (typeof valA === 'string') {
-        return sortDirection === 'asc'
-          ? valA.localeCompare(valB)
-          : valB.localeCompare(valA);
-      }
+    // ↕️ Sorting
+    if (sortField) {
+      result.sort((a, b) => {
+        const valA = a[sortField];
+        const valB = b[sortField];
+        if (valA == null) return 1;
+        if (valB == null) return -1;
+        if (typeof valA === 'string') {
+          return sortDirection === 'asc'
+            ? valA.localeCompare(valB)
+            : valB.localeCompare(valA);
+        }
+        return sortDirection === 'asc' ? valA - valB : valB - valA;
+      });
+    }
 
-      return sortDirection === 'asc' ? valA - valB : valB - valA;
-    });
+    return result;
+  }, [businesses, searchTerm, searchField, sortField, sortDirection]);
+
+  // Pagination
+  const startIndex = (page - 1) * limit;
+  const paginatedBusinesses = filteredBusinesses.slice(
+    startIndex,
+    startIndex + limit
+  );
+
+  const total = filteredBusinesses.length;
+  const totalPages = Math.ceil(total / limit);
 
   return (
     <Paper elevation={2} sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom><b>Business Details</b></Typography>
+      <Typography variant="h6" gutterBottom>
+        <b>Business Details</b>
+      </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <TextField
           select
           label="Search Field"
@@ -110,12 +133,38 @@ export default function BusinessesForm() {
 
         <TextField
           fullWidth
-          label={`Search by ${fields.find(f => f.field === searchField)?.label}`}
+          label={`Search by ${fields.find((f) => f.field === searchField)?.label}`}
           variant="outlined"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(e) => {
+            setSearchTerm(e.target.value);
+            setPage(1); // Reset to first page when typing
+          }}
         />
-      </Box>
+
+        <FormControl sx={{ width: 120 }}>
+          <InputLabel>Rows per page</InputLabel>
+          <Select
+            value={limit}
+            label="Rows per page"
+            onChange={(e) => {
+              setLimit(Number(e.target.value));
+              setPage(1);
+            }}
+          >
+            {[10, 20, 30, 50].map((size) => (
+              <MenuItem key={size} value={size}>
+                {size}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+
+      <Typography variant="body2" sx={{ mb: 1, fontStyle: 'italic' }}>
+        Showing {startIndex + 1}–{Math.min(startIndex + limit, total)} of {total}{' '}
+        businesses
+      </Typography>
 
       <TableContainer>
         <Table size="small">
@@ -134,23 +183,13 @@ export default function BusinessesForm() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {filteredBusinesses.map((business) => (
+            {paginatedBusinesses.map((business) => (
               <TableRow key={business._id}>
                 {fields.map(({ field }) => (
                   <TableCell key={field}>
-                    {newId === business._id && field !== 'createdAt' && field !== 'updatedAt' ? (
-                      <TextField
-                        fullWidth
-                        value={newBusiness[field] || business[field] || ''}
-                        onChange={(e) =>
-                          setNewBusiness({ ...newBusiness, [field]: e.target.value })
-                        }
-                      />
-                    ) : field === 'createdAt' || field === 'updatedAt' ? (
-                      new Date(business[field]).toLocaleString('en-PH')
-                    ) : (
-                      business[field]
-                    )}
+                    {field === 'createdAt' || field === 'updatedAt'
+                      ? new Date(business[field]).toLocaleString('en-PH')
+                      : business[field]}
                   </TableCell>
                 ))}
               </TableRow>
@@ -158,6 +197,35 @@ export default function BusinessesForm() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Pagination Controls */}
+      <Stack
+        direction="row"
+        spacing={2}
+        justifyContent="flex-end"
+        alignItems="center"
+        sx={{ mt: 2 }}
+      >
+        <Typography variant="body2">
+          Page {page} of {totalPages || 1}
+        </Typography>
+
+        <Box>
+          <button
+            onClick={() => setPage((p) => Math.max(p - 1, 1))}
+            disabled={page === 1}
+            style={{ marginRight: '8px' }}
+          >
+            Prev
+          </button>
+          <button
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages))}
+            disabled={page === totalPages}
+          >
+            Next
+          </button>
+        </Box>
+      </Stack>
     </Paper>
   );
 }
