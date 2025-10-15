@@ -66,37 +66,37 @@ export default function BusinessesForm() {
     }
   };
 
-const filteredBusinesses = businesses
-  .filter((business) => {
-    const value = business[searchField];
-    if (!value) return false;
+  const filteredBusinesses = businesses
+    .filter((business) => {
+      const value = business[searchField];
+      if (!value) return false;
 
-    const term = searchTerm.toLowerCase().trim();
+      const term = searchTerm.toLowerCase().trim();
 
-    // ✅ Handle "Line of Business" specifically
-    if (searchField === 'businessType') {
-      const type = String(value).toLowerCase().trim();
+      // ✅ Handle "Line of Business" specifically
+      if (searchField === 'businessType') {
+        const type = String(value).toLowerCase().trim();
 
-      // Only include if the type is "food" or "non-food"
-      const allowed = ['food', 'non-food'];
-      if (!allowed.includes(type)) return false;
+        // Only include if the type is "food" or "non-food"
+        const allowed = ['food', 'non-food'];
+        if (!allowed.includes(type)) return false;
 
-      // If user didn't type anything, show both Food and Non-Food
-      if (!term) return true;
+        // If user didn't type anything, show both Food and Non-Food
+        if (!term) return true;
 
-      // Normalize spacing/hyphen in search input
-      const normalizedTerm = term.replace(/\s+/g, '-');
+        // Normalize spacing/hyphen in search input
+        const normalizedTerm = term.replace(/\s+/g, '-');
 
-      // Match logic
-      if (normalizedTerm === 'food') return type.includes('food');
-      if (normalizedTerm === 'non-food' || term.includes('non')) return type.includes('non-food');
+        // Match logic
+        if (normalizedTerm === 'food') return type.includes('food');
+        if (normalizedTerm === 'non-food' || term.includes('non')) return type.includes('non-food');
 
-      return type.includes(normalizedTerm);
-    }
+        return type.includes(normalizedTerm);
+      }
 
-    // ✅ Normal case for all other fields
-    return String(value).toLowerCase().includes(term);
-  })
+      // ✅ Normal case for all other fields
+      return String(value).toLowerCase().includes(term);
+    })
 
 
   return (
