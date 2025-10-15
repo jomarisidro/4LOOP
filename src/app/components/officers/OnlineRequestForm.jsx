@@ -61,7 +61,7 @@ export default function VerificationOfRequestForm() {
 
     try {
       localStorage.setItem('acceptedRequestId', _id);
-      router.push(`/officers/workbench/acceptedonlyrequest?id=${_id}`);
+      router.push(`/officers/workbench/acceptedonlinerequest?id=${_id}`);
     } catch (err) {
       console.error('❌ Failed to update status:', err);
     }

@@ -40,40 +40,40 @@ export default function AddbusinessForm() {
       businessAddress: '',
       contactPerson: '',
       contactNumber: '',
-    
+
     },
     resolver: yupResolver(schema),
   });
 
 
 
-const queryClient = useQueryClient();
+  const queryClient = useQueryClient();
 
-const { mutate } = useMutation({
-  mutationFn: addOwnerBusiness,
-  onSuccess: (data) => {
-  alert('A new business has been successfully saved to your account.');
+  const { mutate } = useMutation({
+    mutationFn: addOwnerBusiness,
+    onSuccess: (data) => {
+      alert('A new business has been successfully saved to your account.');
 
-  console.log('Business has been successfully saved!', data?.data);
+      console.log('Business has been successfully saved!', data?.data);
 
-  queryClient.invalidateQueries(['business-list']);
-  router.push('/businessowner/businesses/businesslist');
-},
+      queryClient.invalidateQueries(['business-list']);
+      router.push('/businessowner/businesses/businesslist');
+    },
 
-  onError: (err) => {
-    console.error('Request Error:', err);
-  },
-});
+    onError: (err) => {
+      console.error('Request Error:', err);
+    },
+  });
 
 
 const onSubmit = (data) => {
   const payload = {
     ...data,
-    status: 'draft', // ✅ Explicitly mark as draft
+    status: 'draft',
   };
 
-  mutate(payload);
-  router.push('/businessowner/businesses/businesslist');
+  console.log('Submitting payload:', payload); // Debug
+  mutate(payload); // Let onSuccess handle navigation
 };
 
 
@@ -89,9 +89,6 @@ const onSubmit = (data) => {
 
   return (
     <>
-
-    
-
       <div className="grid grid-cols-2 gap-6 mb-8 max-w-4xl">
         <div
           onClick={() => router.push('/businessowner/businesses/businesslist')}
@@ -154,7 +151,7 @@ const onSubmit = (data) => {
           helperText={errors?.businessAddress?.message}
         />
 
-             <RHFTextField
+        <RHFTextField
           control={control}
           name="landmark"
           label="Landmark*"

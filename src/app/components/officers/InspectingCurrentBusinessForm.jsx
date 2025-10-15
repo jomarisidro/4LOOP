@@ -125,6 +125,10 @@ export default function InspectingCurrentBusinessForm() {
         ? currentTicket?.createdAt || new Date().toISOString()
         : dateReinspected;
 
+    // ✅ Get logged-in officer info (from localStorage or sessionStorage)
+    const officerInCharge =
+      localStorage.getItem('loggedUserId') || sessionStorage.getItem('userId');
+
     const inspectionChecklist = {
       sanitaryPermit: scores.sanitaryPermit,
       healthCertificates: {
@@ -134,11 +138,12 @@ export default function InspectingCurrentBusinessForm() {
       },
       certificateOfPotability: scores.certificateOfPotability,
       pestControl: scores.pestControl,
-      sanitaryOrder01: scores.sanitaryOrder1, // renamed
-      sanitaryOrder02: scores.sanitaryOrder2, // renamed
+      sanitaryOrder01: scores.sanitaryOrder1,
+      sanitaryOrder02: scores.sanitaryOrder2,
     };
 
     if (inspectionNumber === 1) {
+      // ✅ Include officerInCharge in POST
       await axios.post(`/api/ticket`, {
         businessId,
         inspectionDate,
@@ -147,8 +152,10 @@ export default function InspectingCurrentBusinessForm() {
         remarks,
         inspectionChecklist,
         inspectionStatus: 'completed',
+        officerInCharge, // ✅ added field
       });
     } else {
+      // ✅ Include officerInCharge in PUT
       await axios.put(`/api/ticket/${currentTicket._id}`, {
         inspectionDate,
         inspectionType: 'reinspection',
@@ -157,6 +164,7 @@ export default function InspectingCurrentBusinessForm() {
         inspectionChecklist,
         inspectionStatus: 'completed',
         inspectionNumber,
+        officerInCharge, // ✅ added field
       });
     }
 
@@ -167,6 +175,7 @@ export default function InspectingCurrentBusinessForm() {
     console.error('❌ Ticket error:', err.response?.data || err);
   }
 };
+
 
 
   if (!id) return <Typography color="error">❌ No ticket ID provided</Typography>;
