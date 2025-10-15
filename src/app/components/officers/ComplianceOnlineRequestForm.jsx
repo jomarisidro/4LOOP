@@ -215,8 +215,6 @@ export default function ComplianceOnlineRequestForm() {
     return val;
   };
 
-
-
   return (
     <Box className="w-full bg-white shadow rounded-lg p-6">
       {/* Back Button */}
