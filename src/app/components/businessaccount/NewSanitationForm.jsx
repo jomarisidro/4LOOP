@@ -998,67 +998,124 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
         </div>
 
-        {/* Penalty Record Section */}
-        <fieldset
-          disabled={isNew}
-          className={isNew ? 'opacity-50 pointer-events-none' : ''}
-        >
-          <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-            <div className="grid grid-cols-[2fr_1fr] gap-6">
-              <div>
-                <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full table-auto border-separate border-spacing-y-4">
-                    <thead>
-                      <tr className="bg-transparent text-sm text-gray-700 text-center">
-                        <th className="px-2 py-1">Checklist</th>
-                        <th className="px-2 py-1">Offense</th>
-                        <th className="px-2 py-1">Year</th>
-                        <th className="px-2 py-1">OR Date</th>
-                        <th className="px-2 py-1">OR Number</th>
-                        <th className="px-2 py-1">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => (
-                        <tr key={label} className="bg-white shadow-sm rounded-md">
-                          <td className="px-2 py-1 text-sm text-gray-700">
-                            <label className="flex items-center gap-2">
-                              <input type="checkbox" className="form-checkbox text-blue-600" />
-                              {label}
-                            </label>
-                          </td>
-                          <td className="px-2 py-1">
-                            <RHFTextField control={control} name={`penaltyRecords.${index}.offense`} variant="standard" className="w-full" />
-                          </td>
-                          <td className="px-2 py-1">
-                            <RHFTextField control={control} name={`penaltyRecords.${index}.year`} variant="standard" className="w-full" />
-                          </td>
-                          <td className="px-2 py-1">
-                            <RHFTextField control={control} name={`penaltyRecords.${index}.orDateHealthCert`} variant="standard" className="w-full" />
-                          </td>
-                          <td className="px-2 py-1">
-                            <RHFTextField control={control} name={`penaltyRecords.${index}.orNumberHealthCert`} variant="standard" className="w-full" />
-                          </td>
-                          <td className="px-2 py-1">
-                            <RHFTextField control={control} name={`penaltyRecords.${index}.amount`} variant="standard" className="w-full" />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+    {/* Penalty Record Section */}
+<fieldset disabled={isNew} className={isNew ? 'opacity-50 pointer-events-none' : ''}>
+  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+    <div className="grid grid-cols-[2fr_1fr] gap-6">
+      <div>
+        <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-auto border-separate border-spacing-y-4">
+            <thead>
+              <tr className="bg-transparent text-sm text-gray-700 text-center">
+                <th className="px-2 py-1">Checklist</th>
+                <th className="px-2 py-1">Offense</th>
+                <th className="px-2 py-1">Year (Inspection Date)</th>
+                <th className="px-2 py-1">OR Date</th>
+                <th className="px-2 py-1">OR Number</th>
+                <th className="px-2 py-1">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => {
+                const inspection = businessData?.inspectionRecords?.[index];
+                const hasInspection = !!inspection?.date;
 
-              {/* Right Column: Verification */}
-              <div className="flex flex-col justify-center text-sm text-gray-700">
-                <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
-                <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
-                <p className="uppercase">Revenue Unit Supervisor</p>
-              </div>
-            </div>
-          </div>
-        </fieldset>
+                return (
+                  <tr key={label} className="bg-white shadow-sm rounded-md">
+                    {/* Checklist */}
+                    <td className="px-2 py-1 text-sm text-gray-700">
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" className="form-checkbox text-blue-600" />
+                        {label}
+                      </label>
+                    </td>
+
+                    {/* Offense → auto-fill with checklist label */}
+                    <td className="px-2 py-1">
+                      <RHFTextField
+                        control={control}
+                        name={`penaltyRecords.${index}.offense`}
+                        variant="standard"
+                        className="w-full"
+                        value={label}
+                        InputProps={{
+                          readOnly: true,
+                          style: { backgroundColor: '#f5f5f5' },
+                        }}
+                      />
+                    </td>
+
+                    {/* Year → auto-fill with inspection date or editable */}
+                    <td className="px-2 py-1">
+                      <RHFTextField
+                        control={control}
+                        name={`penaltyRecords.${index}.year`}
+                        type="date"
+                        variant="standard"
+                        className="w-full"
+                        defaultValue={
+                          hasInspection
+                            ? new Date(inspection.date).toISOString().split('T')[0]
+                            : ''
+                        }
+                        InputProps={{
+                          readOnly: hasInspection,
+                          style: hasInspection
+                            ? { backgroundColor: '#f5f5f5', color: '#555' }
+                            : {},
+                        }}
+                      />
+                    </td>
+
+                    {/* OR Date */}
+                    <td className="px-2 py-1">
+                      <RHFTextField
+                        control={control}
+                        name={`penaltyRecords.${index}.orDateHealthCert`}
+                        type="date"
+                        variant="standard"
+                        className="w-full"
+                      />
+                    </td>
+
+                    {/* OR Number */}
+                    <td className="px-2 py-1">
+                      <RHFTextField
+                        control={control}
+                        name={`penaltyRecords.${index}.orNumberHealthCert`}
+                        variant="standard"
+                        className="w-full"
+                      />
+                    </td>
+
+                    {/* Amount */}
+                    <td className="px-2 py-1">
+                      <RHFTextField
+                        control={control}
+                        name={`penaltyRecords.${index}.amount`}
+                        variant="standard"
+                        className="w-full"
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Right Column: Verification */}
+      <div className="flex flex-col justify-center text-sm text-gray-700">
+        <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
+        <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
+        <p className="uppercase">Revenue Unit Supervisor</p>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
 
 
 
