@@ -60,7 +60,7 @@ export default function VerificationOfRequestForm() {
     if (!selected) return;
 
     try {
-      localStorage.setItem('underverificationRequestId', _id);
+      localStorage.setItem('verificationRequestId', _id);
       router.push(`/officers/workbench/verifyonlinerequest?id=${_id}`);
     } catch (err) {
       console.error('❌ Failed to update status:', err);

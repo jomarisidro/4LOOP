@@ -52,7 +52,7 @@ export default function VerifyOnlineRequestForm() {
       setRemark('');
       refetch();
       await queryClient.invalidateQueries(['verification-requests']);
-      localStorage.removeItem('underverificationRequestId');
+      localStorage.removeItem('verificationRequestId');
       router.push('/officers/workbench/verification');
     } catch (err) {
       console.error('❌ Update failed:', err);
@@ -83,7 +83,7 @@ export default function VerifyOnlineRequestForm() {
     if (val instanceof Date) return val.toLocaleString('en-PH');
     return val;
   };
-
+localStorage
   // Main Layout
   return (
     <Box className="w-full bg-white shadow rounded-lg p-6">

@@ -110,6 +110,7 @@ const msrOptions = [
       setRemark('');
       refetch();
       localStorage.removeItem('complianceRequestId');
+      queryClient.invalidateQueries(['compliance-requests']);
       router.push('/officers/workbench/compliance');
     } catch (err) {
       console.error('❌ Update failed:', err);

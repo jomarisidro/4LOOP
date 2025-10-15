@@ -31,7 +31,7 @@ export default function VerificationOfRequestForm() {
 
   // 🔄 Fetch all "pending" requests
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['verification-requests'],
+    queryKey: ['online-requests'],
     queryFn: async () => {
       const onlinerequest = await getSanitationOnlineRequest();
       const allRequests = [...(onlinerequest?.data || [])];
@@ -60,14 +60,14 @@ export default function VerificationOfRequestForm() {
     if (!selected) return;
 
     try {
-      localStorage.setItem('underverificationRequestId', _id);
-      router.push(`/officers/workbench/verifyonlinerequest?id=${_id}`);
+      localStorage.setItem('acceptedRequestId', _id);
+      router.push(`/officers/workbench/acceptedonlyrequest?id=${_id}`);
     } catch (err) {
       console.error('❌ Failed to update status:', err);
     }
 
     setRequests((prev) => prev.filter((req) => req._id !== _id));
-    queryClient.invalidateQueries(['verification-requests']);
+    queryClient.invalidateQueries(['online-requests']);
   };
 
   const searchFields = [
@@ -210,7 +210,7 @@ export default function VerificationOfRequestForm() {
       {isLoading && (
         <Stack alignItems="center" mt={4}>
           <CircularProgress />
-          <Typography mt={2}>Loading verification requests...</Typography>
+          <Typography mt={2}>Loading online requests...</Typography>
         </Stack>
       )}
 
@@ -278,7 +278,7 @@ export default function VerificationOfRequestForm() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={8} align="center">
-                    No pending verification requests found.
+                    No pending online requests found.
                   </TableCell>
                 </TableRow>
               )}

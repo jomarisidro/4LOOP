@@ -70,6 +70,7 @@ const BusinessSchema = new Schema(
         'pending2',
         'pending3',
         'completed',
+        'released',
         'expired'
       ],
       default: 'draft'
