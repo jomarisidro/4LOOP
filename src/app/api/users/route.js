@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
-import { decrypt } from "@/lib/Auth"; // 🔐 Session validation
 
 // ✅ Helper: Send verification email using Resend
 async function sendVerificationEmail(email, code) {
@@ -32,64 +31,24 @@ async function sendVerificationEmail(email, code) {
 export async function GET(request) {
   await connectMongoDB();
 
-  const token = request.cookies.get("session")?.value;
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const session = await decrypt(token);
-    const { id: sessionId, role } = session?.user || {};
-
     const { searchParams } = new URL(request.url);
-    const targetId = searchParams.get("id");       // Used to fetch specific user
-    const filterRole = searchParams.get("role");   // Used by admin to filter
+    const role = searchParams.get("role");
 
-    if (!sessionId || !role) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 403 });
-    }
-
-    // 🔐 Admin can fetch any user list
-    if (role === "admin") {
-      const query = filterRole ? { role: filterRole } : {};
-      const users = await User.find(query)
-        .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
-        .lean();
-
-      const formattedUsers = users.map(u => ({
-        ...u,
-        status: u.accountDisabled ? "disabled" : "active",
-      }));
-
-      return NextResponse.json({ users: formattedUsers }, { status: 200 });
-    }
-
-    // 🔐 Business or Officer can only fetch their own data
-    if (targetId && targetId !== sessionId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const user = await User.findById(sessionId)
+    const query = role ? { role } : {};
+    const users = await User.find(query)
       .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
       .lean();
 
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    const formattedUsers = users.map(u => ({
+      ...u,
+      status: u.accountDisabled ? "disabled" : "active",
+    }));
 
-    if (user.role !== role) {
-      return NextResponse.json({ error: "Role mismatch" }, { status: 403 });
-    }
-
-    return NextResponse.json({
-      user: {
-        ...user,
-        status: user.accountDisabled ? "disabled" : "active",
-      },
-    }, { status: 200 });
+    return NextResponse.json({ users: formattedUsers }, { status: 200 });
   } catch (err) {
-    console.error("❌ Error fetching user:", err);
-    return NextResponse.json({ error: "Failed to fetch user." }, { status: 500 });
+    console.error("❌ Error fetching users:", err);
+    return NextResponse.json({ error: "Failed to fetch users." }, { status: 500 });
   }
 }
 
@@ -144,10 +103,8 @@ export async function POST(request) {
         { status: 409 }
       );
     }
-
     // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
     // ✅ Create verification code for business
     let verificationCode = null;
     let verificationExpiry = null;
@@ -156,7 +113,6 @@ export async function POST(request) {
       verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     }
-
     // ✅ Create user
     const newUser = await User.create({
       email,
@@ -192,7 +148,7 @@ export async function POST(request) {
         userId: newUser._id,
         email: newUser.email,
         verified: newUser.verified,
-      },
+    },
       { status: 201 }
     );
   } catch (err) {

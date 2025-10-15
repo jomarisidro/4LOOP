@@ -3,31 +3,18 @@ import User from "@/models/User";
 import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
-import { decrypt } from "@/lib/Auth"; // ✅ Session validation
 
-export async function GET(request, context) {
+export async function GET(_request, context) {
   await connectMongoDB();
 
-  const { id } = context.params;
+  const { id } = await context.params;
   const userId = id?.trim();
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return NextResponse.json({ error: "Invalid user ID format" }, { status: 400 });
   }
 
-  // 🔐 Validate session
-  const token = request.cookies.get("session")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
-    const session = await decrypt(token);
-    const sessionUser = session?.user;
-
-    // 🚫 Only allow admin or self
-    if (sessionUser.role !== "admin" && sessionUser.id !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const user = await User.findById(userId)
       .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
       .lean();
@@ -51,26 +38,14 @@ export async function GET(request, context) {
 export async function PUT(request, context) {
   await connectMongoDB();
 
-  const { id } = context.params;
+  const { id } = await context.params;
   const userId = id?.trim();
 
   if (!mongoose.Types.ObjectId.isValid(userId)) {
     return NextResponse.json({ error: "Invalid user ID format" }, { status: 400 });
   }
 
-  // 🔐 Validate session
-  const token = request.cookies.get("session")?.value;
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   try {
-    const session = await decrypt(token);
-    const sessionUser = session?.user;
-
-    // 🚫 Only allow admin or self
-    if (sessionUser.role !== "admin" && sessionUser.id !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
     const body = await request.json();
 
     // ✅ Officer Profile / Password Update
@@ -114,9 +89,7 @@ export async function PUT(request, context) {
       return NextResponse.json({ error: "Verification code and email are required." }, { status: 400 });
     }
 
-    const user = await User.findById(userId);
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-
+  
     if (user.verified) {
       return NextResponse.json({ message: "User already verified", verified: true }, { status: 200 });
     }

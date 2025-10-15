@@ -17,8 +17,8 @@ export async function GET() {
     // Fetch businesses relevant to this user (business owner or officer)
     const filter =
       role === "business"
-        ? { businessAccount: userId, status: { $in: ["pending", "pending2", "pending3", "completed"] } }
-        : { status: { $in: ["pending", "pending2", "pending3", "completed"] } };
+        ? { businessAccount: userId, status: { $in: ["pending", "pending2", "pending3", "completed", "released"] } }
+        : { status: { $in: ["pending", "pending2", "pending3", "completed", "released"] } };
 
     const businesses = await Business.find(filter)
       .select("bidNumber businessName status")
@@ -43,6 +43,10 @@ export async function GET() {
 
         case "completed":
           message = `BID-${biz.bidNumber}: Your request for "${biz.businessName}" has been approved! Please proceed to the office to claim your printed Sanitary Permit.`;
+          break;
+
+        case "released  ":
+          message = `BID-${biz.bidNumber}: Your request for "${biz.businessName}" has been released. Thank you!`;
           break;
 
         default:
