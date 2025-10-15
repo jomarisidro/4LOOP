@@ -96,6 +96,7 @@ export async function GET(request, { params }) {
     );
   }
 }
+
 export async function PUT(request, { params }) {
   await connectMongoDB();
 
@@ -104,8 +105,8 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = await params;
-  const { role, id: userId } = session.user;
+  const { id } = params;
+  const { role, id: userId, fullName } = session.user; // ✅ include fullName
   const body = await request.json();
 
   const updateFields = {};
@@ -113,34 +114,61 @@ export async function PUT(request, { params }) {
   if (body.newRequestType) updateFields.requestType = body.newRequestType;
   if (body.newBidNumber) updateFields.bidNumber = body.newBidNumber;
   if (body.newBusinessName) updateFields.businessName = body.newBusinessName;
-  if (body.newBusinessNickname) updateFields.businessNickname = body.newBusinessNickname;
-  if (body.newBusinessEstablishment) updateFields.businessEstablishment = body.newBusinessEstablishment;
+  if (body.newBusinessNickname)
+    updateFields.businessNickname = body.newBusinessNickname;
+  if (body.newBusinessEstablishment)
+    updateFields.businessEstablishment = body.newBusinessEstablishment;
   if (body.newBusinessType) updateFields.businessType = body.newBusinessType;
-  if (body.newBusinessAddress) updateFields.businessAddress = body.newBusinessAddress;
+  if (body.newBusinessAddress)
+    updateFields.businessAddress = body.newBusinessAddress;
   if (body.newStatus) updateFields.status = body.newStatus;
   if (body.newRequirements) updateFields.requirements = body.newRequirements;
-  if (body.newContactPerson) updateFields.contactPerson = body.newContactPerson;
-  if (body.newContactNumber) updateFields.contactNumber = body.newContactNumber;
+  if (body.newContactPerson)
+    updateFields.contactPerson = body.newContactPerson;
+  if (body.newContactNumber)
+    updateFields.contactNumber = body.newContactNumber;
   if (body.newLandmark) updateFields.landmark = body.newLandmark;
   if (body.newRemarks) updateFields.remarks = body.newRemarks;
-  if (body.sanitaryPermitIssuedAt) updateFields.sanitaryPermitIssuedAt = new Date(body.sanitaryPermitIssuedAt);
-  if (body.healthCertificateChecklist) updateFields.healthCertificateChecklist = body.healthCertificateChecklist;
-  if (Array.isArray(body.sanitaryPermitChecklist)) updateFields.sanitaryPermitChecklist = body.sanitaryPermitChecklist;
-  if (Array.isArray(body.msrChecklist)) updateFields.msrChecklist = body.msrChecklist;
-  if (body.orDateHealthCert) updateFields.orDateHealthCert = new Date(body.orDateHealthCert);
-  if (body.orNumberHealthCert) updateFields.orNumberHealthCert = body.orNumberHealthCert;
-  if (typeof body.healthCertSanitaryFee === "number") updateFields.healthCertSanitaryFee = body.healthCertSanitaryFee;
-  if (typeof body.healthCertFee === "number") updateFields.healthCertFee = body.healthCertFee;
-  if (typeof body.declaredPersonnel === "number") updateFields.declaredPersonnel = body.declaredPersonnel;
-  if (body.declaredPersonnelDueDate) updateFields.declaredPersonnelDueDate = new Date(body.declaredPersonnelDueDate);
-  if (typeof body.healthCertificates === "number") updateFields.healthCertificates = body.healthCertificates;
-  if (typeof body.healthCertBalanceToComply === "number") updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
-  if (body.healthCertDueDate) updateFields.healthCertDueDate = new Date(body.healthCertDueDate);
+  if (body.sanitaryPermitIssuedAt)
+    updateFields.sanitaryPermitIssuedAt = new Date(body.sanitaryPermitIssuedAt);
+  if (body.healthCertificateChecklist)
+    updateFields.healthCertificateChecklist = body.healthCertificateChecklist;
+  if (Array.isArray(body.sanitaryPermitChecklist))
+    updateFields.sanitaryPermitChecklist = body.sanitaryPermitChecklist;
+  if (Array.isArray(body.msrChecklist))
+    updateFields.msrChecklist = body.msrChecklist;
+  if (body.orDateHealthCert)
+    updateFields.orDateHealthCert = new Date(body.orDateHealthCert);
+  if (body.orNumberHealthCert)
+    updateFields.orNumberHealthCert = body.orNumberHealthCert;
+  if (typeof body.healthCertSanitaryFee === "number")
+    updateFields.healthCertSanitaryFee = body.healthCertSanitaryFee;
+  if (typeof body.healthCertFee === "number")
+    updateFields.healthCertFee = body.healthCertFee;
+  if (typeof body.declaredPersonnel === "number")
+    updateFields.declaredPersonnel = body.declaredPersonnel;
+  if (body.declaredPersonnelDueDate)
+    updateFields.declaredPersonnelDueDate = new Date(body.declaredPersonnelDueDate);
+  if (typeof body.healthCertificates === "number")
+    updateFields.healthCertificates = body.healthCertificates;
+  if (typeof body.healthCertBalanceToComply === "number")
+    updateFields.healthCertBalanceToComply = body.healthCertBalanceToComply;
+  if (body.healthCertDueDate)
+    updateFields.healthCertDueDate = new Date(body.healthCertDueDate);
 
   try {
     const business = await findBusiness(id, userId, role);
     if (!business) {
-      return NextResponse.json({ error: "Business not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Business not found." },
+        { status: 404 }
+      );
+    }
+
+    // ✅ Auto-attach officer details when completing
+    if (role === "officer" && body.newStatus === "completed") {
+      updateFields.officerInCharge = fullName || "Unknown Officer";
+      updateFields.approvedAt = new Date(); // optional timestamp
     }
 
     const updated = await Business.findByIdAndUpdate(business._id, updateFields, {
@@ -159,6 +187,7 @@ export async function PUT(request, { params }) {
     );
   }
 }
+
 
 // 🔹 DELETE handler
 export async function DELETE(request, { params }) {

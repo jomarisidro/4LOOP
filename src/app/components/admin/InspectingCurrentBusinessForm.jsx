@@ -3,30 +3,35 @@
 import {
   Typography,
   Box,
-  Button,
-  FormControlLabel,
-  Checkbox,
-  TextField,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Paper,
+  TableContainer,
+  Button,   // <-- don't forget to import Button
 } from '@mui/material';
-import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
-// Utility to format inspection number into ordinal (1st, 2nd, 3rd, etc.)
 function formatOrdinal(n) {
-  const s = ["th", "st", "nd", "rd"];
+  const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-export default function InspectingCurrentBusinessForm() {
-  const router = useRouter();
+export default function ViewTicketInspectionForm() {
   const searchParams = useSearchParams();
-  const id = searchParams.get('id'); // ✅ get ticket id from query string
-  const queryClient = useQueryClient();
+  const id = searchParams.get('id');
+  const router = useRouter();
 
-  const { data: ticket, isLoading, isError } = useQuery({
+  const {
+    data: currentTicket,
+    isLoading: loadingTicket,
+    isError: errorTicket,
+  } = useQuery({
     queryKey: ['ticket', id],
     queryFn: async () => {
       const res = await axios.get(`/api/ticket/${id}`);
@@ -35,193 +40,125 @@ export default function InspectingCurrentBusinessForm() {
     enabled: !!id,
   });
 
-  const [checklist, setChecklist] = useState({
-    sanitaryPermit: null,
-    healthCert: null,
-    displaySanitary: null,
-    displayHealth: null,
+  const year = new Date().getFullYear();
+  const businessId = currentTicket?.business?._id;
+
+  const {
+    data: tickets,
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ['tickets', businessId, year],
+    queryFn: async () => {
+      const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
+      return res.data;
+    },
+    enabled: !!businessId,
   });
-  const [remarks, setRemarks] = useState('');
 
-  const handleChecklistChange = (field, value) => {
-    setChecklist((prev) => ({ ...prev, [field]: value }));
-  };
+  if (!id) return <Typography color="error">❌ No ticket ID provided</Typography>;
+  if (loadingTicket || isLoading) return <Typography>Loading…</Typography>;
+  if (errorTicket || isError || !tickets)
+    return <Typography color="error">❌ Failed to load tickets</Typography>;
 
-  const handleCompleteInspection = async () => {
-    try {
-      const year = new Date().getFullYear();
-
-      // 🔎 Check existing inspections for this business in the current year
-      const res = await axios.get(
-        `/api/ticket?businessId=${ticket.business._id}&year=${year}`
-      );
-      const inspectionsThisYear = res.data || [];
-
-      // Decide inspection number
-      const inspectionNumber =
-        inspectionsThisYear.length === 0
-          ? 1
-          : inspectionsThisYear.length + 1;
-
-      await axios.put(`/api/ticket/${id}`, {
-        inspectionStatus: 'completed',
-        remarks,
-        checklist,
-        inspectionNumber,
-      });
-
-      queryClient.invalidateQueries(['pending-inspections']);
-      router.push('/officers/inspections/pendinginspections');
-    } catch (err) {
-      console.error('❌ Error completing inspection:', err);
-    }
-  };
-
-  if (!id) {
-    return <Typography color="error">❌ No ticket ID provided</Typography>;
-  }
-
-  if (isLoading) {
-    return <Typography>Loading ticket...</Typography>;
-  }
-
-  if (isError || !ticket) {
-    return <Typography color="error">❌ Failed to load ticket</Typography>;
-  }
+  const sortedTickets = tickets.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
   return (
-    <Box p={4}>
+    <Box p={5}>
+      {/* Back button placed at the top */}
       <Button
         variant="outlined"
-        onClick={() => router.push('/officers/inspections/pendinginspections')}
+        color="primary"
         sx={{ mb: 2 }}
+        onClick={() => router.back()}
       >
         ← Back
       </Button>
 
-      <Typography variant="h6" fontWeight="bold" mb={2}>
-        Inspection Checklist for Ticket #{ticket.ticketNumber}
-      </Typography>
-
-      {/* Show inspection number if available */}
-      {ticket.inspectionNumber && (
+      {currentTicket?.inspectionNumber && (
         <Typography variant="subtitle1" mb={2}>
-          This is the {formatOrdinal(ticket.inspectionNumber)} inspection for {new Date().getFullYear()}.
+          This is the {formatOrdinal(currentTicket.inspectionNumber)} inspection for {year}.
         </Typography>
       )}
 
-      {/* Checklist items */}
-      <Box mb={2}>
-        <Typography>No Sanitary Permit To Operate</Typography>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.sanitaryPermit === 'compliant'}
-              onChange={() => handleChecklistChange('sanitaryPermit', 'compliant')}
-            />
-          }
-          label="Compliant"
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.sanitaryPermit === 'non-compliant'}
-              onChange={() => handleChecklistChange('sanitaryPermit', 'non-compliant')}
-            />
-          }
-          label="Non-Compliant"
-        />
-      </Box>
+      <Typography color="text.secondary" mb={2}>
+        👁️ Admin View — Read-Only Mode
+      </Typography>
 
-      <Box mb={2}>
-        <Typography>No Health Certificate Of Employees</Typography>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.healthCert === 'compliant'}
-              onChange={() => handleChecklistChange('healthCert', 'compliant')}
-            />
-          }
-          label="Compliant"
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.healthCert === 'non-compliant'}
-              onChange={() => handleChecklistChange('healthCert', 'non-compliant')}
-            />
-          }
-          label="Non-Compliant"
-        />
-      </Box>
+      <Typography variant="subtitle2" mb={1}>
+        Date of Inspection:{' '}
+        {currentTicket?.createdAt ? new Date(currentTicket.createdAt).toLocaleDateString() : '-'}
+      </Typography>
 
-      <Box mb={2}>
-        <Typography>Failure To Display - Sanitary Permit</Typography>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.displaySanitary === 'compliant'}
-              onChange={() => handleChecklistChange('displaySanitary', 'compliant')}
-            />
-          }
-          label="Compliant"
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.displaySanitary === 'non-compliant'}
-              onChange={() => handleChecklistChange('displaySanitary', 'non-compliant')}
-            />
-          }
-          label="Non-Compliant"
-        />
-      </Box>
+      <TableContainer component={Paper} sx={{ mb: 3 }}>
+        <Table sx={{ tableLayout: 'fixed', width: '100%' }}>
+          <TableHead>
+            <TableRow>
+              <TableCell align="center" sx={{ width: 70 }}>BID Number</TableCell>
+              <TableCell align="center" sx={{ width: 150 }}>Name of Establishment</TableCell>
+              <TableCell align="center" sx={{ width: 150 }}>Address</TableCell>
+              <TableCell align="center" sx={{ width: 175 }}>SP</TableCell>
+              <TableCell align="center" sx={{ width: 210 }}>HC</TableCell>
+              <TableCell align="center" sx={{ width: 50 }}>CP DW</TableCell>
+              <TableCell align="center" sx={{ width: 50 }}>PC</TableCell>
+              <TableCell align="center" sx={{ width: 50 }}>S.O 01</TableCell>
+              <TableCell align="center" sx={{ width: 50 }}>S.O 02</TableCell>
+              <TableCell align="center" sx={{ width: 150 }}>Date Re-Inspected</TableCell>
+              <TableCell align="center" sx={{ width: 250 }}>Remarks</TableCell>
+            </TableRow>
+          </TableHead>
 
-      <Box mb={2}>
-        <Typography>Failure To Display - Health Certificate</Typography>
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.displayHealth === 'compliant'}
-              onChange={() => handleChecklistChange('displayHealth', 'compliant')}
-            />
-          }
-          label="Compliant"
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={checklist.displayHealth === 'non-compliant'}
-              onChange={() => handleChecklistChange('displayHealth', 'non-compliant')}
-            />
-          }
-          label="Non-Compliant"
-        />
-      </Box>
+          <TableBody>
+            {sortedTickets.map((t) => {
+              const ic = t.inspectionChecklist || {};
+              return (
+                <TableRow key={t._id}>
+                  <TableCell>{t.business?.bidNumber}</TableCell>
+                  <TableCell>{t.business?.businessName}</TableCell>
+                  <TableCell>{t.business?.businessAddress || '-'}</TableCell>
+                  <TableCell align="center">
+                    {ic.sanitaryPermit === 'with' ? 'W/' :
+                      ic.sanitaryPermit === 'without' ? 'W/o' : '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    AC: {ic.healthCertificates?.actualCount ?? 0}, W/: {ic.healthCertificates?.withCert ?? 0}, W/o:{' '}
+                    {ic.healthCertificates?.withoutCert ?? 0}
+                  </TableCell>
+                  <TableCell align="center">
+                    {ic.certificateOfPotability === 'check' ? '✔' :
+                      ic.certificateOfPotability === 'x' ? '✘' : '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {ic.pestControl === 'check' ? '✔' :
+                      ic.pestControl === 'x' ? '✘' : '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {ic.sanitaryOrder1 === 'check' ? '✔' :
+                      ic.sanitaryOrder1 === 'x' ? '✘' : '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {ic.sanitaryOrder2 === 'check' ? '✔' :
+                      ic.sanitaryOrder2 === 'x' ? '✘' : '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    {t.dateReinspected
+                      ? new Date(t.dateReinspected).toLocaleDateString()
+                      : '-'}
+                  </TableCell>
+                  <TableCell align="center">{t.remarks || '-'}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {/* Remarks */}
-      <TextField
-        label="Remarks"
-        fullWidth
-        multiline
-        rows={3}
-        value={remarks}
-        onChange={(e) => setRemarks(e.target.value)}
-        sx={{ mb: 2 }}
-      />
-
-      <Box display="flex" gap={2}>
-        <Button variant="contained" color="primary" onClick={handleCompleteInspection}>
-          Complete Inspection
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={() => router.push('/officers/inspections/pendinginspections')}
-        >
-          Cancel
-        </Button>
-      </Box>
+      <Typography variant="body2" color="text.secondary">
+        Officer in Charge:{' '}
+        {typeof currentTicket?.officerInCharge === 'object'
+          ? `${currentTicket.officerInCharge.fullName || ''} (${currentTicket.officerInCharge.email || ''})`
+          : currentTicket?.officerInCharge || 'N/A'}
+      </Typography>
     </Box>
   );
 }

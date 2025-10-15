@@ -79,9 +79,10 @@ export default function CreateTicketInspectionForm() {
     return sortDirection === 'asc' ? ' ▲' : ' ▼';
   };
 
-  // Search + Filter
   useEffect(() => {
     if (!data?.data) return;
+
+    const excludedStatuses = ['pending', 'pending2', 'pending3', 'draft', 'submitted'];
 
     const filtered = data.data.filter((b) => {
       const name = b.businessName?.toLowerCase() || '';
@@ -93,9 +94,8 @@ export default function CreateTicketInspectionForm() {
           ? name.includes(q) || bid.includes(q)
           : b[searchType]?.toLowerCase().includes(q);
 
-      const isEligible =
-        (b.requestType?.toLowerCase() === 'new' && b.status === 'completed') ||
-        b.requestType?.toLowerCase() === 'renewal';
+      // ✅ Show all except those with excluded statuses
+      const isEligible = !excludedStatuses.includes(b.status?.toLowerCase());
 
       return matches && isEligible;
     });
@@ -103,6 +103,7 @@ export default function CreateTicketInspectionForm() {
     setFilteredBusinesses(filtered);
     setPage(1);
   }, [searchTerm, searchType, data]);
+
 
   // Helper for limited concurrent fetches
   async function fetchWithLimit(items, limit, fn) {
@@ -181,6 +182,39 @@ export default function CreateTicketInspectionForm() {
     fetchInspectionInfo();
   }, [page, limit, filteredBusinesses, data]);
 
+
+  async function fetchInspectionInfoForBusiness(businessId) {
+  try {
+    const [ticketRes, violationRes] = await Promise.all([
+      axios.get(`/api/ticket?businessId=${businessId}&year=${currentYear}`),
+      axios.get(`/api/violation?businessId=${businessId}`),
+    ]);
+
+    const tickets = ticketRes.data || [];
+    const completedCount = tickets.filter(
+      (t) => t.inspectionStatus === 'completed'
+    ).length;
+    const hasPending = tickets.some((t) => t.inspectionStatus === 'pending');
+
+    const violations = violationRes.data || [];
+    const activeViolation = violations.find((v) => v.status === 'pending');
+
+    setInspectionCounts((prev) => ({
+      ...prev,
+      [businessId]: {
+        completedCount,
+        hasPending,
+        violation: activeViolation
+          ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
+          : '',
+      },
+    }));
+  } catch (error) {
+    console.error('Error refreshing inspection info:', error);
+  }
+}
+
+
   // Sorting Logic
   const sortedBusinesses = useMemo(() => {
     const list = [...filteredBusinesses];
@@ -206,13 +240,13 @@ export default function CreateTicketInspectionForm() {
           valA = infoA.hasPending
             ? 'Pending Inspection'
             : infoA.completedCount >= 2
-            ? 'Max Inspections'
-            : 'Create Inspection';
+              ? 'Max Inspections'
+              : 'Create Inspection';
           valB = infoB.hasPending
             ? 'Pending Inspection'
             : infoB.completedCount >= 2
-            ? 'Max Inspections'
-            : 'Create Inspection';
+              ? 'Max Inspections'
+              : 'Create Inspection';
           break;
         default:
           valA = a[sortColumn] ?? '';
@@ -249,27 +283,40 @@ export default function CreateTicketInspectionForm() {
     setRemarks('');
   };
 
-  const handleSaveInspection = async () => {
-    if (!selectedBusiness || !inspectionDate) return;
-    try {
-      await axios.post(
-        '/api/ticket',
-        {
-          businessId: selectedBusiness._id,
-          inspectionDate,
-          remarks,
-          inspectionStatus: 'pending',
-        },
-        { withCredentials: true }
-      );
-      alert('✅ Inspection ticket created!');
-      handleCloseConfirm();
-      refetch();
-    } catch (error) {
-      console.error('Error saving inspection:', error);
-      alert('❌ Failed to save inspection.');
-    }
-  };
+ const handleSaveInspection = async () => {
+  if (!selectedBusiness || !inspectionDate) return;
+
+  try {
+    await axios.post(
+      '/api/ticket',
+      {
+        businessId: selectedBusiness._id,
+        inspectionDate,
+        remarks,
+        inspectionStatus: 'pending',
+      },
+      { withCredentials: true }
+    );
+
+    alert('✅ Inspection ticket created!');
+
+    // Close dialog
+    handleCloseConfirm();
+
+    // 🧠 Clear cache for this business so we can refresh its inspection info
+    delete inspectionCache.current[selectedBusiness._id];
+
+    // 🔁 Force reload of inspection info for updated business
+    await fetchInspectionInfoForBusiness(selectedBusiness._id);
+
+    // ✅ Also refetch the business list to reflect inspectionStatus
+    await refetch();
+  } catch (error) {
+    console.error('Error saving inspection:', error);
+    alert('❌ Failed to save inspection.');
+  }
+};
+
 
   const handleViewStatus = async (business) => {
     try {
@@ -426,8 +473,8 @@ export default function CreateTicketInspectionForm() {
                         {pending
                           ? 'Pending Inspection'
                           : maxed
-                          ? 'Max Inspections'
-                          : 'Create Inspection'}
+                            ? 'Max Inspections'
+                            : 'Create Inspection'}
                       </Button>
                       <Button
                         variant="outlined"

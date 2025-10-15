@@ -38,26 +38,45 @@ export default function PendingPermitApprovalForm() {
 
   const handleUpdate = async () => {
     try {
+      // ✅ Get logged-in officer info from session/local storage
+      const officerId =
+        sessionStorage.getItem("userId") || localStorage.getItem("loggedUserId");
+      const officerRole =
+        sessionStorage.getItem("userRole") || localStorage.getItem("loggedUserRole");
+      const officerName =
+        sessionStorage.getItem("userFullName") || localStorage.getItem("userFullName");
+      const officerEmail =
+        sessionStorage.getItem("userEmail") || localStorage.getItem("userEmail");
+
+      // ✅ Prepare officer info (fallback if not found)
+      const officerInCharge =
+        officerName ||
+        officerEmail ||
+        (officerId ? `Officer ID: ${officerId}` : "Unknown Officer");
+
       const res = await fetch(`/api/business/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           newRemarks: remark,
-          newStatus: 'completed',
+          newStatus: "completed",
+          officerInCharge, // 👈 include the officer name/email/id
         }),
       });
 
       const result = await res.json();
-      console.log('✅ Updated:', result);
-      setRemark('');
+      console.log("✅ Updated:", result);
+
+      setRemark("");
       refetch();
-      await queryClient.invalidateQueries(['permitapproval-requests']);
-      localStorage.removeItem('permitapprovalRequestId');
-      router.push('/officers/workbench/permitapproval');
+      await queryClient.invalidateQueries(["permitapproval-requests"]);
+      localStorage.removeItem("permitapprovalRequestId");
+      router.push("/officers/workbench/permitapproval");
     } catch (err) {
-      console.error('❌ Update failed:', err);
+      console.error("❌ Update failed:", err);
     }
   };
+
 
   if (isLoading) {
     return (
@@ -228,8 +247,8 @@ export default function PendingPermitApprovalForm() {
                   <div className="col-span-1 text-red-700 text-right">
                     {item.dueDate
                       ? `Due: ${new Date(
-                          item.dueDate
-                        ).toLocaleDateString('en-PH')}`
+                        item.dueDate
+                      ).toLocaleDateString('en-PH')}`
                       : 'No due date'}
                   </div>
                 </div>
