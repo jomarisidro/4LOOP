@@ -1046,27 +1046,29 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                       />
                     </td>
 
-                    {/* Year → auto-fill with inspection date or editable */}
-                    <td className="px-2 py-1">
-                      <RHFTextField
-                        control={control}
-                        name={`penaltyRecords.${index}.year`}
-                        type="date"
-                        variant="standard"
-                        className="w-full"
-                        defaultValue={
-                          hasInspection
-                            ? new Date(inspection.date).toISOString().split('T')[0]
-                            : ''
-                        }
-                        InputProps={{
-                          readOnly: hasInspection,
-                          style: hasInspection
-                            ? { backgroundColor: '#f5f5f5', color: '#555' }
-                            : {},
-                        }}
-                      />
-                    </td>
+                   {/* Year → numeric field */}
+<td className="px-2 py-1">
+  <RHFTextField
+    control={control}
+    name={`penaltyRecords.${index}.year`}
+    type="number"
+    variant="standard"
+    placeholder="YYYY"
+    inputProps={{ min: 2000, max: new Date().getFullYear() + 1 }}
+    className="w-full"
+    value={
+      hasInspection
+        ? new Date(inspection.date).getFullYear()
+        : undefined
+    }
+    InputProps={{
+      readOnly: hasInspection,
+      style: hasInspection
+        ? { backgroundColor: '#f5f5f5', color: '#555' }
+        : {},
+    }}
+  />
+</td>
 
                     {/* OR Date */}
                     <td className="px-2 py-1">
@@ -1080,6 +1082,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                     </td>
 
                     {/* OR Number */}
+                    
                     <td className="px-2 py-1">
                       <RHFTextField
                         control={control}
