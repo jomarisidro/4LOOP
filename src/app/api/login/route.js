@@ -61,7 +61,6 @@ export async function POST(request) {
     // 🧼 Send safe user info
     const safeUser = {
       _id: user._id,
-      email: user.email,
       role: user.role,
       accountDisabled: user.accountDisabled || false,
     };

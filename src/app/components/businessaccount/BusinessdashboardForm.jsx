@@ -70,7 +70,17 @@ export default function DashboardForm() {
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/notifications');
+
+         const sessionRes = await fetch('/api/session', { credentials: 'include' });
+      const sessionData = await sessionRes.json();
+
+      if (!sessionData.authenticated) {
+        console.warn('No session — skipping notification fetch');
+        return;
+      }
+
+
+        const res = await fetch('/api/notifications', {credentials: 'include'});
         const data = await res.json();
         if (res.ok) {
           setNotifications(data.notifications || []);

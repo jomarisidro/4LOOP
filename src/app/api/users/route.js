@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import User from "@/models/User";
 import bcrypt from "bcryptjs";
 import { Resend } from "resend";
+import { decrypt } from "@/lib/Auth"; // 🔐 Added for session validation
 
 // ✅ Helper: Send verification email using Resend
 async function sendVerificationEmail(email, code) {
@@ -31,11 +32,26 @@ async function sendVerificationEmail(email, code) {
 export async function GET(request) {
   await connectMongoDB();
 
-  try {
-    const { searchParams } = new URL(request.url);
-    const role = searchParams.get("role");
+  // 🔐 Validate session from cookie
+  const token = request.cookies.get("session")?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-    const query = role ? { role } : {};
+  try {
+    const session = await decrypt(token);
+    const role = session?.user?.role;
+
+    // 🚫 Block if not admin
+    if (role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    // ✅ Proceed with query
+    const { searchParams } = new URL(request.url);
+    const filterRole = searchParams.get("role");
+
+    const query = filterRole ? { role: filterRole } : {};
     const users = await User.find(query)
       .select("_id fullName email role businessAccount profilePicture assignedArea verified accountDisabled")
       .lean();
@@ -103,8 +119,10 @@ export async function POST(request) {
         { status: 409 }
       );
     }
+
     // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+
     // ✅ Create verification code for business
     let verificationCode = null;
     let verificationExpiry = null;
@@ -113,6 +131,7 @@ export async function POST(request) {
       verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
       verificationExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     }
+
     // ✅ Create user
     const newUser = await User.create({
       email,
@@ -148,7 +167,7 @@ export async function POST(request) {
         userId: newUser._id,
         email: newUser.email,
         verified: newUser.verified,
-    },
+      },
       { status: 201 }
     );
   } catch (err) {

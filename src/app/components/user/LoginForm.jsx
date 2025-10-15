@@ -36,13 +36,12 @@ export default function LoginForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
+        credentials: "include", // ✅ ensures cookie is set
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        // ✅ Handle unverified account
         if (res.status === 403 && data.error?.includes("not verified")) {
           router.push(`/registration/verifyemail?email=${encodeURIComponent(email)}`);
           return;
@@ -59,21 +58,13 @@ export default function LoginForm() {
         return;
       }
 
-      // ✅ Check if officer account is disabled
       if (user.role === "officer" && user.accountDisabled === true) {
         setLoginError("Your account has been locked by the admin.");
         return;
       }
 
-      // ✅ Save user session
-      sessionStorage.setItem("userId", user._id);
-      sessionStorage.setItem("userRole", user.role);
-      localStorage.setItem("loggedUserId", user._id);
-      localStorage.setItem("loggedUserRole", user.role);
-
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // ✅ Redirect based on role
       switch (user.role.toLowerCase()) {
         case "admin":
           router.push("/admin");
@@ -98,10 +89,8 @@ export default function LoginForm() {
       className="relative min-h-screen bg-cover bg-center flex items-center justify-center"
       style={{ backgroundImage: "url('/home.png')" }}
     >
-      {/* Overlay for contrast */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/90"></div>
 
-      {/* LEFT TEXT SECTION */}
       <div className="absolute inset-0 z-0 flex flex-col justify-center px-10 text-white -mt-10">
         <div>
           <h1 className="text-5xl font-semibold leading-tight">PASIG CITY</h1>
@@ -110,7 +99,6 @@ export default function LoginForm() {
         </div>
       </div>
 
-      {/* LOGIN FORM */}
       <div className="relative z-10 bg-white p-8 rounded-lg shadow-lg w-full max-w-md -mt-20">
         <h1 className="text-2xl font-semibold text-center text-gray-800 mb-6">
           Login to Your Account
