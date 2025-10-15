@@ -60,9 +60,19 @@ const msrChecklist = [
   { id: 'others', label: 'Others', dueDate: '' },
 ];
 
+function formatPeso(amount) {
+  if (!amount || isNaN(amount)) return "₱0.00";
+  return amount.toLocaleString("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 2,
+  });
+}
+
 export default function NewSanitationForm({ initialData, readOnly = false }) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [records, setRecords] = useState([]);
   const [warningMessage, setWarningMessage] = useState('');
   const [sanitaryPermitChecklistState, setSanitaryPermitChecklistState] = useState([]);
   const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
@@ -102,13 +112,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
   // Fetch existing business data
   const { data: businessData, isFetching, error } = useQuery({
-    queryKey: ['business', bidNumber],
-    queryFn: () => {
-      if (!bidNumber) return null; // 🛑 Prevent early fetch
-      return getBusinessByBid(bidNumber); // ✅ Only run when a valid bidNumber exists
-    },
-    enabled: Boolean(bidNumber && bidNumber.trim() !== ''), // ✅ Also protects from empty strings or spaces
-  });
+  queryKey: ['business', bidNumber],
+  queryFn: () => {
+    if (!bidNumber) return null;
+    return getBusinessByBid(bidNumber);
+  },
+  enabled: Boolean(bidNumber && bidNumber.trim() !== ''),
+});
 
 
   const handleSanitaryChange = (e) => {
@@ -273,66 +283,145 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     queryKey: ['userBusinesses'],
     queryFn: getUserBusinesses,
   });
+// 🟢 Auto-fill business info or reset when no data
+useEffect(() => {
+  const hasBusiness = businessData && bidNumber;
 
-  useEffect(() => {
-    const hasBusiness = businessData && bidNumber;
+  if (hasBusiness) {
+    reset({
+      bidNumber,
+      businessName: businessData?.businessName || '',
+      businessAddress: businessData?.businessAddress || '',
+      status: businessData?.status || '',
+      businessEstablishment: businessData?.businessEstablishment || '',
+    });
+  } else if (!businessData && !bidNumber) {
+    // Clear form fields when no business data
+    setValue('businessName', '');
+    setValue('businessAddress', '');
+    setValue('businessEstablishment', '');
+    setValue('status', '');
+    setValue('msrChecklist', {});
+    setValue('inspectionRecords', []);
+    setValue('penaltyRecords', []);
+    setValue('remarks', '');
+    setValue('declaredPersonnel', '');
+    setValue('declaredPersonnelDueDate', '');
+    setValue('healthCertificates', '');
+    setValue('healthCertBalanceToComply', '');
+    setValue('healthCertDueDate', '');
+    setValue('orDateHealthCert', '');
+    setValue('orNumberHealthCert', '');
+    setValue('healthCertSanitaryFee', '');
+    setValue('healthCertFee', '');
+    setValue('requestType', '');
 
-    if (hasBusiness) {
-      reset({
-        bidNumber,
-        businessName: businessData?.businessName || '',
-        businessAddress: businessData?.businessAddress || '',
-        status: businessData?.status || '',
-        businessEstablishment: businessData?.businessEstablishment || '',
-      });
-    } else if (!businessData && !bidNumber) {
-      setValue('businessName', '');
-      setValue('businessAddress', '');
-      setValue('businessEstablishment', '');
-      setValue('status', '');
-      setValue('msrChecklist', {});
-      setValue('inspectionRecords', []);
-      setValue('penaltyRecords', []);
-      setValue('remarks', '');
-      setValue('declaredPersonnel', '');
-      setValue('declaredPersonnelDueDate', '');
-      setValue('healthCertificates', '');
-      setValue('healthCertBalanceToComply', '');
-      setValue('healthCertDueDate', '');
-      setValue('orDateHealthCert', '');
-      setValue('orNumberHealthCert', '');
-      setValue('healthCertSanitaryFee', '');
-      setValue('healthCertFee', '');
-      setValue('requestType', '');
+    setSanitaryPermitChecklistState([]);
+    setHealthCertificateChecklistState('');
+    setMsrChecklistState([]);
+  }
+}, [businessData, bidNumber, reset, setValue]);
 
-      setSanitaryPermitChecklistState([]);
-      setHealthCertificateChecklistState('');
-      setMsrChecklistState([]);
+// 🟡 Reset form when request type changes
+useEffect(() => {
+  if (requestType === 'New') {
+    // New business → no past inspection data
+    setValue('inspectionRecords', []);
+    setValue('penaltyRecords', []);
+    setValue('remarks', '');
+    setValue('declaredPersonnel', '');
+    setValue('declaredPersonnelDueDate', '');
+    setValue('healthCertificates', '');
+    setValue('healthCertBalanceToComply', '');
+    setValue('healthCertDueDate', '');
+  } else if (requestType === 'Renewal') {
+    // Renewal → load inspection + penalty history
+    setValue('inspectionRecords', businessData?.inspectionRecords || []);
+    setValue('penaltyRecords', businessData?.penaltyRecords || []);
+    setValue('remarks', businessData?.remarks || '');
+    setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
+    setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
+    setValue('healthCertificates', businessData?.healthCertificates || '');
+    setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
+    setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
+  }
+}, [requestType, businessData, setValue]);
+
+// 🔵 Compute penalty records (autofill only offense, year, amount)
+useEffect(() => {
+  if (!businessData) return;
+
+  const computed = ["Sanitary Permit", "Health Certificate", "Water Potability", "MSR"].map(
+    (label, index) => {
+      const inspection = businessData?.inspectionRecords?.[index];
+      const hasInspection = !!inspection;
+      const offenseNumber = inspection?.inspectionNumber || 0;
+
+      // Determine offense
+      const offense =
+        offenseNumber === 1
+          ? "1st"
+          : offenseNumber === 2
+          ? "2nd"
+          : offenseNumber === 3
+          ? "3rd"
+          : "";
+
+      // === COMPUTE AMOUNT BASED ON VIOLATION TYPE ===
+      let amount = 0;
+
+      switch (label) {
+        case "Sanitary Permit":
+          if (offense === "1st") amount = 2000;
+          else if (offense === "2nd") amount = 3000;
+          else if (offense === "3rd") amount = 5000;
+          break;
+
+        case "Health Certificate":
+          const hc = inspection?.inspectionChecklist?.healthCertificates;
+          const missing = hc?.withoutCert || 0;
+          amount = missing * 500;
+          break;
+
+        case "Water Potability":
+          // Flat ₱500 if non-compliant
+          if (inspection?.inspectionChecklist?.certificateOfPotability === "x") {
+            amount = 500;
+          }
+          break;
+
+        case "MSR":
+          const so1 = inspection?.inspectionChecklist?.sanitaryOrder1;
+          const so2 = inspection?.inspectionChecklist?.sanitaryOrder2;
+          if (so1 === "x" || so2 === "x") {
+            if (offense === "1st") amount = 1000;
+            else if (offense === "2nd") amount = 2000;
+            else if (offense === "3rd") amount = 5000;
+          }
+          break;
+
+        default:
+          amount = 0;
+      }
+
+      return {
+        label,
+        offense,
+        year: inspection?.inspectionDate
+          ? new Date(inspection.inspectionDate).getFullYear()
+          : "",
+        orDate: "",
+        orNumber: "",
+        amount,
+      };
     }
-  }, [businessData, bidNumber, reset, setValue]);
+  );
 
-  useEffect(() => {
-    if (requestType === 'New') {
-      setValue('inspectionRecords', []);
-      setValue('penaltyRecords', []);
-      setValue('remarks', '');
-      setValue('declaredPersonnel', '');
-      setValue('declaredPersonnelDueDate', '');
-      setValue('healthCertificates', '');
-      setValue('healthCertBalanceToComply', '');
-      setValue('healthCertDueDate', '');
-    }
-    else if (requestType === 'Renewal') {
-      setValue('inspectionRecords', businessData?.inspectionRecords || []);
-      setValue('penaltyRecords', businessData?.penaltyRecords || []);
-      setValue('remarks', businessData?.remarks || '');
-      setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
-      setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
-      setValue('healthCertificates', businessData?.healthCertificates || '');
-      setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
-      setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
-    }
-  }, [requestType]);
+  // Save computed penalty records to local state and form
+  setRecords(computed);
+  setValue('penaltyRecords', computed);
+}, [businessData, setValue]);
+
 
   return (
     <>
@@ -998,8 +1087,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
         </div>
 
-    {/* Penalty Record Section */}
-<fieldset disabled={isNew} className={isNew ? 'opacity-50 pointer-events-none' : ''}>
+       {/* Penalty Record Section */}
+<fieldset disabled={isNew} className={isNew ? "opacity-50 pointer-events-none" : ""}>
   <div className="w-full max-w-6xl mx-auto px-4 mb-6">
     <div className="grid grid-cols-[2fr_1fr] gap-6">
       <div>
@@ -1010,99 +1099,98 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
               <tr className="bg-transparent text-sm text-gray-700 text-center">
                 <th className="px-2 py-1">Checklist</th>
                 <th className="px-2 py-1">Offense</th>
-                <th className="px-2 py-1">Year (Inspection Date)</th>
-                <th className="px-2 py-1">OR Date</th>
-                <th className="px-2 py-1">OR Number</th>
+                <th className="px-2 py-1">Year (Inspection)</th>
+                <th className="px-2 py-1">O.R. Date</th>
+                <th className="px-2 py-1">O.R. Number</th>
                 <th className="px-2 py-1">Amount</th>
               </tr>
             </thead>
             <tbody>
-              {['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => {
-                const inspection = businessData?.inspectionRecords?.[index];
-                const hasInspection = !!inspection?.date;
-
-                return (
-                  <tr key={label} className="bg-white shadow-sm rounded-md">
-                    {/* Checklist */}
-                    <td className="px-2 py-1 text-sm text-gray-700">
-                      <label className="flex items-center gap-2">
-                        <input type="checkbox" className="form-checkbox text-blue-600" />
-                        {label}
-                      </label>
-                    </td>
-
-                    {/* Offense → auto-fill with checklist label */}
-                    <td className="px-2 py-1">
-                      <RHFTextField
-                        control={control}
-                        name={`penaltyRecords.${index}.offense`}
-                        variant="standard"
-                        className="w-full"
-                        value={label}
-                        InputProps={{
-                          readOnly: true,
-                          style: { backgroundColor: '#f5f5f5' },
-                        }}
+              {records.map((row, index) => (
+                <tr key={index} className="bg-white shadow-sm rounded-md">
+                  {/* Checklist */}
+                  <td className="px-2 py-1 text-sm text-gray-700">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        className="form-checkbox text-blue-600"
+                        checked={!!row.offense}
+                        readOnly
                       />
-                    </td>
+                      {row.label}
+                    </label>
+                  </td>
 
-                   {/* Year → numeric field */}
-<td className="px-2 py-1">
-  <RHFTextField
-    control={control}
-    name={`penaltyRecords.${index}.year`}
-    type="number"
-    variant="standard"
-    placeholder="YYYY"
-    inputProps={{ min: 2000, max: new Date().getFullYear() + 1 }}
-    className="w-full"
-    value={
-      hasInspection
-        ? new Date(inspection.date).getFullYear()
-        : undefined
-    }
-    InputProps={{
-      readOnly: hasInspection,
-      style: hasInspection
-        ? { backgroundColor: '#f5f5f5', color: '#555' }
-        : {},
-    }}
-  />
-</td>
+                  {/* Offense */}
+                  <td className="px-2 py-1">
+                    <TextField
+                      variant="standard"
+                      fullWidth
+                      value={row.offense}
+                      InputProps={{
+                        readOnly: true,
+                        style: { backgroundColor: "#f5f5f5", color: "#555" },
+                      }}
+                    />
+                  </td>
 
-                    {/* OR Date */}
-                    <td className="px-2 py-1">
-                      <RHFTextField
-                        control={control}
-                        name={`penaltyRecords.${index}.orDateHealthCert`}
-                        type="date"
-                        variant="standard"
-                        className="w-full"
-                      />
-                    </td>
+                  {/* Year */}
+                  <td className="px-2 py-1">
+                    <TextField
+                      variant="standard"
+                      fullWidth
+                      value={row.year}
+                      InputProps={{
+                        readOnly: true,
+                        style: { backgroundColor: "#f5f5f5", color: "#555" },
+                      }}
+                    />
+                  </td>
 
-                    {/* OR Number */}
-                    <td className="px-2 py-1">
-                      <RHFTextField
-                        control={control}
-                        name={`penaltyRecords.${index}.orNumberHealthCert`}
-                        variant="standard"
-                        className="w-full"
-                      />
-                    </td>
+                  {/* OR Date — manually editable, no autofill */}
+                  <td className="px-2 py-1">
+                    <Controller
+                      name={`penaltyRecords.${index}.orDate`}
+                      control={control}
+                      defaultValue={row.orDate || ""}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          type="date"
+                          variant="standard"
+                          fullWidth
+                        />
+                      )}
+                    />
+                  </td>
 
-                    {/* Amount */}
-                    <td className="px-2 py-1">
-                      <RHFTextField
-                        control={control}
-                        name={`penaltyRecords.${index}.amount`}
-                        variant="standard"
-                        className="w-full"
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
+                  {/* OR Number — manually editable, only numbers */}
+                  <td className="px-2 py-1">
+                    <Controller
+                      name={`penaltyRecords.${index}.orNumber`}
+                      control={control}
+                      defaultValue={row.orNumber || ""}
+                      render={({ field: { onChange, value, ...rest } }) => (
+                        <TextField
+                          {...rest}
+                          value={value}
+                          onChange={(e) =>
+                            onChange(e.target.value.replace(/\D/g, ""))
+                          }
+                          variant="standard"
+                          fullWidth
+                          inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                        />
+                      )}
+                    />
+                  </td>
+
+                  {/* Amount (auto-computed) */}
+                  <td className="px-2 py-1 text-center font-semibold text-green-700">
+                    {formatPeso(row.amount)}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -1110,13 +1198,17 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
       {/* Right Column: Verification */}
       <div className="flex flex-col justify-center text-sm text-gray-700">
-        <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
+        <p className="font-semibold uppercase mb-4">
+          Payments Verified and Checked:
+        </p>
         <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
         <p className="uppercase">Revenue Unit Supervisor</p>
       </div>
     </div>
   </div>
 </fieldset>
+
+
 
 
 

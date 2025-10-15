@@ -57,7 +57,7 @@ export default function ComplianceForm() {
     if (data) setRequests(data);
   }, [data]);
 
-  const handleEncode = async (_id) => {
+  const handleVerify = async (_id) => {
     const compliance = requests.find((req) => req._id === _id);
     if (!compliance) return;
 
@@ -142,7 +142,7 @@ export default function ComplianceForm() {
       </Button>
 
       <Typography variant="h6" fontWeight="bold" mb={3}>
-        🧾 Requests Awaiting Verification
+        🧾 Pending Compliance
       </Typography>
 
       {/* 🔍 Search + Rows per page */}

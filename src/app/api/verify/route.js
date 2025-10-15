@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import User from "@/models/User";

@@ -153,7 +153,7 @@ export default function VerificationOfRequestForm() {
       </Button>
 
       <Typography variant="h6" fontWeight="bold" mb={3}>
-        🧾 Requests Awaiting Verification
+        🧾 New Requests
       </Typography>
 
       {/* 🔍 Search + Rows per page */}
