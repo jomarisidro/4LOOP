@@ -1082,7 +1082,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                     </td>
 
                     {/* OR Number */}
-                    
                     <td className="px-2 py-1">
                       <RHFTextField
                         control={control}
