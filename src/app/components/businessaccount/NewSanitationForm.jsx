@@ -9,6 +9,7 @@ import { Alert, Button, Collapse, IconButton, MenuItem, TextField, } from '@mui/
 import CloseIcon from '@mui/icons-material/Close';
 import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
 import { getBusinessByBid, getUserBusinesses, } from '@/app/services/BusinessService';
+import axios from "axios";
 
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
@@ -72,11 +73,12 @@ function formatPeso(amount) {
 export default function NewSanitationForm({ initialData, readOnly = false }) {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [records, setRecords] = useState([]);
   const [warningMessage, setWarningMessage] = useState('');
   const [sanitaryPermitChecklistState, setSanitaryPermitChecklistState] = useState([]);
   const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
   const [msrChecklistState, setMsrChecklistState] = useState([]);
+  const [isRequestTypeLocked, setIsRequestTypeLocked] = useState(false);
+
 
   const {
     control,
@@ -106,19 +108,30 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
   });
 
   const requestType = watch('requestType') || initialData?.requestType;
-  const isNew = requestType === 'New'; // 🟩 add this line
-
+  const isNew = requestType === 'New';
   const bidNumber = watch('bidNumber');
+
+  // 🧩 Fetch inspection tickets for this business
+  const { data: tickets = [] } = useQuery({
+    queryKey: ['tickets', bidNumber],
+    queryFn: async () => {
+      if (!bidNumber) return [];
+      const res = await axios.get(`/api/ticket?businessId=${bidNumber}`);
+      return res.data || [];
+    },
+    enabled: !!bidNumber,
+  });
+
 
   // Fetch existing business data
   const { data: businessData, isFetching, error } = useQuery({
-  queryKey: ['business', bidNumber],
-  queryFn: () => {
-    if (!bidNumber) return null;
-    return getBusinessByBid(bidNumber);
-  },
-  enabled: Boolean(bidNumber && bidNumber.trim() !== ''),
-});
+    queryKey: ['business', bidNumber],
+    queryFn: () => {
+      if (!bidNumber) return null;
+      return getBusinessByBid(bidNumber);
+    },
+    enabled: Boolean(bidNumber && bidNumber.trim() !== ''),
+  });
 
 
   const handleSanitaryChange = (e) => {
@@ -283,123 +296,167 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     queryKey: ['userBusinesses'],
     queryFn: getUserBusinesses,
   });
-// 🟢 Auto-fill business info or reset when no data
-useEffect(() => {
-  const hasBusiness = businessData && bidNumber;
 
-  if (hasBusiness) {
-    reset({
-      bidNumber,
-      businessName: businessData?.businessName || '',
-      businessAddress: businessData?.businessAddress || '',
-      status: businessData?.status || '',
-      businessEstablishment: businessData?.businessEstablishment || '',
-    });
-  } else if (!businessData && !bidNumber) {
-    // Clear form fields when no business data
-    setValue('businessName', '');
-    setValue('businessAddress', '');
-    setValue('businessEstablishment', '');
-    setValue('status', '');
-    setValue('msrChecklist', {});
-    setValue('inspectionRecords', []);
-    setValue('penaltyRecords', []);
-    setValue('remarks', '');
-    setValue('declaredPersonnel', '');
-    setValue('declaredPersonnelDueDate', '');
-    setValue('healthCertificates', '');
-    setValue('healthCertBalanceToComply', '');
-    setValue('healthCertDueDate', '');
-    setValue('orDateHealthCert', '');
-    setValue('orNumberHealthCert', '');
-    setValue('healthCertSanitaryFee', '');
-    setValue('healthCertFee', '');
-    setValue('requestType', '');
 
-    setSanitaryPermitChecklistState([]);
-    setHealthCertificateChecklistState('');
-    setMsrChecklistState([]);
-  }
-}, [businessData, bidNumber, reset, setValue]);
+  useEffect(() => {
+    if (!businessData || !bidNumber) {
+      reset({
+        bidNumber: '',
+        businessName: '',
+        businessAddress: '',
+        businessEstablishment: '',
+        status: '',
+        msrChecklist: {},
+        inspectionRecords: [],
+        penaltyRecords: [],
+        remarks: '',
+        declaredPersonnel: '',
+        declaredPersonnelDueDate: '',
+        healthCertificates: '',
+        healthCertBalanceToComply: '',
+        healthCertDueDate: '',
+        orDateHealthCert: '',
+        orNumberHealthCert: '',
+        healthCertSanitaryFee: '',
+        healthCertFee: '',
+        requestType: '',
+      });
+      setSanitaryPermitChecklistState([]);
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+      setIsRequestTypeLocked(false);
+      return;
+    }
 
-// 🟡 Reset form when request type changes
-useEffect(() => {
-  if (requestType === 'New') {
-    // New business → no past inspection data
-    setValue('inspectionRecords', []);
-    setValue('penaltyRecords', []);
-    setValue('remarks', '');
-    setValue('declaredPersonnel', '');
-    setValue('declaredPersonnelDueDate', '');
-    setValue('healthCertificates', '');
-    setValue('healthCertBalanceToComply', '');
-    setValue('healthCertDueDate', '');
-  } else if (requestType === 'Renewal') {
-    // Renewal → load inspection + penalty history
-    setValue('inspectionRecords', businessData?.inspectionRecords || []);
-    setValue('penaltyRecords', businessData?.penaltyRecords || []);
-    setValue('remarks', businessData?.remarks || '');
-    setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
-    setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
-    setValue('healthCertificates', businessData?.healthCertificates || '');
-    setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
-    setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
-  }
-}, [requestType, businessData, setValue]);
+    // ✅ Business exists → determine type
+    const hasInspections =
+      Array.isArray(businessData?.inspectionRecords) &&
+      businessData.inspectionRecords.length > 0;
 
-// 🔵 Compute penalty records (autofill only offense, year, amount)
-useEffect(() => {
-  if (!businessData) return;
+    const hasViolations =
+      Array.isArray(businessData?.violations) &&
+      businessData.violations.length > 0;
 
-  const computed = ["Sanitary Permit", "Health Certificate", "Water Potability", "MSR"].map(
-    (label, index) => {
-      const inspection = businessData?.inspectionRecords?.[index];
-      const hasInspection = !!inspection;
-      const offenseNumber = inspection?.inspectionNumber || 0;
+    const shouldLockRequestType = hasInspections || hasViolations;
+    const autoRequestType = shouldLockRequestType ? 'Renewal' : 'New';
 
-      // Determine offense
-      const offense =
-        offenseNumber === 1
-          ? "1st"
-          : offenseNumber === 2
-          ? "2nd"
-          : offenseNumber === 3
-          ? "3rd"
-          : "";
+    setValue('requestType', autoRequestType);
+    setIsRequestTypeLocked(shouldLockRequestType);
 
-      // === COMPUTE AMOUNT BASED ON VIOLATION TYPE ===
+    // only update key fields, don’t reset whole form
+    setValue('bidNumber', bidNumber);
+    setValue('businessName', businessData?.businessName || '');
+    setValue('businessAddress', businessData?.businessAddress || '');
+    setValue('status', businessData?.status || '');
+    setValue('businessEstablishment', businessData?.businessEstablishment || '');
+  }, [businessData, bidNumber, reset, setValue]);
+
+
+  useEffect(() => {
+    if (!businessData) return;
+
+    if (requestType === 'New') {
+      // Clear old data
+      setValue('inspectionRecords', []);
+      setValue('penaltyRecords', []);
+      setValue('remarks', '');
+      setValue('declaredPersonnel', '');
+      setValue('declaredPersonnelDueDate', '');
+      setValue('healthCertificates', '');
+      setValue('healthCertBalanceToComply', '');
+      setValue('healthCertDueDate', '');
+    } else if (requestType === 'Renewal') {
+      // Restore prior data if any
+      setValue('remarks', businessData?.remarks || '');
+      setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
+      setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
+      setValue('healthCertificates', businessData?.healthCertificates || '');
+      setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
+      setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
+    }
+  }, [requestType, businessData, setValue]);
+  useEffect(() => {
+    if (!businessData?.inspectionRecords?.length) return;
+
+    const inspections = businessData.inspectionRecords.slice(0, 2).map((inspection) => ({
+      date: inspection.inspectionDate
+        ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
+        : inspection.dateReinspected
+          ? new Date(inspection.dateReinspected).toISOString().split('T')[0]
+          : '',
+      personnelCount: inspection.inspectionChecklist?.healthCertificates?.actualCount || '',
+      inspectedBy:
+        inspection.officerInCharge?.name ||
+        inspection.officerInCharge?.fullName ||
+        (typeof inspection.officerInCharge === 'string'
+          ? inspection.officerInCharge
+          : ''),
+    }));
+
+    const normalized = [
+      inspections[0] || { date: '', personnelCount: '', inspectedBy: '' },
+      inspections[1] || { date: '', personnelCount: '', inspectedBy: '' },
+    ];
+
+    setValue('inspectionRecords', normalized);
+  }, [businessData, setValue]);
+
+  useEffect(() => {
+    if (!tickets.length) return;
+
+    // ✅ Get up to the first two completed inspections
+    const inspections = tickets
+      .filter(t => t.inspectionStatus === 'completed')
+      .sort((a, b) => new Date(a.inspectionDate) - new Date(b.inspectionDate))
+      .slice(0, 2)
+      .map((t) => ({
+        date: t.inspectionDate
+          ? new Date(t.inspectionDate).toISOString().split("T")[0]
+          : '',
+        personnelCount: t.inspectionChecklist?.healthCertificates?.actualCount || '',
+        inspectedBy:
+          t.officerInCharge?.fullName ||
+          t.officerInCharge?.name ||
+          (typeof t.officerInCharge === 'string' ? t.officerInCharge : ''),
+      }));
+
+
+    // Fill missing slots (e.g. if only 1 inspection exists)
+    const normalized = [
+      inspections[0] || { date: '', personnelCount: '', inspectedBy: '' },
+      inspections[1] || { date: '', personnelCount: '', inspectedBy: '' },
+    ];
+
+    setValue('inspectionRecords', normalized);
+
+    // ✅ Compute penalty records automatically
+    const computed = ['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => {
+      const inspection = inspections[index] || {};
+      const offenseNumber = index + 1;
+      const offense = offenseNumber === 1 ? '1st' : offenseNumber === 2 ? '2nd' : '3rd';
       let amount = 0;
 
       switch (label) {
-        case "Sanitary Permit":
-          if (offense === "1st") amount = 2000;
-          else if (offense === "2nd") amount = 3000;
-          else if (offense === "3rd") amount = 5000;
+        case 'Sanitary Permit':
+          if (inspection.inspectionChecklist?.sanitaryPermit === 'without') {
+            amount = offense === '1st' ? 2000 : offense === '2nd' ? 3000 : 5000;
+          }
           break;
-
-        case "Health Certificate":
-          const hc = inspection?.inspectionChecklist?.healthCertificates;
+        case 'Health Certificate':
+          const hc = inspection.inspectionChecklist?.healthCertificates;
           const missing = hc?.withoutCert || 0;
-          amount = missing * 500;
+          if (missing > 0) amount = missing * 500;
           break;
-
-        case "Water Potability":
-          // Flat ₱500 if non-compliant
-          if (inspection?.inspectionChecklist?.certificateOfPotability === "x") {
-            amount = 500;
+        case 'Water Potability':
+          if (inspection.inspectionChecklist?.certificateOfPotability === 'x') amount = 500;
+          break;
+        case 'MSR':
+          const so1 = inspection.inspectionChecklist?.sanitaryOrder01;
+          const so2 = inspection.inspectionChecklist?.sanitaryOrder02;
+          if (so1 === 'x' || so2 === 'x') {
+            amount = offense === '1st' ? 1000 : offense === '2nd' ? 2000 : 5000;
           }
           break;
-
-        case "MSR":
-          const so1 = inspection?.inspectionChecklist?.sanitaryOrder1;
-          const so2 = inspection?.inspectionChecklist?.sanitaryOrder2;
-          if (so1 === "x" || so2 === "x") {
-            if (offense === "1st") amount = 1000;
-            else if (offense === "2nd") amount = 2000;
-            else if (offense === "3rd") amount = 5000;
-          }
-          break;
-
         default:
           amount = 0;
       }
@@ -407,20 +464,18 @@ useEffect(() => {
       return {
         label,
         offense,
-        year: inspection?.inspectionDate
-          ? new Date(inspection.inspectionDate).getFullYear()
-          : "",
-        orDate: "",
-        orNumber: "",
+        year: inspection.date
+          ? new Date(inspection.date).getFullYear()
+          : new Date().getFullYear(),
+        orDate: '',
+        orNumber: '',
         amount,
       };
-    }
-  );
+    });
 
-  // Save computed penalty records to local state and form
-  setRecords(computed);
-  setValue('penaltyRecords', computed);
-}, [businessData, setValue]);
+    setValue('penaltyRecords', computed);
+  }, [tickets, setValue]);
+
 
 
   return (
@@ -570,31 +625,41 @@ useEffect(() => {
               </span>
             </div>
 
-            {/* Column 2: Business Status */}
             <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-x-7 flex-nowrap ">
+              <div className="flex items-center gap-x-7 flex-nowrap">
                 <span className="text-base font-medium text-gray-700 whitespace-nowrap">
                   <b>BUSINESS STATUS:</b>
                 </span>
 
                 <label className="flex items-center gap-2 whitespace-nowrap">
-                  <input type="radio" value="New" {...register('requestType')} />
+                  <input
+                    type="radio"
+                    value="New"
+                    {...register('requestType')}
+                    disabled={isRequestTypeLocked} // 🔒 lock if existing records
+                  />
                   NEW
                 </label>
 
                 <label className="flex items-center gap-2 whitespace-nowrap">
-                  <input type="radio" value="Renewal" {...register('requestType')} />
+                  <input
+                    type="radio"
+                    value="Renewal"
+                    {...register('requestType')}
+                    disabled={isRequestTypeLocked} // 🔒 same logic
+                  />
                   RENEWAL
                 </label>
               </div>
 
-              {/* Error Message */}
               {errors.requestType && (
                 <p className="text-red-600 text-sm mt-1">
                   {errors.requestType.message}
                 </p>
               )}
             </div>
+
+
           </div>
         </div>
 
@@ -1022,195 +1087,192 @@ useEffect(() => {
                     <tr>
                       <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center"></th>
                       <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Date</th>
-                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Actual No. of Personnel Upon Inspection</th>
+                      <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">
+                        Actual No. of Personnel Upon Inspection
+                      </th>
                       <th className="px-4 py-2 text-sm font-medium text-gray-700 text-center">Inspected By</th>
                     </tr>
                   </thead>
+
                   <tbody>
-                    {['1st', '2nd'].map((label, index) => {
-                      const autofillDate =
-                        index === 0
-                          ? initialData?.createdAt
-                            ? new Date(initialData.createdAt).toISOString().split("T")[0]
-                            : ""
-                          : initialData?.dateReinspected
-                            ? new Date(initialData.dateReinspected).toISOString().split("T")[0]
-                            : "";
+                    {["1st", "2nd"].map((label, index) => {
+                      const inspectionRecords = watch('inspectionRecords') || [];
+                      const inspectionRecord = inspectionRecords[index] || {};
 
                       return (
                         <tr key={label} className="bg-white shadow-sm rounded-md">
-                          <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">{label}</td>
+                          {/* Label */}
+                          <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">
+                            {label}
+                          </td>
+
+                          {/* Date */}
                           <td className="px-4 py-2">
                             <RHFTextField
                               control={control}
                               name={`inspectionRecords.${index}.date`}
                               variant="standard"
-                              label=""
                               type="date"
-                              error={!!errors?.inspectionRecords?.[index]?.date}
-                              helperText={errors?.inspectionRecords?.[index]?.date?.message}
-                              className="w-full"
-                              defaultValue={autofillDate}
+                              fullWidth
+                              defaultValue={inspectionRecord.date || ""}
                             />
                           </td>
+
+                          {/* Actual Personnel Count */}
                           <td className="px-4 py-2">
                             <RHFTextField
                               control={control}
                               name={`inspectionRecords.${index}.personnelCount`}
                               variant="standard"
-                              label=""
-                              error={!!errors?.inspectionRecords?.[index]?.personnelCount}
-                              helperText={errors?.inspectionRecords?.[index]?.personnelCount?.message}
-                              className="w-full"
+                              type="number"
+                              fullWidth
+                              defaultValue={inspectionRecord.personnelCount || ""}
                             />
                           </td>
+
+                          {/* Inspected By */}
                           <td className="px-4 py-2">
                             <RHFTextField
                               control={control}
                               name={`inspectionRecords.${index}.inspectedBy`}
                               variant="standard"
-                              label=""
-                              error={!!errors?.inspectionRecords?.[index]?.inspectedBy}
-                              helperText={errors?.inspectionRecords?.[index]?.inspectedBy?.message}
-                              className="w-full"
+                              type="text"
+                              fullWidth
+                              defaultValue={inspectionRecord.inspectedBy || ""}
                             />
                           </td>
                         </tr>
                       );
                     })}
                   </tbody>
+
                 </table>
               </div>
             </div>
           </fieldset>
 
-
         </div>
 
-       {/* Penalty Record Section */}
-<fieldset disabled={isNew} className={isNew ? "opacity-50 pointer-events-none" : ""}>
-  <div className="w-full max-w-6xl mx-auto px-4 mb-6">
-    <div className="grid grid-cols-[2fr_1fr] gap-6">
-      <div>
-        <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
-        <div className="overflow-x-auto">
-          <table className="min-w-full table-auto border-separate border-spacing-y-4">
-            <thead>
-              <tr className="bg-transparent text-sm text-gray-700 text-center">
-                <th className="px-2 py-1">Checklist</th>
-                <th className="px-2 py-1">Offense</th>
-                <th className="px-2 py-1">Year (Inspection)</th>
-                <th className="px-2 py-1">O.R. Date</th>
-                <th className="px-2 py-1">O.R. Number</th>
-                <th className="px-2 py-1">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.map((row, index) => (
-                <tr key={index} className="bg-white shadow-sm rounded-md">
-                  {/* Checklist */}
-                  <td className="px-2 py-1 text-sm text-gray-700">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="form-checkbox text-blue-600"
-                        checked={!!row.offense}
-                        readOnly
-                      />
-                      {row.label}
-                    </label>
-                  </td>
+        {/* Penalty Record Section */}
+        <fieldset disabled={isNew} className={isNew ? "opacity-50 pointer-events-none" : ""}>
+          <div className="w-full max-w-6xl mx-auto px-4 mb-6">
+            <div className="grid grid-cols-[2fr_1fr] gap-6">
+              <div>
+                <h3 className="text-lg font-bold text-gray-700 mb-2">Penalty Record</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full table-auto border-separate border-spacing-y-4">
+                    <thead>
+                      <tr className="bg-transparent text-sm text-gray-700 text-center">
+                        <th className="px-2 py-1">Checklist</th>
+                        <th className="px-2 py-1">Offense</th>
+                        <th className="px-2 py-1">Year (Inspection)</th>
+                        <th className="px-2 py-1">O.R. Date</th>
+                        <th className="px-2 py-1">O.R. Number</th>
+                        <th className="px-2 py-1">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(watch('penaltyRecords') || []).map((row, index) => (
+                        <tr key={index} className="bg-white shadow-sm rounded-md">
+                          {/* Checklist */}
+                          <td className="px-2 py-1 text-sm text-gray-700">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                className="form-checkbox text-blue-600"
+                                checked={!!row.offense}
+                                readOnly
+                              />
+                              {row.label}
+                            </label>
+                          </td>
 
-                  {/* Offense */}
-                  <td className="px-2 py-1">
-                    <TextField
-                      variant="standard"
-                      fullWidth
-                      value={row.offense}
-                      InputProps={{
-                        readOnly: true,
-                        style: { backgroundColor: "#f5f5f5", color: "#555" },
-                      }}
-                    />
-                  </td>
+                          {/* Offense */}
+                          <td className="px-2 py-1">
+                            <TextField
+                              variant="standard"
+                              fullWidth
+                              value={row.offense}
+                              InputProps={{
+                                readOnly: true,
+                                style: { backgroundColor: "#f5f5f5", color: "#555" },
+                              }}
+                            />
+                          </td>
 
-                  {/* Year */}
-                  <td className="px-2 py-1">
-                    <TextField
-                      variant="standard"
-                      fullWidth
-                      value={row.year}
-                      InputProps={{
-                        readOnly: true,
-                        style: { backgroundColor: "#f5f5f5", color: "#555" },
-                      }}
-                    />
-                  </td>
+                          {/* Year */}
+                          <td className="px-2 py-1">
+                            <TextField
+                              variant="standard"
+                              fullWidth
+                              value={row.year}
+                              InputProps={{
+                                readOnly: true,
+                                style: { backgroundColor: "#f5f5f5", color: "#555" },
+                              }}
+                            />
+                          </td>
 
-                  {/* OR Date — manually editable, no autofill */}
-                  <td className="px-2 py-1">
-                    <Controller
-                      name={`penaltyRecords.${index}.orDate`}
-                      control={control}
-                      defaultValue={row.orDate || ""}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          type="date"
-                          variant="standard"
-                          fullWidth
-                        />
-                      )}
-                    />
-                  </td>
+                          {/* OR Date — manually editable, no autofill */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.orDate`}
+                              control={control}
+                              defaultValue={row.orDate || ""}
+                              render={({ field }) => (
+                                <TextField
+                                  {...field}
+                                  type="date"
+                                  variant="standard"
+                                  fullWidth
+                                />
+                              )}
+                            />
+                          </td>
 
-                  {/* OR Number — manually editable, only numbers */}
-                  <td className="px-2 py-1">
-                    <Controller
-                      name={`penaltyRecords.${index}.orNumber`}
-                      control={control}
-                      defaultValue={row.orNumber || ""}
-                      render={({ field: { onChange, value, ...rest } }) => (
-                        <TextField
-                          {...rest}
-                          value={value}
-                          onChange={(e) =>
-                            onChange(e.target.value.replace(/\D/g, ""))
-                          }
-                          variant="standard"
-                          fullWidth
-                          inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                        />
-                      )}
-                    />
-                  </td>
+                          {/* OR Number — manually editable, only numbers */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.orNumber`}
+                              control={control}
+                              defaultValue={row.orNumber || ""}
+                              render={({ field: { onChange, value, ...rest } }) => (
+                                <TextField
+                                  {...rest}
+                                  value={value}
+                                  onChange={(e) =>
+                                    onChange(e.target.value.replace(/\D/g, ""))
+                                  }
+                                  variant="standard"
+                                  fullWidth
+                                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                                />
+                              )}
+                            />
+                          </td>
 
-                  {/* Amount (auto-computed) */}
-                  <td className="px-2 py-1 text-center font-semibold text-green-700">
-                    {formatPeso(row.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                          {/* Amount (auto-computed) */}
+                          <td className="px-2 py-1 text-center font-semibold text-green-700">
+                            {formatPeso(row.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-      {/* Right Column: Verification */}
-      <div className="flex flex-col justify-center text-sm text-gray-700">
-        <p className="font-semibold uppercase mb-4">
-          Payments Verified and Checked:
-        </p>
-        <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
-        <p className="uppercase">Revenue Unit Supervisor</p>
-      </div>
-    </div>
-  </div>
-</fieldset>
-
-
-
-
+              {/* Right Column: Verification */}
+              <div className="flex flex-col justify-center text-sm text-gray-700">
+                <p className="font-semibold uppercase mb-4">
+                  Payments Verified and Checked:
+                </p>
+                <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
+                <p className="uppercase">Revenue Unit Supervisor</p>
+              </div>
+            </div>
+          </div>
+        </fieldset>
 
 
         {/* Remark Field - Inline Label and Input */}

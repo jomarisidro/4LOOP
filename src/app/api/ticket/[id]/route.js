@@ -2,6 +2,7 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Ticket from "@/models/Ticket";
 import Business from "@/models/Business";
+import User from "@/models/User";
 import Violation from "@/models/Violation";
 import { getSession } from "@/lib/Auth";
 
@@ -10,7 +11,7 @@ export async function GET(request, { params }) {
   await connectMongoDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const session = await getSession();
 
     if (!session) {
@@ -37,7 +38,7 @@ export async function PUT(request, { params }) {
   await connectMongoDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { inspectionStatus, inspectionDate, remarks, inspectionChecklist } = body;
 
@@ -175,7 +176,7 @@ export async function DELETE(request, { params }) {
   await connectMongoDB();
 
   try {
-    const { id } = params;
+    const { id } = await params;
     const session = await getSession();
     const officerId = session?.user?.id;
 

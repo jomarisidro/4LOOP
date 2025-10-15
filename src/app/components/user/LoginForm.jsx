@@ -64,12 +64,14 @@ export default function LoginForm() {
         setLoginError("Your account has been locked by the admin.");
         return;
       }
+// ✅ Save user session
+sessionStorage.setItem("userId", user._id);
+sessionStorage.setItem("userRole", user.role);
+sessionStorage.setItem("userFullName", user.fullName || "");
 
-      // ✅ Save user session
-      sessionStorage.setItem("userId", user._id);
-      sessionStorage.setItem("userRole", user.role);
-      localStorage.setItem("loggedUserId", user._id);
-      localStorage.setItem("loggedUserRole", user.role);
+localStorage.setItem("loggedUserId", user._id);
+localStorage.setItem("loggedUserRole", user.role);
+localStorage.setItem("loggedUserFullName", user.fullName || "");
 
       await new Promise((resolve) => setTimeout(resolve, 300));
 

@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const { role, id: userId } = session.user;
 
   try {
@@ -105,7 +105,7 @@ export async function PUT(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const { role, id: userId, fullName } = session.user; // ✅ include fullName
   const body = await request.json();
 
@@ -198,7 +198,7 @@ export async function DELETE(request, { params }) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { id } = params;
+  const { id } = await params;
   const { role, id: userId } = session.user;
 
   try {

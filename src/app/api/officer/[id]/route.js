@@ -5,7 +5,7 @@ import mongoose from 'mongoose';
 
 export async function PUT(req, { params }) {
   await connectMongoDB();
-  const { id } = params;
+  const { id } = await params;
   const body = await req.json();
 
   const updateFields = {
@@ -44,7 +44,7 @@ export async function PUT(req, { params }) {
 export async function GET(req, { params }) {
 await connectMongoDB();
 
-  const { id } = params;
+  const { id } = await params;
 
   try {
     let business;

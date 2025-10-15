@@ -103,32 +103,37 @@ export default function InspectingCurrentBusinessForm() {
     });
   };
 
-  const handleCompleteInspection = async () => {
+const handleCompleteInspection = async () => {
   if (isReadOnly) return;
 
   try {
+    // ✅ 1. Get all previous inspections for the same business this year
     const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
     const inspectionsThisYear = res.data || [];
 
-    const completedInspectionsCount = inspectionsThisYear.filter(
+    const completedInspections = inspectionsThisYear.filter(
       (t) => t.inspectionStatus === 'completed' && t._id !== currentTicket._id
-    ).length;
+    );
+    const completedCount = completedInspections.length;
 
-    if (completedInspectionsCount >= 2) {
+    if (completedCount >= 2) {
       alert('Only 2 inspections are allowed per year.');
       return;
     }
 
-    const inspectionNumber = completedInspectionsCount + 1;
+    const inspectionNumber = completedCount + 1;
     const inspectionDate =
       inspectionNumber === 1
         ? currentTicket?.createdAt || new Date().toISOString()
-        : dateReinspected;
+        : new Date().toISOString();
 
-    // ✅ Get logged-in officer info (from localStorage or sessionStorage)
-    const officerInCharge =
-      localStorage.getItem('loggedUserId') || sessionStorage.getItem('userId');
+const officerInCharge = {
+  _id: localStorage.getItem('loggedUserId') || sessionStorage.getItem('userId'),
+  fullName: localStorage.getItem('loggedUserFullName') || sessionStorage.getItem('userFullName') || '',
+};
 
+
+    // ✅ 2. Build the checklist data
     const inspectionChecklist = {
       sanitaryPermit: scores.sanitaryPermit,
       healthCertificates: {
@@ -142,29 +147,81 @@ export default function InspectingCurrentBusinessForm() {
       sanitaryOrder02: scores.sanitaryOrder2,
     };
 
-    if (inspectionNumber === 1) {
-      // ✅ Include officerInCharge in POST
-      await axios.post(`/api/ticket`, {
-        businessId,
-        inspectionDate,
-        inspectionType: 'routine',
-        violationType: 'sanitation',
-        remarks,
-        inspectionChecklist,
-        inspectionStatus: 'completed',
-        officerInCharge, // ✅ added field
+    // ✅ 3. Save or update ticket
+    const ticketPayload = {
+      inspectionDate,
+      inspectionType: inspectionNumber === 1 ? 'routine' : 'reinspection',
+      violationType: 'sanitation',
+      remarks,
+      inspectionChecklist,
+      inspectionStatus: 'completed',
+      inspectionNumber,
+      officerInCharge,
+    };
+
+    const ticketRes =
+      inspectionNumber === 1
+        ? await axios.post(`/api/ticket`, { businessId, ...ticketPayload })
+        : await axios.put(`/api/ticket/${currentTicket._id}`, ticketPayload);
+
+    const ticketId = ticketRes.data?._id || currentTicket._id;
+
+    // ✅ 4. Detect violations based on checklist
+    const detectedViolations = [];
+
+    if (scores.sanitaryPermit === 'without') {
+      detectedViolations.push({
+        code: 'no_sanitary_permit',
+        description: 'Business operating without a valid sanitary permit.',
       });
-    } else {
-      // ✅ Include officerInCharge in PUT
-      await axios.put(`/api/ticket/${currentTicket._id}`, {
-        inspectionDate,
-        inspectionType: 'reinspection',
-        violationType: 'sanitation',
-        remarks,
-        inspectionChecklist,
-        inspectionStatus: 'completed',
-        inspectionNumber,
-        officerInCharge, // ✅ added field
+    }
+
+    if ((scores.healthCertificates?.withoutCert || 0) > 0) {
+      detectedViolations.push({
+        code: 'no_health_certificate',
+        description: 'Personnel without valid health certificates.',
+      });
+    }
+
+    if (scores.certificateOfPotability === 'x') {
+      detectedViolations.push({
+        code: 'expired_documents',
+        description: 'No valid certificate of potability or expired document.',
+      });
+    }
+
+    if (scores.pestControl === 'x' || scores.sanitaryOrder1 === 'x' || scores.sanitaryOrder2 === 'x') {
+      detectedViolations.push({
+        code: 'failure_renew_sanitary',
+        description: 'Non-compliance with sanitary orders or pest control requirements.',
+      });
+    }
+
+    // ✅ 5. Create or update violations with offense count
+    for (const v of detectedViolations) {
+      const prevViolations = await axios.get(
+        `/api/violation?code=${v.code}&businessId=${businessId}`
+      );
+      const priorCount = prevViolations.data?.length || 0;
+
+      const newViolation = await axios.post(`/api/violation`, {
+        ...v,
+        ticket: ticketId,
+        offenseCount: priorCount + 1,
+        violationStatus: 'pending',
+      });
+
+      // link to ticket
+      await axios.put(`/api/ticket/${ticketId}/addViolation`, {
+        violationId: newViolation.data._id,
+      });
+    }
+
+    // ✅ 6. Mark if business has active violations
+    if (detectedViolations.length > 0) {
+      await axios.put(`/api/business/${businessId}`, {
+        status: 'pending',
+        remarks: `Violations found during inspection #${inspectionNumber}.`,
       });
     }
 
@@ -250,69 +307,69 @@ export default function InspectingCurrentBusinessForm() {
                     )}
                   </TableCell>
 
-             {/* HC */}
-<TableCell align="center">
-  {isActive ? (
-    <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-      <TextField
-        type="number"
-        size="small"
-        label="AC"
-        value={scores.healthCertificates?.actualCount ?? ''}
-        disabled={isReadOnly}
-        onChange={(e) =>
-          setScores((prev) => ({
-            ...prev,
-            healthCertificates: {
-              ...prev.healthCertificates,
-              actualCount: Number(e.target.value),
-            },
-          }))
-        }
-        sx={{ width: 55 }}
-      />
-      <TextField
-        type="number"
-        size="small"
-        label="W/"
-        value={scores.healthCertificates?.withCert ?? ''}
-        disabled={isReadOnly}
-        onChange={(e) =>
-          setScores((prev) => ({
-            ...prev,
-            healthCertificates: {
-              ...prev.healthCertificates,
-              withCert: Number(e.target.value),
-            },
-          }))
-        }
-        sx={{ width: 55 }}
-      />
-      <TextField
-        type="number"
-        size="small"
-        label="W/o"
-        value={scores.healthCertificates?.withoutCert ?? ''}
-        disabled={isReadOnly}
-        onChange={(e) =>
-          setScores((prev) => ({
-            ...prev,
-            healthCertificates: {
-              ...prev.healthCertificates,
-              withoutCert: Number(e.target.value),
-            },
-          }))
-        }
-        sx={{ width: 55 }}
-      />
-    </Box>
-  ) : (
-    <>
-      AC: {ic.healthCertificates?.actualCount ?? 0}, W/: {ic.healthCertificates?.withCert ?? 0}, W/o:{' '}
-      {ic.healthCertificates?.withoutCert ?? 0}
-    </>
-  )}
-</TableCell>
+                  {/* HC */}
+                  <TableCell align="center">
+                    {isActive ? (
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                        <TextField
+                          type="number"
+                          size="small"
+                          label="AC"
+                          value={scores.healthCertificates?.actualCount ?? ''}
+                          disabled={isReadOnly}
+                          onChange={(e) =>
+                            setScores((prev) => ({
+                              ...prev,
+                              healthCertificates: {
+                                ...prev.healthCertificates,
+                                actualCount: Number(e.target.value),
+                              },
+                            }))
+                          }
+                          sx={{ width: 55 }}
+                        />
+                        <TextField
+                          type="number"
+                          size="small"
+                          label="W/"
+                          value={scores.healthCertificates?.withCert ?? ''}
+                          disabled={isReadOnly}
+                          onChange={(e) =>
+                            setScores((prev) => ({
+                              ...prev,
+                              healthCertificates: {
+                                ...prev.healthCertificates,
+                                withCert: Number(e.target.value),
+                              },
+                            }))
+                          }
+                          sx={{ width: 55 }}
+                        />
+                        <TextField
+                          type="number"
+                          size="small"
+                          label="W/o"
+                          value={scores.healthCertificates?.withoutCert ?? ''}
+                          disabled={isReadOnly}
+                          onChange={(e) =>
+                            setScores((prev) => ({
+                              ...prev,
+                              healthCertificates: {
+                                ...prev.healthCertificates,
+                                withoutCert: Number(e.target.value),
+                              },
+                            }))
+                          }
+                          sx={{ width: 55 }}
+                        />
+                      </Box>
+                    ) : (
+                      <>
+                        AC: {ic.healthCertificates?.actualCount ?? 0}, W/: {ic.healthCertificates?.withCert ?? 0}, W/o:{' '}
+                        {ic.healthCertificates?.withoutCert ?? 0}
+                      </>
+                    )}
+                  </TableCell>
 
 
                   {/* CPDW */}
@@ -337,13 +394,13 @@ export default function InspectingCurrentBusinessForm() {
                         ? scores.certificateOfPotability === 'check'
                           ? '✔'
                           : scores.certificateOfPotability === 'x'
-                          ? '✘'
-                          : ''
+                            ? '✘'
+                            : ''
                         : ic.certificateOfPotability === 'check'
-                        ? '✔'
-                        : ic.certificateOfPotability === 'x'
-                        ? '✘'
-                        : ''}
+                          ? '✔'
+                          : ic.certificateOfPotability === 'x'
+                            ? '✘'
+                            : ''}
                     </Box>
                   </TableCell>
 
@@ -369,13 +426,13 @@ export default function InspectingCurrentBusinessForm() {
                         ? scores.pestControl === 'check'
                           ? '✔'
                           : scores.pestControl === 'x'
-                          ? '✘'
-                          : ''
+                            ? '✘'
+                            : ''
                         : ic.pestControl === 'check'
-                        ? '✔'
-                        : ic.pestControl === 'x'
-                        ? '✘'
-                        : ''}
+                          ? '✔'
+                          : ic.pestControl === 'x'
+                            ? '✘'
+                            : ''}
                     </Box>
                   </TableCell>
 
@@ -401,13 +458,13 @@ export default function InspectingCurrentBusinessForm() {
                         ? scores.sanitaryOrder1 === 'check'
                           ? '✔'
                           : scores.sanitaryOrder1 === 'x'
-                          ? '✘'
-                          : ''
+                            ? '✘'
+                            : ''
                         : ic.sanitaryOrder1 === 'check'
-                        ? '✔'
-                        : ic.sanitaryOrder1 === 'x'
-                        ? '✘'
-                        : ''}
+                          ? '✔'
+                          : ic.sanitaryOrder1 === 'x'
+                            ? '✘'
+                            : ''}
                     </Box>
                   </TableCell>
 
@@ -433,26 +490,27 @@ export default function InspectingCurrentBusinessForm() {
                         ? scores.sanitaryOrder2 === 'check'
                           ? '✔'
                           : scores.sanitaryOrder2 === 'x'
-                          ? '✘'
-                          : ''
+                            ? '✘'
+                            : ''
                         : ic.sanitaryOrder2 === 'check'
-                        ? '✔'
-                        : ic.sanitaryOrder2 === 'x'
-                        ? '✘'
-                        : ''}
+                          ? '✔'
+                          : ic.sanitaryOrder2 === 'x'
+                            ? '✘'
+                            : ''}
                     </Box>
                   </TableCell>
 
-                  {/* Date Reinspection */}
                   <TableCell align="center">
                     {isActive ? (
                       tickets.filter((ticket) => ticket.inspectionStatus === 'completed').length === 1 ? (
                         <TextField
                           type="date"
                           size="small"
-                          value={dateReinspected}
-                          disabled={isReadOnly}
-                          onChange={(e) => setDateReinspected(e.target.value)}
+                          value={
+                            dateReinspected ||
+                            new Date().toISOString().split('T')[0] // ✅ auto-set to today's date
+                          }
+                          disabled // ✅ not editable
                           sx={{ width: 140 }}
                         />
                       ) : (
@@ -464,6 +522,7 @@ export default function InspectingCurrentBusinessForm() {
                       '-'
                     )}
                   </TableCell>
+
 
                   {/* Remarks */}
                   <TableCell align="center">
