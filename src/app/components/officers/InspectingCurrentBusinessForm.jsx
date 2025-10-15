@@ -103,135 +103,134 @@ export default function InspectingCurrentBusinessForm() {
     });
   };
 
-const handleCompleteInspection = async () => {
-  if (isReadOnly) return;
+  const handleCompleteInspection = async () => {
+    if (isReadOnly) return;
 
-  try {
-    // ✅ 1. Get all previous inspections for the same business this year
-    const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
-    const inspectionsThisYear = res.data || [];
+    try {
+      // ✅ 1. Get all previous inspections for the same business this year
+      const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${year}`);
+      const inspectionsThisYear = res.data || [];
 
-    const completedInspections = inspectionsThisYear.filter(
-      (t) => t.inspectionStatus === 'completed' && t._id !== currentTicket._id
-    );
-    const completedCount = completedInspections.length;
-
-    if (completedCount >= 2) {
-      alert('Only 2 inspections are allowed per year.');
-      return;
-    }
-
-    const inspectionNumber = completedCount + 1;
-    const inspectionDate =
-      inspectionNumber === 1
-        ? currentTicket?.createdAt || new Date().toISOString()
-        : new Date().toISOString();
-
-const officerInCharge = {
-  _id: localStorage.getItem('loggedUserId') || sessionStorage.getItem('userId'),
-  fullName: localStorage.getItem('loggedUserFullName') || sessionStorage.getItem('userFullName') || '',
-};
-
-
-    // ✅ 2. Build the checklist data
-    const inspectionChecklist = {
-      sanitaryPermit: scores.sanitaryPermit,
-      healthCertificates: {
-        actualCount: Number(scores.healthCertificates?.actualCount) || 0,
-        withCert: Number(scores.healthCertificates?.withCert) || 0,
-        withoutCert: Number(scores.healthCertificates?.withoutCert) || 0,
-      },
-      certificateOfPotability: scores.certificateOfPotability,
-      pestControl: scores.pestControl,
-      sanitaryOrder01: scores.sanitaryOrder1,
-      sanitaryOrder02: scores.sanitaryOrder2,
-    };
-
-    // ✅ 3. Save or update ticket
-    const ticketPayload = {
-      inspectionDate,
-      inspectionType: inspectionNumber === 1 ? 'routine' : 'reinspection',
-      violationType: 'sanitation',
-      remarks,
-      inspectionChecklist,
-      inspectionStatus: 'completed',
-      inspectionNumber,
-      officerInCharge,
-    };
-
-    const ticketRes =
-      inspectionNumber === 1
-        ? await axios.post(`/api/ticket`, { businessId, ...ticketPayload })
-        : await axios.put(`/api/ticket/${currentTicket._id}`, ticketPayload);
-
-    const ticketId = ticketRes.data?._id || currentTicket._id;
-
-    // ✅ 4. Detect violations based on checklist
-    const detectedViolations = [];
-
-    if (scores.sanitaryPermit === 'without') {
-      detectedViolations.push({
-        code: 'no_sanitary_permit',
-        description: 'Business operating without a valid sanitary permit.',
-      });
-    }
-
-    if ((scores.healthCertificates?.withoutCert || 0) > 0) {
-      detectedViolations.push({
-        code: 'no_health_certificate',
-        description: 'Personnel without valid health certificates.',
-      });
-    }
-
-    if (scores.certificateOfPotability === 'x') {
-      detectedViolations.push({
-        code: 'expired_documents',
-        description: 'No valid certificate of potability or expired document.',
-      });
-    }
-
-    if (scores.pestControl === 'x' || scores.sanitaryOrder1 === 'x' || scores.sanitaryOrder2 === 'x') {
-      detectedViolations.push({
-        code: 'failure_renew_sanitary',
-        description: 'Non-compliance with sanitary orders or pest control requirements.',
-      });
-    }
-
-    // ✅ 5. Create or update violations with offense count
-    for (const v of detectedViolations) {
-      const prevViolations = await axios.get(
-        `/api/violation?code=${v.code}&businessId=${businessId}`
+      const completedInspections = inspectionsThisYear.filter(
+        (t) => t.inspectionStatus === 'completed' && t._id !== currentTicket._id
       );
-      const priorCount = prevViolations.data?.length || 0;
+      const completedCount = completedInspections.length;
 
-      const newViolation = await axios.post(`/api/violation`, {
-        ...v,
-        ticket: ticketId,
-        offenseCount: priorCount + 1,
-        violationStatus: 'pending',
-      });
+      if (completedCount >= 2) {
+        alert('Only 2 inspections are allowed per year.');
+        return;
+      }
 
-      // link to ticket
-      await axios.put(`/api/ticket/${ticketId}/addViolation`, {
-        violationId: newViolation.data._id,
-      });
+      const inspectionNumber = completedCount + 1;
+      const inspectionDate =
+        inspectionNumber === 1
+          ? currentTicket?.createdAt || new Date().toISOString()
+          : new Date().toISOString();
+
+      const officerInCharge = {
+        _id: localStorage.getItem('loggedUserId') || sessionStorage.getItem('userId'),
+        fullName: localStorage.getItem('loggedUserFullName') || sessionStorage.getItem('userFullName') || '',
+      };
+
+      // ✅ 2. Build the checklist data
+      const inspectionChecklist = {
+        sanitaryPermit: scores.sanitaryPermit,
+        healthCertificates: {
+          actualCount: Number(scores.healthCertificates?.actualCount) || 0,
+          withCert: Number(scores.healthCertificates?.withCert) || 0,
+          withoutCert: Number(scores.healthCertificates?.withoutCert) || 0,
+        },
+        certificateOfPotability: scores.certificateOfPotability,
+        pestControl: scores.pestControl,
+        sanitaryOrder01: scores.sanitaryOrder1,
+        sanitaryOrder02: scores.sanitaryOrder2,
+      };
+
+      // ✅ 3. Save or update ticket
+      const ticketPayload = {
+        inspectionDate,
+        inspectionType: inspectionNumber === 1 ? 'routine' : 'reinspection',
+        violationType: 'sanitation',
+        remarks,
+        inspectionChecklist,
+        inspectionStatus: 'completed',
+        inspectionNumber,
+        officerInCharge,
+      };
+
+      const ticketRes =
+        inspectionNumber === 1
+          ? await axios.post(`/api/ticket`, { businessId, ...ticketPayload })
+          : await axios.put(`/api/ticket/${currentTicket._id}`, ticketPayload);
+
+      const ticketId = ticketRes.data?._id || currentTicket._id;
+
+      // ✅ 4. Detect violations based on checklist
+      const detectedViolations = [];
+
+      if (scores.sanitaryPermit === 'without') {
+        detectedViolations.push({
+          code: 'no_sanitary_permit',
+          description: 'Business operating without a valid sanitary permit.',
+        });
+      }
+
+      if ((scores.healthCertificates?.withoutCert || 0) > 0) {
+        detectedViolations.push({
+          code: 'no_health_certificate',
+          description: 'Personnel without valid health certificates.',
+        });
+      }
+
+      if (scores.certificateOfPotability === 'x') {
+        detectedViolations.push({
+          code: 'expired_documents',
+          description: 'No valid certificate of potability or expired document.',
+        });
+      }
+
+      if (scores.pestControl === 'x' || scores.sanitaryOrder1 === 'x' || scores.sanitaryOrder2 === 'x') {
+        detectedViolations.push({
+          code: 'failure_renew_sanitary',
+          description: 'Non-compliance with sanitary orders or pest control requirements.',
+        });
+      }
+
+      // ✅ 5. Create or update violations with offense count
+      for (const v of detectedViolations) {
+        const prevViolations = await axios.get(
+          `/api/violation?code=${v.code}&businessId=${businessId}`
+        );
+        const priorCount = prevViolations.data?.length || 0;
+
+        const newViolation = await axios.post(`/api/violation`, {
+          ...v,
+          ticket: ticketId,
+          offenseCount: priorCount + 1,
+          violationStatus: 'pending',
+        });
+
+        // link to ticket
+        await axios.put(`/api/ticket/${ticketId}/addViolation`, {
+          violationId: newViolation.data._id,
+        });
+      }
+
+      // ✅ 6. Mark if business has active violations
+      if (detectedViolations.length > 0) {
+        await axios.put(`/api/business/${businessId}`, {
+          status: 'pending',
+          remarks: `Violations found during inspection #${inspectionNumber}.`,
+        });
+      }
+
+      queryClient.invalidateQueries(['tickets', businessId, year]);
+      queryClient.invalidateQueries(['pending-inspections']);
+      router.push('/officers/inspections/pendinginspections');
+    } catch (err) {
+      console.error('❌ Ticket error:', err.response?.data || err);
     }
-
-    // ✅ 6. Mark if business has active violations
-    if (detectedViolations.length > 0) {
-      await axios.put(`/api/business/${businessId}`, {
-        status: 'pending',
-        remarks: `Violations found during inspection #${inspectionNumber}.`,
-      });
-    }
-
-    queryClient.invalidateQueries(['tickets', businessId, year]);
-    queryClient.invalidateQueries(['pending-inspections']);
-    router.push('/officers/inspections/pendinginspections');
-  } catch (err) {
-    console.error('❌ Ticket error:', err.response?.data || err);
-  }
-};
+  };
 
 
 
