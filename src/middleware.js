@@ -11,9 +11,24 @@ export async function middleware(request) {
 
     try {
       const session = await decrypt(token);
-      if (!session?.user?.id || !session?.user?.role) {
+      const role = session?.user?.role;
+
+      if (!session?.user?.id || !role) {
         return NextResponse.redirect(new URL('/login', request.url));
       }
+
+      // 🔒 Strict role isolation — block cross-role access
+      const rolePathMap = {
+        admin: '/admin',
+        business: '/businessaccount',
+        officer: '/officers',
+      };
+
+      const expectedPath = rolePathMap[role];
+      if (!pathname.startsWith(expectedPath)) {
+        return NextResponse.redirect(new URL(expectedPath, request.url));
+      }
+
     } catch (err) {
       return NextResponse.redirect(new URL('/login', request.url));
     }
