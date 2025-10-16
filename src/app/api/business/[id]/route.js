@@ -25,7 +25,7 @@ async function findBusiness(id, userId, role) {
   return null;
 }
 
-// 🔹 GET handler
+// 🔹 GET handler (with inspection history)
 export async function GET(request, { params }) {
   await connectMongoDB();
 
@@ -46,12 +46,26 @@ export async function GET(request, { params }) {
       );
     }
 
+    // ✅ Populate officer info if assigned
+    let populatedBusiness = business;
+    if (business.officerInCharge) {
+      populatedBusiness = await Business.populate(business, {
+        path: "officerInCharge",
+        select: "fullName email",
+      });
+    }
+
     const currentYear = new Date().getFullYear();
 
-    const latestTicket = await Ticket.findOne({ business: business._id })
+    // 🟢 Get all inspection records for this business
+    const inspectionRecords = await Ticket.find({ business: business._id })
       .sort({ createdAt: -1 })
+      .populate("officerInCharge", "fullName email") // ✅ include officer details
       .lean();
 
+    const latestTicket = inspectionRecords[0] || null;
+
+    // 🧮 Count how many were completed this year
     const inspectionCountThisYear = await Ticket.countDocuments({
       business: business._id,
       inspectionStatus: "completed",
@@ -61,11 +75,12 @@ export async function GET(request, { params }) {
       },
     });
 
+    // 🧾 Permit validity computation
     const now = new Date();
     const yearEnd = new Date(now.getFullYear(), 11, 31);
     const graceEnd = new Date(now.getFullYear() + 1, 0, 15);
-
     let permitStatus = "unknown";
+
     if (business.sanitaryPermitIssuedAt) {
       const issuedYear = new Date(business.sanitaryPermitIssuedAt).getFullYear();
       if (issuedYear === currentYear && now <= yearEnd) {
@@ -77,14 +92,16 @@ export async function GET(request, { params }) {
       }
     }
 
+    // 🧠 Return full data with all inspection history
     const enriched = {
-      ...business,
+      ...populatedBusiness,
       inspectionStatus: latestTicket ? latestTicket.inspectionStatus : "none",
       ticketId: latestTicket ? latestTicket._id : null,
       inspectionCountThisYear,
       recordedViolation: latestTicket?.violation || "-",
-      checklist: latestTicket?.checklist || null,
+      checklist: latestTicket?.inspectionChecklist || null,
       permitStatus,
+      inspectionRecords, // ✅ Include full inspection history
     };
 
     return NextResponse.json(enriched, { status: 200 });
@@ -96,6 +113,8 @@ export async function GET(request, { params }) {
     );
   }
 }
+
+
 
 export async function PUT(request, { params }) {
   await connectMongoDB();
@@ -166,14 +185,19 @@ export async function PUT(request, { params }) {
     }
 
     // ✅ Auto-attach officer details when completing
-    if (role === "officer" && body.newStatus === "completed") {
-      updateFields.officerInCharge = fullName || "Unknown Officer";
-      updateFields.approvedAt = new Date(); // optional timestamp
-    }
+// ✅ Auto-link officer when approving
+if (role === "officer" && body.newStatus === "completed") {
+  updateFields.officerInCharge = userId; // <-- store the ObjectId ref to User
+  updateFields.approvedAt = new Date(); // optional timestamp
+}
 
-    const updated = await Business.findByIdAndUpdate(business._id, updateFields, {
-      new: true,
-    }).lean();
+
+   const updated = await Business.findByIdAndUpdate(business._id, updateFields, {
+  new: true,
+})
+.populate("officerInCharge", "fullName") // ✅ populate the name
+.lean();
+
 
     return NextResponse.json(
       { msg: "Business updated", business: updated },

@@ -7,6 +7,7 @@ import Violation from "@/models/Violation";
 import { getSession } from "@/lib/Auth";
 
 // 🟢 GET Ticket
+// 🟢 GET Ticket (with inspection history)
 export async function GET(request, { params }) {
   await connectMongoDB();
 
@@ -18,20 +19,38 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // 1️⃣ Find the current ticket
     const ticket = await Ticket.findById(id)
       .populate("business", "businessName bidNumber businessType contactPerson businessAddress")
-      .populate("officerInCharge", "fullName email");
+      .populate("officerInCharge", "fullName email")
+      .lean();
 
     if (!ticket) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    return NextResponse.json(ticket, { status: 200 });
+    // 2️⃣ Get all previous inspection records for this same business
+    const inspectionRecords = await Ticket.find({ business: ticket.business._id })
+      .sort({ createdAt: -1 })
+      .populate("officerInCharge", "fullName email")
+      .lean();
+
+    // 3️⃣ Combine them in one response
+    const enriched = {
+      ...ticket,
+      inspectionRecords, // ✅ include all inspection history for autofill
+    };
+
+    return NextResponse.json(enriched, { status: 200 });
   } catch (err) {
     console.error("Ticket fetch error:", err);
-    return NextResponse.json({ error: "Failed to fetch ticket" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch ticket", details: err.message },
+      { status: 500 }
+    );
   }
 }
+
 
 // 🟡 UPDATE Ticket
 export async function PUT(request, { params }) {

@@ -55,6 +55,26 @@ export default function BusinesslistForm() {
     return errors;
   };
 
+  const displayStatus = (status) => {
+  switch (status) {
+    case 'draft':
+      return '(-)';
+    case 'pending':
+    case 'pending2':
+    case 'pending3':
+      return 'Processing';
+    case 'completed':
+      return 'Approved';
+    case 'released':
+      return 'Valid';
+    case 'expired':
+      return 'Expired';
+    default:
+      return status || '-';
+  }
+};
+
+
   useEffect(() => {
     async function fetchInspectionDetails() {
       if (!data?.data) return;
@@ -395,100 +415,93 @@ export default function BusinesslistForm() {
                 </Stack>
               )}
             </div>
-            <div className="w-full max-w-4xl mx-auto space-y-6 mb-15">
-              {[['BID Number', 'bidNumber'],
-              ['Permit Status', 'status'],
-              ['Business Name', 'businessName'],
-              ['Trade Name', 'businessNickname'],
-              ['Business Type', 'businessType'],
-              ['Landmark', 'landmark'],
-              ['Business Address', 'businessAddress']]
-                .reduce((rows, [label, field]) => {
-                  const value = isEditing
-                    ? newBusiness[field] || ''
-                    : business[field] || '—';
+          <div className="w-full max-w-4xl mx-auto space-y-6 mb-15">
+  {[['BID Number', 'bidNumber'],
+    ['Permit Status', 'status'],
+    ['Business Name', 'businessName'],
+    ['Trade Name', 'businessNickname'],
+    ['Business Type', 'businessType'],
+    ['Landmark', 'landmark'],
+    ['Business Address', 'businessAddress']]
+    .reduce((rows, [label, field]) => {
+      const value = isEditing
+        ? newBusiness[field] || ''
+        : business[field] || '—';
 
-                  const element = (
-                    <div key={field} className="flex items-start gap-2 w-full">
-                      <span className="min-w-[180px] text-sm font-semibold text-gray-700">
-                        {label}:
-                      </span>
-                      {isEditing && field === 'businessType' ? (
-                        <select
-                          value={newBusiness.businessType || ''}
-                          onChange={(e) => handleChange('businessType', e.target.value)}
-                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-                        >
-                          <option value="Food">Food</option>
-                          <option value="Non-Food">Non-Food</option>
-                        </select>
-                      ) : isEditing && field === 'bidNumber' ? (
-                        <input
-                          type="text"
-                          value={newBusiness.bidNumber || ''}
-                          onChange={(e) => {
-                            let value = e.target.value.toUpperCase();
-                            value = value.replace(/[^A-Z0-9-]/g, '');
+      const element = (
+        <div key={field} className="flex items-start gap-2 w-full">
+          <span className="min-w-[180px] text-sm font-semibold text-gray-700">
+            {label}:
+          </span>
 
-                            let formatted = '';
-                            for (let i = 0; i < value.length; i++) {
-                              const char = value[i];
-                              if (i < 2) {
-                                if (/[A-Z]/.test(char)) formatted += char;
-                              } else if (i === 2) {
-                                if (char === '-') formatted += '-';
-                              } else if (i > 2 && i < 7) {
-                                if (/\d/.test(char)) formatted += char;
-                              } else if (i === 7) {
-                                if (char === '-') formatted += '-';
-                              } else if (i > 7 && i < 14) {
-                                if (/\d/.test(char)) formatted += char;
-                              }
-                            }
+          {isEditing && field === 'businessType' ? (
+            <select
+              value={newBusiness.businessType || ''}
+              onChange={(e) => handleChange('businessType', e.target.value)}
+              className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+            >
+              <option value="Food">Food</option>
+              <option value="Non-Food">Non-Food</option>
+            </select>
+          ) : isEditing && field === 'bidNumber' ? (
+            <input
+              type="text"
+              value={newBusiness.bidNumber || ''}
+              onChange={(e) => {
+                let value = e.target.value.toUpperCase();
+                value = value.replace(/[^A-Z0-9-]/g, '');
 
-                            handleChange('bidNumber', formatted.slice(0, 14));
-                          }}
-                          maxLength={14}
-                          placeholder="e.g. AB-2025-123456"
-                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-                        />
-                      ) : isEditing && field !== 'status' ? (
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => handleChange(field, e.target.value)}
-                          className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-                        />
-                      ) : (
-                        <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
-                          {value}
-                        </span>
-                      )}
-
-
-                    </div>
-                  );
-
-                  const isFullRow = field === 'businessAddress';
-                  const item = { element, fullRow: isFullRow };
-
-                  if (isFullRow || !rows.length || rows[rows.length - 1].length === 2) {
-                    rows.push([item]);
-                  } else {
-                    rows[rows.length - 1].push(item);
+                let formatted = '';
+                for (let i = 0; i < value.length; i++) {
+                  const char = value[i];
+                  if (i < 2) {
+                    if (/[A-Z]/.test(char)) formatted += char;
+                  } else if (i === 2) {
+                    if (char === '-') formatted += '-';
+                  } else if (i > 2 && i < 7) {
+                    if (/\d/.test(char)) formatted += char;
+                  } else if (i === 7) {
+                    if (char === '-') formatted += '-';
+                  } else if (i > 7 && i < 14) {
+                    if (/\d/.test(char)) formatted += char;
                   }
+                }
 
-                  return rows;
-                }, [])
-                .map((row, i) => (
-                  <div key={i} className="grid grid-cols-2 gap-6">
-                    {row.map(({ element, fullRow }, j) => (
-                      <div key={j} className={fullRow ? 'col-span-2' : ''}>
-                        {element}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                handleChange('bidNumber', formatted.slice(0, 14));
+              }}
+              maxLength={14}
+              placeholder="e.g. AB-2025-123456"
+              className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+            />
+          ) : (
+            <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+              {field === 'status' ? displayStatus(value) : value}
+            </span>
+          )}
+        </div>
+      );
+
+      const isFullRow = field === 'businessAddress';
+      const item = { element, fullRow: isFullRow };
+
+      if (isFullRow || !rows.length || rows[rows.length - 1].length === 2) {
+        rows.push([item]);
+      } else {
+        rows[rows.length - 1].push(item);
+      }
+
+      return rows;
+    }, [])
+    .map((row, i) => (
+      <div key={i} className="grid grid-cols-2 gap-6">
+        {row.map(({ element, fullRow }, j) => (
+          <div key={j} className={fullRow ? 'col-span-2' : ''}>
+            {element}
+          </div>
+        ))}
+      </div>
+    ))}
+
 
               {/* Contact Person + Contact Number */}
               <div className="grid grid-cols-2 gap-6">
@@ -682,7 +695,6 @@ export default function BusinesslistForm() {
                     ],
                     ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
                     ['Inspection Status', business.inspectionStatus ?? '—'],
-                    ['Ticket ID', business.ticketId ?? '—'],
                     ['Inspection Count This Year', business.inspectionCountThisYear ?? '—'],
                     ['Recorded Violation', business.recordedViolation ?? '—'],
 

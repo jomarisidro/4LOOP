@@ -1,15 +1,22 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef  } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter } from 'next/navigation';
 import * as yup from 'yup';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, Button, Collapse, IconButton, MenuItem, TextField, } from '@mui/material';
+import { Alert, Button, Collapse, FormControl, IconButton, InputLabel, MenuItem, Select, TextField } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
-import { getBusinessByBid, getUserBusinesses, } from '@/app/services/BusinessService';
-import axios from "axios";
+import { getBusinessByBid, getUserBusinesses } from '@/app/services/BusinessService';
+import axios from 'axios';
+
+
+function formatDateForInput(date) {
+  if (!date) return '';
+  const d = new Date(date);
+  return d.toISOString().split('T')[0]; // "2025-10-22"
+}
 
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
@@ -78,7 +85,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
   const [healthCertificateChecklistState, setHealthCertificateChecklistState] = useState('');
   const [msrChecklistState, setMsrChecklistState] = useState([]);
   const [isRequestTypeLocked, setIsRequestTypeLocked] = useState(false);
-
+  const [canSubmit, setCanSubmit] = useState(true);
+  const [isPersonnelCountLocked, setIsPersonnelCountLocked] = useState(false);
 
   const {
     control,
@@ -88,6 +96,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     getValues,
     setValue,
     watch,
+    trigger,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -106,32 +115,151 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     },
     resolver: yupResolver(schema),
   });
-
   const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New';
   const bidNumber = watch('bidNumber');
 
-  // 🧩 Fetch inspection tickets for this business
-  const { data: tickets = [] } = useQuery({
-    queryKey: ['tickets', bidNumber],
-    queryFn: async () => {
-      if (!bidNumber) return [];
-      const res = await axios.get(`/api/ticket?businessId=${bidNumber}`);
-      return res.data || [];
-    },
-    enabled: !!bidNumber,
-  });
+  // 🧹 Clear form + reset state whenever bidNumber changes or is cleared
+  const prevBidNumber = useRef(null);
+  const isResettingRef = useRef(false);
+
+  useEffect(() => {
+    // Skip initial render
+    if (prevBidNumber.current === null) {
+      prevBidNumber.current = bidNumber;
+      return;
+    }
+
+    // Prevent feedback loop after reset()
+    if (isResettingRef.current) {
+      isResettingRef.current = false;
+      prevBidNumber.current = bidNumber;
+      return;
+    }
+
+    // 🧹 Case 1: bidNumber cleared manually
+    if (!bidNumber || bidNumber.trim() === '') {
+      console.log('🧹 bidNumber cleared — resetting everything');
+
+      isResettingRef.current = true;
+
+      reset({
+        bidNumber: '',
+        businessName: '',
+        businessAddress: '',
+        businessEstablishment: '',
+        status: '',
+        msrChecklist: {},
+        inspectionRecords: [],
+        penaltyRecords: [],
+        remarks: '',
+        declaredPersonnel: '',
+        declaredPersonnelDueDate: '',
+        healthCertificates: '',
+        healthCertBalanceToComply: '',
+        healthCertDueDate: '',
+        orDateHealthCert: '',
+        orNumberHealthCert: '',
+        healthCertSanitaryFee: '',
+        healthCertFee: '',
+        requestType: '',
+      });
+
+      setSanitaryPermitChecklistState([]);
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+      setWarningMessage('');
+
+      queryClient.removeQueries({ queryKey: ['business'] });
+      queryClient.removeQueries({ queryKey: ['tickets'] });
+    }
+    // 🔁 Case 2: bidNumber changed to a different one
+    else if (bidNumber !== prevBidNumber.current) {
+    // 🔁 Case 2: bidNumber changed to a different one
+  console.log(`🔁 bidNumber changed: ${prevBidNumber.current} → ${bidNumber}`);
+
+  isResettingRef.current = true;
+
+  // 👇 Hard reset dependent fields (including inspection/penalty)
+  reset((values) => ({
+    ...values,
+    bidNumber, // keep new bidNumber
+    businessName: '',
+    businessAddress: '',
+    businessEstablishment: '',
+    status: '',
+    remarks: '',
+    requestType: '',
+    msrChecklist: {},
+    inspectionRecords: [],
+    penaltyRecords: [],
+    declaredPersonnel: '',
+    declaredPersonnelDueDate: '',
+    healthCertificates: '',
+    healthCertBalanceToComply: '',
+    healthCertDueDate: '',
+    orDateHealthCert: '',
+    orNumberHealthCert: '',
+    healthCertSanitaryFee: '',
+    healthCertFee: '',
+  }));
+
+  setSanitaryPermitChecklistState([]);
+  setHealthCertificateChecklistState('');
+  setMsrChecklistState([]);
+  setWarningMessage('');
+
+  // 🧹 Also clear cached queries so old tickets/records aren't reused
+  queryClient.removeQueries({ queryKey: ['business'] });
+  queryClient.removeQueries({ queryKey: ['tickets'] });
+
+  // ✅ Force re-fetch fresh data for the new bidNumber
+  queryClient.invalidateQueries(['business', bidNumber]);
+  queryClient.invalidateQueries(['tickets', bidNumber]);
+}
 
 
-  // Fetch existing business data
-  const { data: businessData, isFetching, error } = useQuery({
+    prevBidNumber.current = bidNumber;
+  }, [bidNumber, reset, queryClient]);
+
+
+  // ✅ Fetch business data based on selected bidNumber
+  const { data: businessData, isFetching, error, refetch: refetchBusiness } = useQuery({
     queryKey: ['business', bidNumber],
-    queryFn: () => {
+    queryFn: async () => {
       if (!bidNumber) return null;
-      return getBusinessByBid(bidNumber);
+      console.log("🔄 Fetching business data for:", bidNumber);
+      return await getBusinessByBid(bidNumber);
     },
     enabled: Boolean(bidNumber && bidNumber.trim() !== ''),
+    keepPreviousData: false, // ✅ always fetch new data
+    staleTime: 0,            // ✅ force immediate revalidation
   });
+
+  // ✅ Extract businessId after data is loaded
+  const businessId = businessData?._id;
+
+  // ✅ Fetch tickets for this business
+  const { data: tickets = [], refetch: refetchTickets } = useQuery({
+    queryKey: ['tickets', businessId, bidNumber], // ✅ include both businessId + bidNumber
+    queryFn: async () => {
+      if (!businessId || !bidNumber) return [];
+      console.log("🎟️ Fetching tickets for:", businessId, "(BID:", bidNumber, ")");
+      const res = await axios.get(`/api/ticket?businessId=${businessId}`);
+      return res.data || [];
+    },
+    enabled: !!businessId && !!bidNumber,
+    keepPreviousData: false, // ✅ clear old ticket data immediately
+    staleTime: 0,
+  });
+
+  // ✅ Refetch tickets whenever the user switches to a new bidNumber
+  useEffect(() => {
+    if (businessId && bidNumber) {
+      console.log("🔁 Forcing ticket refetch for bid:", bidNumber);
+      refetchTickets();
+    }
+  }, [businessId, bidNumber, refetchTickets]);
 
 
   const handleSanitaryChange = (e) => {
@@ -144,7 +272,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
   const handleHealthChange = (e) => {
     setHealthCertificateChecklistState(e.target.value);
   };
-
 
   const handleMsrChange = (e) => {
     const { value, checked } = e.target;
@@ -179,12 +306,11 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         healthCertBalanceToComply: data.healthCertBalanceToComply || null,
         healthCertDueDate: data.healthCertDueDate || null,
         newRemarks: data.remarks || '',
-
       }),
     });
 
     const payload = await res.json();
-    console.log("Response payload:", payload);  // 👈 log what comes back
+    console.log("Response payload:", payload);
 
     if (!res.ok) {
       const err = new Error(payload.error || 'Failed to update business');
@@ -200,13 +326,11 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     onSuccess: (data) => {
       queryClient.invalidateQueries(['business', data.business.bidNumber]);
       reset();
-
-      // ✅ clear all three checklist states
       setSanitaryPermitChecklistState([]);
       setHealthCertificateChecklistState([]);
       setMsrChecklistState([]);
       setWarningMessage('');
-      router.push('/businessaccount/request');   // ✅ redirect
+      router.push('/businessaccount/request');
     },
 
     onError: (err) => {
@@ -222,36 +346,41 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     },
   });
 
-  // Check for active request
+  // ✅ Check for active request
   const checkBusinessStatus = async (bid) => {
     try {
       const res = await fetch(`/api/business/${bid}`);
       if (!res.ok) return false;
+
       const { status } = await res.json();
+      if (!status) return false;
+
+      const normalized = status.toLowerCase();
       const activeStatuses = ['submitted', 'pending', 'pending2', 'pending3', 'pending4'];
-      return activeStatuses.includes(status);
-    } catch {
+      return activeStatuses.includes(normalized);
+    } catch (err) {
+      console.error("Error checking business status:", err);
       return false;
     }
   };
 
+
   const onSubmit = async (data) => {
     const hasActive = await checkBusinessStatus(data.bidNumber);
-    if (isNew) {
-      console.warn("Inspection section is disabled for 'new' requests — skipping inspection submission.");
-    }
-    if (hasActive && data.status !== 'draft') {
+    if (hasActive) {
       setWarningMessage('🚫 There is already an ongoing sanitation request for this business.');
       return;
     }
 
-    // 🔑 Transform Sanitary Permit checklist into array of { id, label }
+    if (isNew) {
+      console.warn("Inspection section is disabled for 'new' requests — skipping inspection submission.");
+    }
+
     const sanitaryPermitChecklistPayload = sanitaryPermitChecklistState.map(id => {
       const def = sanitaryPermitChecklist.find(item => item.id === id);
       return { id, label: def?.label || id };
     });
 
-    // 🔑 Transform Health Certificate checklist into array of { id, label }
     const healthCertificateChecklistPayload = healthCertificateChecklistState
       ? (() => {
         const def = healthCertificateChecklist.find(item => item.id === healthCertificateChecklistState);
@@ -259,17 +388,11 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
       })()
       : [];
 
-
-    // 🔑 Transform MSR checklist into array of { id, label, dueDate }
     const msrChecklistPayload = Object.entries(data.msrChecklist || {})
       .filter(([_, val]) => val.selected)
       .map(([id, val]) => {
         const def = msrChecklist.find(item => item.id === id);
-        return {
-          id,
-          label: def?.label || id,
-          dueDate: val.dueDate || null,
-        };
+        return { id, label: def?.label || id, dueDate: val.dueDate || null };
       });
 
     mutate({
@@ -292,191 +415,214 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     setMsrChecklistState([]);
     setWarningMessage('');
   };
+
   const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
     queryKey: ['userBusinesses'],
     queryFn: getUserBusinesses,
   });
 
-
+  // ✅ Verify Business Status
   useEffect(() => {
-    if (!businessData || !bidNumber) {
-      reset({
-        bidNumber: '',
-        businessName: '',
-        businessAddress: '',
-        businessEstablishment: '',
-        status: '',
+    const verify = async () => {
+      if (!businessData?._id) return;
+      const hasActive = await checkBusinessStatus(businessData.bidNumber);
+      setCanSubmit(!hasActive);
+    };
+    verify();
+  }, [businessData?._id]);
+
+  // ✅ Auto-set request type when business data or ticket summary changes
+  useEffect(() => {
+    // IMPORTANT: do not reset bidNumber here — preserve it.
+    if (!businessData) {
+      // Clear dependent fields but keep bidNumber value intact
+      reset((values) => ({
+        ...values,
+        // preserve values.bidNumber
+        businessName: "",
+        businessAddress: "",
+        businessEstablishment: "",
+        status: "",
         msrChecklist: {},
         inspectionRecords: [],
         penaltyRecords: [],
-        remarks: '',
-        declaredPersonnel: '',
-        declaredPersonnelDueDate: '',
-        healthCertificates: '',
-        healthCertBalanceToComply: '',
-        healthCertDueDate: '',
-        orDateHealthCert: '',
-        orNumberHealthCert: '',
-        healthCertSanitaryFee: '',
-        healthCertFee: '',
-        requestType: '',
-      });
+        remarks: "",
+        declaredPersonnel: "",
+        declaredPersonnelDueDate: "",
+        healthCertificates: "",
+        healthCertBalanceToComply: "",
+        healthCertDueDate: "",
+        orDateHealthCert: "",
+        orNumberHealthCert: "",
+        healthCertSanitaryFee: "",
+        healthCertFee: "",
+        requestType: "",
+      }));
       setSanitaryPermitChecklistState([]);
-      setHealthCertificateChecklistState('');
+      setHealthCertificateChecklistState("");
       setMsrChecklistState([]);
       setIsRequestTypeLocked(false);
       return;
     }
 
-    // ✅ Business exists → determine type
-    const hasInspections =
-      Array.isArray(businessData?.inspectionRecords) &&
-      businessData.inspectionRecords.length > 0;
+    const inspectionCount =
+      tickets?.filter((t) => t.inspectionStatus === "completed").length || 0;
+    const hasReinspection = inspectionCount >= 2;
+    const hasPenalties =
+      Array.isArray(businessData?.penaltyRecords) &&
+      businessData.penaltyRecords.length > 0;
 
-    const hasViolations =
-      Array.isArray(businessData?.violations) &&
-      businessData.violations.length > 0;
+    const shouldLockRequestType =
+      inspectionCount > 0 || hasReinspection || hasPenalties;
+    const autoRequestType = shouldLockRequestType ? "Renewal" : "New";
 
-    const shouldLockRequestType = hasInspections || hasViolations;
-    const autoRequestType = shouldLockRequestType ? 'Renewal' : 'New';
-
-    setValue('requestType', autoRequestType);
-    setIsRequestTypeLocked(shouldLockRequestType);
-
-    // only update key fields, don’t reset whole form
-    setValue('bidNumber', bidNumber);
-    setValue('businessName', businessData?.businessName || '');
-    setValue('businessAddress', businessData?.businessAddress || '');
-    setValue('status', businessData?.status || '');
-    setValue('businessEstablishment', businessData?.businessEstablishment || '');
-  }, [businessData, bidNumber, reset, setValue]);
-
-
-  useEffect(() => {
-    if (!businessData) return;
-
-    if (requestType === 'New') {
-      // Clear old data
-      setValue('inspectionRecords', []);
-      setValue('penaltyRecords', []);
-      setValue('remarks', '');
-      setValue('declaredPersonnel', '');
-      setValue('declaredPersonnelDueDate', '');
-      setValue('healthCertificates', '');
-      setValue('healthCertBalanceToComply', '');
-      setValue('healthCertDueDate', '');
-    } else if (requestType === 'Renewal') {
-      // Restore prior data if any
-      setValue('remarks', businessData?.remarks || '');
-      setValue('declaredPersonnel', businessData?.declaredPersonnel || '');
-      setValue('declaredPersonnelDueDate', businessData?.declaredPersonnelDueDate || null);
-      setValue('healthCertificates', businessData?.healthCertificates || '');
-      setValue('healthCertBalanceToComply', businessData?.healthCertBalanceToComply || '');
-      setValue('healthCertDueDate', businessData?.healthCertDueDate || null);
+    const currentType = watch("requestType");
+    if (currentType !== autoRequestType) {
+      setValue("requestType", autoRequestType);
+      setIsRequestTypeLocked(shouldLockRequestType);
+      console.log(
+        "🧭 Auto-set requestType:",
+        autoRequestType,
+        "| Inspections:",
+        inspectionCount,
+        "| Penalties:",
+        businessData?.penaltyRecords?.length || 0
+      );
     }
-  }, [requestType, businessData, setValue]);
+
+    // populate fields from loaded businessData
+    setValue("businessName", businessData?.businessName || "");
+    setValue("businessAddress", businessData?.businessAddress || "");
+    setValue("status", businessData?.status || "");
+    setValue("businessEstablishment", businessData?.businessEstablishment || "");
+  }, [businessData, bidNumber, tickets?.length, reset, setValue, watch]);
+
+  // ✅ Autofill from businessData.inspectionRecords
   useEffect(() => {
     if (!businessData?.inspectionRecords?.length) return;
 
     const inspections = businessData.inspectionRecords.slice(0, 2).map((inspection) => ({
       date: inspection.inspectionDate
-        ? new Date(inspection.inspectionDate).toISOString().split('T')[0]
+        ? new Date(inspection.inspectionDate).toISOString().split("T")[0]
         : inspection.dateReinspected
-          ? new Date(inspection.dateReinspected).toISOString().split('T')[0]
-          : '',
-      personnelCount: inspection.inspectionChecklist?.healthCertificates?.actualCount || '',
+        ? new Date(inspection.dateReinspected).toISOString().split("T")[0]
+        : "",
+      personnelCount:
+        inspection.inspectionChecklist?.healthCertificates?.actualCount || "",
       inspectedBy:
-        inspection.officerInCharge?.name ||
         inspection.officerInCharge?.fullName ||
-        (typeof inspection.officerInCharge === 'string'
+        (typeof inspection.officerInCharge === "string"
           ? inspection.officerInCharge
-          : ''),
+          : ""),
     }));
 
     const normalized = [
-      inspections[0] || { date: '', personnelCount: '', inspectedBy: '' },
-      inspections[1] || { date: '', personnelCount: '', inspectedBy: '' },
+      inspections[0] || { date: "", personnelCount: "", inspectedBy: "" },
+      inspections[1] || { date: "", personnelCount: "", inspectedBy: "" },
     ];
 
-    setValue('inspectionRecords', normalized);
+    console.log("📋 Loaded inspectionRecords from businessData:", normalized);
+    setValue("inspectionRecords", normalized);
   }, [businessData, setValue]);
 
+  // ✅ Disable editing of personnel count if inspections already exist
   useEffect(() => {
-    if (!tickets.length) return;
+    const hasExistingInspections =
+      (businessData?.inspectionRecords?.length || 0) > 0 ||
+      (tickets?.filter((t) => t.inspectionStatus === "completed").length || 0) > 0;
 
-    // ✅ Get up to the first two completed inspections
-    const inspections = tickets
-      .filter(t => t.inspectionStatus === 'completed')
-      .sort((a, b) => new Date(a.inspectionDate) - new Date(b.inspectionDate))
-      .slice(0, 2)
-      .map((t) => ({
-        date: t.inspectionDate
-          ? new Date(t.inspectionDate).toISOString().split("T")[0]
-          : '',
-        personnelCount: t.inspectionChecklist?.healthCertificates?.actualCount || '',
-        inspectedBy:
-          t.officerInCharge?.fullName ||
-          t.officerInCharge?.name ||
-          (typeof t.officerInCharge === 'string' ? t.officerInCharge : ''),
-      }));
+    setIsPersonnelCountLocked(hasExistingInspections);
+    console.log("👁️ Personnel count locked:", hasExistingInspections);
+  }, [businessData, tickets]);
 
+  // ✅ Autofill from tickets and compute penalties
+  useEffect(() => {
+    if (!Array.isArray(tickets) || tickets.length === 0) {
+      console.log("🚫 No tickets found yet.");
+      return;
+    }
 
-    // Fill missing slots (e.g. if only 1 inspection exists)
+    const completed = tickets
+      .filter((t) => t.inspectionStatus === "completed")
+      .sort((a, b) => new Date(a.inspectionDate) - new Date(b.inspectionDate));
+
+    const inspections = completed.slice(0, 2).map((t) => ({
+      date: t.inspectionDate
+        ? new Date(t.inspectionDate).toISOString().split("T")[0]
+        : "",
+      personnelCount:
+        t.inspectionChecklist?.healthCertificates?.actualCount || "",
+      inspectedBy:
+        typeof t.officerInCharge === "object"
+          ? t.officerInCharge?.fullName || ""
+          : t.officerInCharge || "",
+    }));
+
     const normalized = [
-      inspections[0] || { date: '', personnelCount: '', inspectedBy: '' },
-      inspections[1] || { date: '', personnelCount: '', inspectedBy: '' },
+      inspections[0] || { date: "", personnelCount: "", inspectedBy: "" },
+      inspections[1] || { date: "", personnelCount: "", inspectedBy: "" },
     ];
 
-    setValue('inspectionRecords', normalized);
+    console.log("✅ Normalized inspectionRecords:", normalized);
+    setValue("inspectionRecords", normalized);
 
-    // ✅ Compute penalty records automatically
-    const computed = ['Sanitary Permit', 'Health Certificate', 'Water Potability', 'MSR'].map((label, index) => {
-      const inspection = inspections[index] || {};
-      const offenseNumber = index + 1;
-      const offense = offenseNumber === 1 ? '1st' : offenseNumber === 2 ? '2nd' : '3rd';
-      let amount = 0;
+    let computed = [];
+    if (completed.length >= 2) {
+      const second = completed[1];
+      const reinspectionYear = new Date(second.inspectionDate).getFullYear();
+      const ic = second.inspectionChecklist || {};
 
-      switch (label) {
-        case 'Sanitary Permit':
-          if (inspection.inspectionChecklist?.sanitaryPermit === 'without') {
-            amount = offense === '1st' ? 2000 : offense === '2nd' ? 3000 : 5000;
-          }
-          break;
-        case 'Health Certificate':
-          const hc = inspection.inspectionChecklist?.healthCertificates;
-          const missing = hc?.withoutCert || 0;
-          if (missing > 0) amount = missing * 500;
-          break;
-        case 'Water Potability':
-          if (inspection.inspectionChecklist?.certificateOfPotability === 'x') amount = 500;
-          break;
-        case 'MSR':
-          const so1 = inspection.inspectionChecklist?.sanitaryOrder01;
-          const so2 = inspection.inspectionChecklist?.sanitaryOrder02;
-          if (so1 === 'x' || so2 === 'x') {
-            amount = offense === '1st' ? 1000 : offense === '2nd' ? 2000 : 5000;
-          }
-          break;
-        default:
-          amount = 0;
-      }
+      const violationTypes = [
+        {
+          label: "Sanitary Permit",
+          violated: ic.sanitaryPermit === "without",
+          computeAmount: (o) => (o === 1 ? 2000 : o === 2 ? 3000 : 5000),
+        },
+        {
+          label: "Health Certificate",
+          violated: (ic.healthCertificates?.withoutCert || 0) > 0,
+          computeAmount: (o, m = ic.healthCertificates?.withoutCert || 0) => m * 500,
+        },
+        {
+          label: "Water Potability",
+          violated: ic.certificateOfPotability === "x",
+          computeAmount: () => 500,
+        },
+        {
+          label: "MSR",
+          violated: ic.sanitaryOrder01 === "x" || ic.sanitaryOrder02 === "x",
+          computeAmount: (o) => (o === 1 ? 1000 : o === 2 ? 2000 : 5000),
+        },
+      ];
 
-      return {
-        label,
-        offense,
-        year: inspection.date
-          ? new Date(inspection.date).getFullYear()
-          : new Date().getFullYear(),
-        orDate: '',
-        orNumber: '',
-        amount,
-      };
-    });
+      const pastYears = completed.map((t) => new Date(t.inspectionDate).getFullYear());
+      const pastOffenseCount = pastYears.filter((y) => y < reinspectionYear).length;
+      const offenseNumber = pastOffenseCount + 1;
+      const offenseLabel =
+        offenseNumber === 1 ? "1st" : offenseNumber === 2 ? "2nd" : "3rd";
 
-    setValue('penaltyRecords', computed);
-  }, [tickets, setValue]);
+      computed = violationTypes
+        .filter((v) => v.violated)
+        .map((v) => ({
+          label: v.label,
+          offense: offenseLabel,
+          year: reinspectionYear,
+          orDate: "",
+          orNumber: "",
+          amount: v.computeAmount(offenseNumber),
+        }));
 
+      console.log("💰 Computed penalties after reinspection:", computed);
+    }
 
+    setValue("penaltyRecords", computed);
+
+    if (completed.length >= 2 || computed.length > 0) {
+      setValue("requestType", "Renewal");
+      setIsRequestTypeLocked(true);
+      console.log("🔁 Auto-set to Renewal due to inspections or penalties");
+    }
+  }, [tickets?.length, setValue]);
 
   return (
     <>
@@ -522,7 +668,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         </div>
       </div>
 
-
       <form
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-6 w-full bg-white shadow p-4 rounded px-6">
@@ -539,30 +684,42 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                 name="bidNumber"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    select
+                  <FormControl
                     variant="standard"
-                    label=""
                     error={!!errors.bidNumber}
-                    helperText={errors?.bidNumber?.message}
                     className="w-full max-w-[220px]"
                   >
-                    <MenuItem value="">-- Select Business --</MenuItem>
-                    {loadingBusinesses ? (
-                      <MenuItem disabled>Loading...</MenuItem>
-                    ) : userBusinesses.length === 0 ? (
-                      <MenuItem disabled>No businesses found</MenuItem>
-                    ) : (
-                      userBusinesses.map((biz) => (
-                        <MenuItem key={biz.bidNumber} value={biz.bidNumber}>
-                          {biz.bidNumber} — {biz.businessName}
-                        </MenuItem>
-                      ))
+                    <InputLabel id="bidNumber-label">Select Business</InputLabel>
+                    <Select
+                      labelId="bidNumber-label"
+                      {...field}
+                      value={field.value || ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    >
+                      <MenuItem value="">-- Select Business --</MenuItem>
+
+                      {loadingBusinesses ? (
+                        <MenuItem disabled>Loading...</MenuItem>
+                      ) : userBusinesses.length === 0 ? (
+                        <MenuItem disabled>No businesses found</MenuItem>
+                      ) : (
+                        userBusinesses.map((biz) => (
+                          <MenuItem key={biz.bidNumber} value={biz.bidNumber}>
+                            {biz.bidNumber} — {biz.businessName}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+
+                    {errors?.bidNumber && (
+                      <p className="text-red-600 text-xs mt-1">
+                        {errors.bidNumber.message}
+                      </p>
                     )}
-                  </TextField>
+                  </FormControl>
                 )}
               />
+
 
             </div>
 
@@ -570,7 +727,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
             <div></div>
           </div>
         </div>
-
 
         <div className="w-full max-w-screen-lg mx-auto">
           {/* BUSINESS NAME */}
@@ -1094,57 +1250,67 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                     </tr>
                   </thead>
 
-                  <tbody>
-                    {["1st", "2nd"].map((label, index) => {
-                      const inspectionRecords = watch('inspectionRecords') || [];
-                      const inspectionRecord = inspectionRecords[index] || {};
+                 <tbody>
+  {["1st", "2nd"].map((label, index) => {
+    const inspectionRecords = watch("inspectionRecords") || [];
+    const inspectionRecord = inspectionRecords[index] || {};
 
-                      return (
-                        <tr key={label} className="bg-white shadow-sm rounded-md">
-                          {/* Label */}
-                          <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">
-                            {label}
-                          </td>
+    const inspectedBy = inspectionRecord.inspectedBy || "N/A";
+    const inspectionDate = inspectionRecord.date || "";
+    const personnelCount = inspectionRecord.personnelCount || "";
 
-                          {/* Date */}
-                          <td className="px-4 py-2">
-                            <RHFTextField
-                              control={control}
-                              name={`inspectionRecords.${index}.date`}
-                              variant="standard"
-                              type="date"
-                              fullWidth
-                              defaultValue={inspectionRecord.date || ""}
-                            />
-                          </td>
+    return (
+      <tr key={label} className="bg-white shadow-sm rounded-md">
+        {/* Label */}
+        <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">
+          {label}
+        </td>
 
-                          {/* Actual Personnel Count */}
-                          <td className="px-4 py-2">
-                            <RHFTextField
-                              control={control}
-                              name={`inspectionRecords.${index}.personnelCount`}
-                              variant="standard"
-                              type="number"
-                              fullWidth
-                              defaultValue={inspectionRecord.personnelCount || ""}
-                            />
-                          </td>
+        {/* Date */}
+        <td className="px-4 py-2">
+          <RHFTextField
+            control={control}
+            name={`inspectionRecords.${index}.date`}
+            variant="standard"
+            type="date"
+            fullWidth
+            defaultValue={inspectionDate}
+          />
+        </td>
 
-                          {/* Inspected By */}
-                          <td className="px-4 py-2">
-                            <RHFTextField
-                              control={control}
-                              name={`inspectionRecords.${index}.inspectedBy`}
-                              variant="standard"
-                              type="text"
-                              fullWidth
-                              defaultValue={inspectionRecord.inspectedBy || ""}
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
+       {/* Actual Personnel Count */}
+<td className="px-4 py-2">
+  <RHFTextField
+    control={control}
+    name={`inspectionRecords.${index}.personnelCount`}
+    variant="standard"
+    type="number"
+    fullWidth
+    defaultValue={personnelCount}
+    InputProps={{
+      readOnly:
+        !!inspectionRecord.personnelCount ||
+        (Array.isArray(businessData?.inspectionRecords) &&
+          businessData.inspectionRecords.length > 0),
+    }}
+  />
+</td>
+
+
+        {/* Inspected By */}
+        <td className="px-4 py-2">
+          <TextField
+            label="Inspected By"
+            variant="standard"
+            value={inspectedBy}
+            InputProps={{ readOnly: false }}
+            fullWidth
+          />
+        </td>
+      </tr>
+    );
+  })}
+</tbody>
 
                 </table>
               </div>
@@ -1301,9 +1467,15 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
         {/* Action Buttons */}
         <div className="flex justify-center gap-4 pt-6">
-          <Button type="submit" variant="contained" color="primary">
+          <Button
+            type="submit"
+            variant="contained"
+            color="primary"
+            disabled={!canSubmit}
+          >
             Send
           </Button>
+
           <Button variant="outlined" color="secondary" onClick={handleSaveDraft}>
             Save as Draft
           </Button>

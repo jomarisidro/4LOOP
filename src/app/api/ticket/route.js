@@ -28,14 +28,17 @@ export async function GET(request) {
 
     if (status) query.inspectionStatus = status;
 
-    if (role === "business") {
-      query.businessAccount = userId;
-    } else if (businessId) {
-      if (!mongoose.Types.ObjectId.isValid(businessId)) {
-        return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
-      }
-      query.business = new mongoose.Types.ObjectId(businessId);
-    }
+   if (businessId) {
+  // Always filter by businessId first if provided
+  if (!mongoose.Types.ObjectId.isValid(businessId)) {
+    return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
+  }
+  query.business = new mongoose.Types.ObjectId(businessId);
+} else if (role === "business") {
+  // Fallback: show all tickets for the logged-in business account
+  query.businessAccount = userId;
+}
+
 
     if (year) {
       const start = new Date(`${year}-01-01T00:00:00Z`);
@@ -47,12 +50,14 @@ export async function GET(request) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
+    // ✅ Add .populate("officerInCharge", "fullName email")
     const tickets = await Ticket.find(query)
       .sort({ createdAt: -1 })
       .populate(
         "business",
         "businessName bidNumber businessType contactPerson businessAddress requestType"
       )
+      .populate("officerInCharge", "fullName email") // 🟢 FIX: Populate officer name
       .populate({
         path: "violations",
         select: "code ordinanceSection description penalty violationStatus createdAt",
@@ -65,6 +70,7 @@ export async function GET(request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
 
 // =========================
 // POST /api/ticket

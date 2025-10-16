@@ -48,7 +48,24 @@ export default function CompletedRequestForm() {
   const [searchType, setSearchType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState({});
-
+ const displayStatus = (status) => {
+  switch (status) {
+    case 'draft':
+      return '(-)';
+    case 'pending':
+    case 'pending2':
+    case 'pending3':
+      return 'Processing';
+    case 'completed':
+      return 'Approved';
+    case 'released':
+      return 'Valid';
+    case 'expired':
+      return 'Expired';
+    default:
+      return status || '-';
+  }
+};
   useEffect(() => {
     if (data) setRequests(data);
   }, [data]);
@@ -195,8 +212,7 @@ export default function CompletedRequestForm() {
                 ['Contact Person', req.contactPerson],
                 ['Contact Number', req.contactNumber],
                 ['Request Type', req.requestType],
-                ['Status', req.status],
-                [
+['Status', displayStatus(req.status)],                [
                   'Submitted On',
                   req.createdAt
                     ? new Date(req.createdAt).toLocaleString('en-PH')

@@ -106,14 +106,20 @@ console.log("🆔 businessId:", businessId);
     business.businessAddress || business.address || '________________';
   const bidNumber = business.bidNumber || business.bid || '________________';
   const ticket = business.latestTicket || {};
-  const officer =
-    ticket.officerInCharge || ticket.inspector || ticket.inspectedBy || {};
-  const officerName =
-    `${officer.firstName || ''} ${officer.lastName || ''}`.trim() ||
-    '____________________';
-  const inspectionDate = ticket.inspectionDate
-    ? new Date(ticket.inspectionDate).toLocaleString('en-PH')
-    : '____________________';
+  // ✅ Officer name now comes from populated business.officerInCharge
+const officer = business.officerInCharge || {};
+const officerName =
+  officer.fullName ||
+  `${officer.firstName || ''} ${officer.lastName || ''}`.trim() ||
+  '____________________';
+
+// ✅ Inspection date fallback
+const inspectionDate = business.inspectionDate
+  ? new Date(business.inspectionDate).toLocaleString('en-PH')
+  : business.latestTicket?.inspectionDate
+  ? new Date(business.latestTicket.inspectionDate).toLocaleString('en-PH')
+  : '____________________';
+
 
   return (
     <Box p={4}>
@@ -138,63 +144,68 @@ console.log("🆔 businessId:", businessId);
           border: '1px solid #000',
         }}
       >
-        {/* Header */}
-        <Box
-          display="grid"
-          gridTemplateColumns="1fr 2fr 1fr"
-          alignItems="center"
-          mb={2}
-        >
-          {/* Left logos */}
-          <Box
-            display="flex"
-            alignItems="center"
-            gap={5}
-            justifyContent="flex-start"
-            pl={15}
-          >
-            <img
-              src="/pasig-seal.png"
-              alt="Pasig City Seal"
-              style={{ width: '100px', height: '100px', objectFit: 'contain' }}
-            />
-            <img
-              src="/pasig-logo.png"
-              alt="Pasig City Logo"
-              style={{ width: '110px', height: '110px', objectFit: 'contain' }}
-            />
-          </Box>
+     
+       {/* Header */}
+<Box
+  display="grid"
+  gridTemplateColumns="1fr 2fr 1fr"
+  alignItems="center"
+  mb={2}
+>
+  {/* Left logos */}
+  <Box
+    display="flex"
+    alignItems="center"
+    justifyContent="flex-start"
+    gap={1}
+  >
+    <img
+      src="/pasig-seal.png"
+      alt="Pasig City Seal"
+      style={{ width: '90px', height: '90px', objectFit: 'contain' }}
+    />
+    <img
+      src="/pasig-logo.png"
+      alt="Pasig City Logo"
+      style={{ width: '90px', height: '90px', objectFit: 'contain' }}
+    />
+  </Box>
 
-          {/* Center text */}
-          <Box textAlign="center">
-            <Typography variant="body2">REPUBLIC OF THE PHILIPPINES</Typography>
-            <Typography variant="body2">CITY OF PASIG</Typography>
-            <Typography variant="body2">CITY HEALTH DEPARTMENT</Typography>
-            <Typography variant="body2">
-              ENVIRONMENTAL SANITATION SECTION
-            </Typography>
-          </Box>
+  {/* Center text */}
+  <Box textAlign="center">
+    <Typography variant="body2">REPUBLIC OF THE PHILIPPINES</Typography>
+    <Typography variant="body2">CITY OF PASIG</Typography>
+    <Typography variant="body2">CITY HEALTH DEPARTMENT</Typography>
+    <Typography variant="body2">
+      ENVIRONMENTAL SANITATION SECTION
+    </Typography>
+  </Box>
 
-          {/* Right logo */}
-          <Box display="flex" justifyContent="center">
-            <img
-              src="/pasig-env.png"
-              alt="Pasig Environmental Logo"
-              style={{ width: '100px', height: '100px', objectFit: 'contain' }}
-            />
-          </Box>
-        </Box>
+  {/* Right logo */}
+  <Box display="flex" justifyContent="flex-end">
+    <img
+      src="/pasig-env.png"
+      alt="Pasig Environmental Logo"
+      style={{ width: '90px', height: '90px', objectFit: 'contain' }}
+    />
+  </Box>
+</Box>
+
 
         {/* Title */}
-        <Typography
-          variant="h5"
-          align="center"
-          fontWeight="bold"
-          gutterBottom
-          sx={{ textDecoration: 'underline' }}
-        >
-          SANITARY PERMIT TO OPERATE
-        </Typography>
+       <Box textAlign="center" mt={2} mb={3}>
+  <Typography
+    variant="h5"
+    fontWeight="bold"
+    gutterBottom
+    sx={{ textDecoration: 'underline' }}
+  >
+    SANITARY PERMIT TO OPERATE
+  </Typography>
+  <Typography variant="body1" fontWeight="bold">
+    IS HEREBY GRANTED TO
+  </Typography>
+</Box>
 
         {/* BID Number */}
         <Box mt={3} mb={2}>
@@ -205,8 +216,6 @@ console.log("🆔 businessId:", businessId);
 
         {/* Business Info */}
         <Box mt={2}>
-          <Typography variant="body1">IS HEREBY GRANTED TO</Typography>
-
           <Box mt={2}>
             <Typography
               variant="h6"
@@ -235,16 +244,32 @@ console.log("🆔 businessId:", businessId);
         </Box>
 
         {/* Dates */}
-        <Stack direction="row" spacing={2} mt={4} justifyContent="space-between">
-          <Typography>
-            <strong>DATE ISSUED:</strong>{' '}
-            {new Date().toLocaleDateString('en-PH')}
-          </Typography>
-          <Typography>
-            <strong>VALID UNTIL DECEMBER 31,</strong>{' '}
-            {new Date().getFullYear()}
-          </Typography>
-        </Stack>
+       <Stack direction="column" spacing={1} mt={4}>
+  <Typography>
+    <strong>DATE ISSUED:</strong>{' '}
+    {business.sanitaryPermitIssuedAt
+      ? new Date(business.sanitaryPermitIssuedAt).toLocaleDateString('en-PH')
+      : '____________________'}
+  </Typography>
+
+  <Typography>
+    <strong>DATE APPROVED:</strong>{' '}
+    {business.approvedAt
+      ? new Date(business.approvedAt).toLocaleString('en-PH', {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })
+      : '____________________'}
+  </Typography>
+
+  <Typography>
+    <strong>VALID UNTIL DECEMBER 31,</strong>{' '}
+    {business.sanitaryPermitIssuedAt
+      ? new Date(business.sanitaryPermitIssuedAt).getFullYear()
+      : new Date().getFullYear()}
+  </Typography>
+</Stack>
+
 
         {/* Legal Text (if needed, unchanged) */}
 

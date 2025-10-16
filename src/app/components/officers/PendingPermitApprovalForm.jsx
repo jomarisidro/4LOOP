@@ -36,46 +36,40 @@ export default function PendingPermitApprovalForm() {
     enabled: !!id,
   });
 
-  const handleUpdate = async () => {
-    try {
-      // ✅ Get logged-in officer info from session/local storage
-      const officerId =
-        sessionStorage.getItem("userId") || localStorage.getItem("loggedUserId");
-      const officerRole =
-        sessionStorage.getItem("userRole") || localStorage.getItem("loggedUserRole");
-      const officerName =
-        sessionStorage.getItem("userFullName") || localStorage.getItem("userFullName");
-      const officerEmail =
-        sessionStorage.getItem("userEmail") || localStorage.getItem("userEmail");
+const handleUpdate = async () => {
+  try {
+    // ✅ Get logged-in officer ID (User._id)
+    const officerId =
+      sessionStorage.getItem("userId") || localStorage.getItem("loggedUserId");
 
-      // ✅ Prepare officer info (fallback if not found)
-      const officerInCharge =
-        officerName ||
-        officerEmail ||
-        (officerId ? `Officer ID: ${officerId}` : "Unknown Officer");
-
-      const res = await fetch(`/api/business/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          newRemarks: remark,
-          newStatus: "completed",
-          officerInCharge, // 👈 include the officer name/email/id
-        }),
-      });
-
-      const result = await res.json();
-      console.log("✅ Updated:", result);
-
-      setRemark("");
-      refetch();
-      await queryClient.invalidateQueries(["permitapproval-requests"]);
-      localStorage.removeItem("permitapprovalRequestId");
-      router.push("/officers/workbench/permitapproval");
-    } catch (err) {
-      console.error("❌ Update failed:", err);
+    if (!officerId) {
+      alert("⚠️ Officer ID not found. Please log in again.");
+      return;
     }
-  };
+
+    const res = await fetch(`/api/business/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        newRemarks: remark,
+        newStatus: "completed",
+        officerInCharge: officerId, // ✅ send only the ObjectId reference
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Failed with status ${res.status}`);
+    const result = await res.json();
+    console.log("✅ Updated business:", result);
+
+    setRemark("");
+    await queryClient.invalidateQueries(["permitapproval-requests"]);
+    router.push("/officers/workbench/permitapproval");
+  } catch (err) {
+    console.error("❌ Update failed:", err);
+    alert("Failed to approve permit. Please try again.");
+  }
+};
+
 
 
   if (isLoading) {

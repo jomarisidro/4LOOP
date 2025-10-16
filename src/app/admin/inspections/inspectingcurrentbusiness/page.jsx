@@ -1,14 +1,14 @@
 'use client';
 
-import InspectingCurrentBusinessForm from "@/app/components/admin/InspectingCurrentBusinessForm";
+import AdminInspectingCurrentBusinessForm from "@/app/components/admin/AdminInspectingCurrentBusinessForm";
 
-export default function ViewTicketInspectionPage() {
+export default function InspectingCurrentBusinessPage() {
   return (
     <div className="flex min-h-screen">
 
       <main className="flex-1 p-6 relative">
 
-          <InspectingCurrentBusinessForm />
+          <AdminInspectingCurrentBusinessForm />
        
       </main>
     </div>
