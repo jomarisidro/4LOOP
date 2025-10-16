@@ -270,9 +270,7 @@ const inspectionDate = business.inspectionDate
   </Typography>
 </Stack>
 
-
         {/* Legal Text (if needed, unchanged) */}
-
         {/* Signatories */}
         <Stack direction="row" justifyContent="space-between" mt={6}>
           <Box textAlign="center">
