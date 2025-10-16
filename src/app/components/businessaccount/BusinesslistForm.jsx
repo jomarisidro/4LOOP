@@ -58,7 +58,9 @@ export default function BusinesslistForm() {
   const displayStatus = (status) => {
   switch (status) {
     case 'draft':
-      return '(-)';
+      return '-';
+    case 'submitted':
+      return 'Request Submitted';
     case 'pending':
     case 'pending2':
     case 'pending3':
@@ -685,15 +687,34 @@ export default function BusinesslistForm() {
 
                 <div className="w-full max-w-4xl mx-auto space-y-6 mb-10 mt-10">
                   {[
-                    ['Health Cert Fee', business.healthCertFee ?? '—'],
-                    ['Health Cert Sanitary Fee', business.healthCertSanitaryFee ?? '—'],
-                    [
-                      'OR Date (Health Cert)',
-                      business.orDateHealthCert
-                        ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
-                        : '—',
-                    ],
-                    ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
+  [
+    'Health Cert Fee',
+    typeof business.healthCertFee === 'number'
+      ? `₱${new Intl.NumberFormat('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(business.healthCertFee)}`
+      : '—',
+  ],
+  [
+    'Health Cert Sanitary Fee',
+    typeof business.healthCertSanitaryFee === 'number'
+      ? `₱${new Intl.NumberFormat('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(business.healthCertSanitaryFee)}`
+      : '—',
+  ],
+  [
+    'OR Date (Health Cert)',
+    business.orDateHealthCert
+      ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
+      : '—',
+  ],
+  ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
+
+
+                    
                     ['Inspection Status', business.inspectionStatus ?? '—'],
                     ['Inspection Count This Year', business.inspectionCountThisYear ?? '—'],
                     ['Recorded Violation', business.recordedViolation ?? '—'],

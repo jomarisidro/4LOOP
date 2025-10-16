@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef  } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter } from 'next/navigation';
@@ -18,26 +18,36 @@ function formatDateForInput(date) {
   return d.toISOString().split('T')[0]; // "2025-10-22"
 }
 
+function clearMsrSelectionsButKeepDueDates(msrChecklist, setValue) {
+  msrChecklist.forEach((item) => {
+    // ❌ Clear only selection and label
+    setValue(`msrChecklist.${item.id}.selected`, false);
+    setValue(`msrChecklist.${item.id}.label`, '');
+    // ✅ Keep the dueDate untouched
+  });
+}
+
+
 const schema = yup.object().shape({
   bidNumber: yup.string().required('Business ID is required'),
   businessName: yup.string().required('Business Name is required'),
   businessAddress: yup.string().required('Business Address is required'),
-  businessEstablishment: yup.string('Same Employee / Name of Establishment is required'),
+  businessEstablishment: yup.string(),
   requestType: yup.string().required('Request Type is required'),
   remarks: yup.string(),
 
-  // ✅ Health certificate fields
-  orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).required('Health Certifcate Date is required'),
-  orNumberHealthCert: yup.string().required('O.R. Number is required').matches(/^\d+$/, 'O.R. Number must contain digits only'),
-  healthCertSanitaryFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).required('Sanitary Fee is required'),
-  healthCertFee: yup.number().min(0).nullable().transform((v, o) => (o === '' ? null : v)).required('Health Cert Fee is required'),
-
-  declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Declared personnel is required'),
-  declaredPersonnelDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)),
-  healthCertificates: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Health certificates count is required'),
-  healthCertBalanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).required('Balance to comply is required'),
-  healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).required('Health certificate due date is required'),
+  // ✅ Health certificate fields (optional but validated if filled)
+  orDateHealthCert: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid date'),
+  orNumberHealthCert: yup.string().matches(/^\d*$/, 'O.R. Number must contain digits only').nullable().transform((v, o) => (o === '' ? null : v)),
+  healthCertSanitaryFee: yup.number().min(0, 'Must be 0 or greater').nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid number'),
+  healthCertFee: yup.number().min(0, 'Must be 0 or greater').nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid number'),
+  declaredPersonnel: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid number'),
+  declaredPersonnelDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid date'),
+  healthCertificates: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid number'),
+  healthCertBalanceToComply: yup.number().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid number'),
+  healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid date'),
 });
+
 
 const sanitaryPermitChecklist = [
   { id: 'tax_order_of_payment_TOP', label: 'Tax Order of Payment (TOP)' },
@@ -50,23 +60,33 @@ const healthCertificateChecklist = [
   { id: 'if_pregnant_xpert_mtb_rif_exam', label: 'If pregnant — Xpert MTB / RIF Exam instead of Chest X-Ray' }
 ];
 
-const msrChecklist = [
-  { id: 'health_certificate', label: 'Health Certificate', dueDate: '' },
-  { id: 'pest_control_contract_agreement', label: 'Pest Control Contract...', dueDate: '' },
-  { id: 'applicable_pest_control_method', label: 'Applicable Pest Control Method...', dueDate: '' },
-  { id: 'license_of_embalmer', label: 'License of Embalmer', dueDate: '' },
-  { id: 'fda_license_to_operate', label: 'FDA - License to Operate', dueDate: '' },
-  { id: 'food_safety_compliance_officer', label: 'Food Safety Compliance Officer (FSCO)', dueDate: '' },
-  { id: 'doh_license_or_accreditation', label: 'DOH License / Accreditation', dueDate: '' },
-  { id: 'manufacturers_distributors_importers_of_excreta_sewage', label: 'Manufacturers/distributors/importers...', dueDate: '' },
-  { id: 'clearance_from_social_hygiene_clinic', label: 'Clearance From Social Hygiene Clinic', dueDate: '' },
-  { id: 'permit_to_operate', label: 'Permit to Operate...', dueDate: '' },
-  { id: 'material_information_data_sheet', label: 'Material Information Data Sheet (Industrial Company)', dueDate: '' },
-  { id: 'random_swab_test_result_of_equipments_and_rooms', label: 'Random Swab Test Result of Equipments & Rooms', dueDate: '' },
-  { id: 'certificate_of_potability_of_drinking_water', label: 'Certificate of Potability of Drinking Water...', dueDate: '' },
-  { id: 'for_water_refilling_station', label: 'For Water Refilling Station', dueDate: '' },
-  { id: 'others', label: 'Others', dueDate: '' },
+// Utility function for computing 90 days from today
+function get90DaysFromNow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 90);
+  return d.toISOString().split('T')[0]; // e.g. "2025-10-22"
+}
+
+const dueDate = get90DaysFromNow();
+
+export const msrChecklist = [
+  { id: 'health_certificate', label: 'Health Certificate', dueDate },
+  { id: 'pest_control_contract_agreement', label: 'Pest Control Contract / Agreement', dueDate },
+  { id: 'applicable_pest_control_method', label: 'Applicable Pest Control Method (In-house/Contract)', dueDate },
+  { id: 'license_of_embalmer', label: 'License of Embalmer', dueDate },
+  { id: 'fda_license_to_operate', label: 'FDA - License to Operate', dueDate },
+  { id: 'food_safety_compliance_officer', label: 'Food Safety Compliance Officer (FSCO)', dueDate },
+  { id: 'doh_license_or_accreditation', label: 'DOH License / Accreditation', dueDate },
+  { id: 'manufacturers_distributors_importers_of_excreta_sewage', label: 'Manufacturers / Distributors / Importers of Excreta / Sewage', dueDate },
+  { id: 'clearance_from_social_hygiene_clinic', label: 'Clearance from Social Hygiene Clinic', dueDate },
+  { id: 'permit_to_operate', label: 'Permit to Operate', dueDate },
+  { id: 'material_information_data_sheet', label: 'Material Information Data Sheet (Industrial Company)', dueDate },
+  { id: 'random_swab_test_result_of_equipments_and_rooms', label: 'Random Swab Test Result of Equipments & Rooms', dueDate },
+  { id: 'certificate_of_potability_of_drinking_water', label: 'Certificate of Potability of Drinking Water', dueDate },
+  { id: 'for_water_refilling_station', label: 'For Water Refilling Station', dueDate },
+  { id: 'others', label: 'Others', dueDate },
 ];
+
 
 function formatPeso(amount) {
   if (!amount || isNaN(amount)) return "₱0.00";
@@ -117,6 +137,9 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
   });
   const requestType = watch('requestType') || initialData?.requestType;
   const isNew = requestType === 'New';
+  // ✅ New condition — only disable sections if real inspection or penalty data exists
+
+
   const bidNumber = watch('bidNumber');
 
   // 🧹 Clear form + reset state whenever bidNumber changes or is cleared
@@ -149,7 +172,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         businessAddress: '',
         businessEstablishment: '',
         status: '',
-        msrChecklist: {},
+// ✅ Preserve MSR due dates while clearing selections and labels
+msrChecklist: Object.fromEntries(
+  msrChecklist.map((item) => [
+    item.id,
+    { selected: false, label: "", dueDate: item.dueDate },
+  ])
+),
         inspectionRecords: [],
         penaltyRecords: [],
         remarks: '',
@@ -165,58 +194,67 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         requestType: '',
       });
 
-      setSanitaryPermitChecklistState([]);
-      setHealthCertificateChecklistState('');
-      setMsrChecklistState([]);
-      setWarningMessage('');
+ setSanitaryPermitChecklistState([]);
+setHealthCertificateChecklistState('');
+setMsrChecklistState([]);
+clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+setWarningMessage('');
 
       queryClient.removeQueries({ queryKey: ['business'] });
       queryClient.removeQueries({ queryKey: ['tickets'] });
     }
     // 🔁 Case 2: bidNumber changed to a different one
     else if (bidNumber !== prevBidNumber.current) {
-    // 🔁 Case 2: bidNumber changed to a different one
-  console.log(`🔁 bidNumber changed: ${prevBidNumber.current} → ${bidNumber}`);
+      // 🔁 Case 2: bidNumber changed to a different one
+      console.log(`🔁 bidNumber changed: ${prevBidNumber.current} → ${bidNumber}`);
 
-  isResettingRef.current = true;
+      isResettingRef.current = true;
 
-  // 👇 Hard reset dependent fields (including inspection/penalty)
-  reset((values) => ({
-    ...values,
-    bidNumber, // keep new bidNumber
-    businessName: '',
-    businessAddress: '',
-    businessEstablishment: '',
-    status: '',
-    remarks: '',
-    requestType: '',
-    msrChecklist: {},
-    inspectionRecords: [],
-    penaltyRecords: [],
-    declaredPersonnel: '',
-    declaredPersonnelDueDate: '',
-    healthCertificates: '',
-    healthCertBalanceToComply: '',
-    healthCertDueDate: '',
-    orDateHealthCert: '',
-    orNumberHealthCert: '',
-    healthCertSanitaryFee: '',
-    healthCertFee: '',
-  }));
+      // 👇 Hard reset dependent fields (including inspection/penalty)
+      reset((values) => ({
+        ...values,
+        bidNumber, // keep new bidNumber
+        businessName: '',
+        businessAddress: '',
+        businessEstablishment: '',
+        status: '',
+        remarks: '',
+        requestType: '',
+// ✅ Preserve MSR due dates while clearing selections and labels
+msrChecklist: Object.fromEntries(
+  msrChecklist.map((item) => [
+    item.id,
+    { selected: false, label: "", dueDate: item.dueDate },
+  ])
+),
+        inspectionRecords: [],
+        penaltyRecords: [],
+        declaredPersonnel: '',
+        declaredPersonnelDueDate: '',
+        healthCertificates: '',
+        healthCertBalanceToComply: '',
+        healthCertDueDate: '',
+        orDateHealthCert: '',
+        orNumberHealthCert: '',
+        healthCertSanitaryFee: '',
+        healthCertFee: '',
+      }));
 
-  setSanitaryPermitChecklistState([]);
-  setHealthCertificateChecklistState('');
-  setMsrChecklistState([]);
-  setWarningMessage('');
+      setSanitaryPermitChecklistState([]);
+setHealthCertificateChecklistState('');
+setMsrChecklistState([]);
+clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+setWarningMessage('');
 
-  // 🧹 Also clear cached queries so old tickets/records aren't reused
-  queryClient.removeQueries({ queryKey: ['business'] });
-  queryClient.removeQueries({ queryKey: ['tickets'] });
 
-  // ✅ Force re-fetch fresh data for the new bidNumber
-  queryClient.invalidateQueries(['business', bidNumber]);
-  queryClient.invalidateQueries(['tickets', bidNumber]);
-}
+      // 🧹 Also clear cached queries so old tickets/records aren't reused
+      queryClient.removeQueries({ queryKey: ['business'] });
+      queryClient.removeQueries({ queryKey: ['tickets'] });
+
+      // ✅ Force re-fetch fresh data for the new bidNumber
+      queryClient.invalidateQueries(['business', bidNumber]);
+      queryClient.invalidateQueries(['tickets', bidNumber]);
+    }
 
 
     prevBidNumber.current = bidNumber;
@@ -235,6 +273,12 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     keepPreviousData: false, // ✅ always fetch new data
     staleTime: 0,            // ✅ force immediate revalidation
   });
+
+const hasInspections = (businessData?.inspectionRecords?.length || 0) > 0;
+const hasPenalties = (businessData?.penaltyRecords?.length || 0) > 0;
+const isLocked = requestType === "Renewal" && (hasInspections || hasPenalties);
+const noRecords = !hasInspections && !hasPenalties;
+
 
   // ✅ Extract businessId after data is loaded
   const businessId = businessData?._id;
@@ -297,7 +341,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         orNumberHealthCert: data.orNumberHealthCert || null,
         healthCertSanitaryFee: data.healthCertSanitaryFee || null,
         healthCertFee: data.healthCertFee || null,
-        sanitaryPermitChecklist: data.sanitaryPermitChecklistState,
+        sanitaryPermitChecklist: data.sanitaryPermitChecklist,
         healthCertificateChecklist: data.healthCertificateChecklist,
         msrChecklist: data.msrChecklist,
         declaredPersonnel: data.declaredPersonnel || null,
@@ -326,10 +370,12 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     onSuccess: (data) => {
       queryClient.invalidateQueries(['business', data.business.bidNumber]);
       reset();
-      setSanitaryPermitChecklistState([]);
-      setHealthCertificateChecklistState([]);
-      setMsrChecklistState([]);
-      setWarningMessage('');
+    setSanitaryPermitChecklistState([]);
+setHealthCertificateChecklistState('');
+setMsrChecklistState([]);
+clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+setWarningMessage('');
+
       router.push('/businessaccount/request');
     },
 
@@ -408,13 +454,15 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     mutate({ ...getValues(), status: 'draft' });
   };
 
-  const handleClear = () => {
-    reset();
-    setSanitaryPermitChecklistState([]);
-    setHealthCertificateChecklistState([]);
-    setMsrChecklistState([]);
-    setWarningMessage('');
-  };
+const handleClear = () => {
+  reset();
+  setSanitaryPermitChecklistState([]);
+  setHealthCertificateChecklistState([]);
+  setMsrChecklistState([]);
+  clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates
+  setWarningMessage('');
+};
+
 
   const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
     queryKey: ['userBusinesses'],
@@ -443,7 +491,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         businessAddress: "",
         businessEstablishment: "",
         status: "",
-        msrChecklist: {},
+// ✅ Preserve MSR due dates while clearing selections and labels
+msrChecklist: Object.fromEntries(
+  msrChecklist.map((item) => [
+    item.id,
+    { selected: false, label: "", dueDate: item.dueDate },
+  ])
+),
         inspectionRecords: [],
         penaltyRecords: [],
         remarks: "",
@@ -461,6 +515,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
       setSanitaryPermitChecklistState([]);
       setHealthCertificateChecklistState("");
       setMsrChecklistState([]);
+      clearMsrSelectionsButKeepDueDates(msrChecklist, setValue);
+
       setIsRequestTypeLocked(false);
       return;
     }
@@ -497,6 +553,23 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
     setValue("businessEstablishment", businessData?.businessEstablishment || "");
   }, [businessData, bidNumber, tickets?.length, reset, setValue, watch]);
 
+useEffect(() => {
+  // compute 90 days from today
+  const dueDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  // existing defaults
+  setValue("declaredPersonnelDueDate", dueDate);
+  setValue("healthCertDueDate", dueDate);
+
+  // ✅ set 90-day due date for all MSR checklist items
+  msrChecklist?.forEach((item) => {
+    setValue(`msrChecklist.${item.id}.dueDate`, dueDate);
+  });
+}, [setValue, msrChecklist]);
+
+
   // ✅ Autofill from businessData.inspectionRecords
   useEffect(() => {
     if (!businessData?.inspectionRecords?.length) return;
@@ -505,8 +578,8 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
       date: inspection.inspectionDate
         ? new Date(inspection.inspectionDate).toISOString().split("T")[0]
         : inspection.dateReinspected
-        ? new Date(inspection.dateReinspected).toISOString().split("T")[0]
-        : "",
+          ? new Date(inspection.dateReinspected).toISOString().split("T")[0]
+          : "",
       personnelCount:
         inspection.inspectionChecklist?.healthCertificates?.actualCount || "",
       inspectedBy:
@@ -647,7 +720,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         </Collapse>
       )}
 
-      <div className="w-full max-w-6xl mx-auto px-4">
+      <div className="w-full max-w-6xl mx-auto px-4 mt-5">
         <div className="grid grid-cols-2 items-center mb-4">
           {/* Left Column: Back Button + Heading */}
           <div className="flex items-center gap-x-4 justify-start">
@@ -915,104 +988,101 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
               <h1 className="ml-12 mb-4">- Health Certificate Fee</h1>
 
               {/* Input fields */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    O.R. Date:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="orDateHealthCert"
-                    type="date"
-                    variant="standard"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </div>
+             <div className="grid grid-cols-2 gap-4">
+  {/* ✅ O.R. Date (optional but validates format) */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      O.R. Date:
+    </label>
+    <RHFTextField
+      control={control}
+      name="orDateHealthCert"
+      type="date"
+      variant="standard"
+      fullWidth
+      InputLabelProps={{ shrink: true }}
+    />
+  </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    O.R. Number:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="orNumberHealthCert"
-                    type="text"
-                    variant="standard"
-                    placeholder="Enter O.R. Number"
-                    fullWidth
-                    inputProps={{
-                      inputMode: 'numeric',
-                      maxLength: 20,
-                    }}
-                    onChange={(e) => {
-                      const digitsOnly = e.target.value.replace(/\D/g, '');
-                      setValue('orNumberHealthCert', digitsOnly, {
-                        shouldValidate: true,
-                        shouldDirty: true,
-                      });
-                    }}
-                  />
-                </div>
+  {/* ✅ O.R. Number (optional but must be digits) */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      O.R. Number:
+    </label>
+    <RHFTextField
+      control={control}
+      name="orNumberHealthCert"
+      type="text"
+      variant="standard"
+      placeholder="Enter O.R. Number"
+      fullWidth
+      inputProps={{
+        inputMode: 'numeric',
+        maxLength: 20,
+      }}
+      onChange={(e) => {
+        const digitsOnly = e.target.value.replace(/\D/g, '');
+        setValue('orNumberHealthCert', digitsOnly, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }}
+    />
+  </div>
 
+  {/* ✅ Sanitary Fee (optional, validates number ≥ 0) */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      Sanitary Fee:
+    </label>
+    <RHFTextField
+      control={control}
+      name="healthCertSanitaryFee"
+      type="number"
+      variant="standard"
+      placeholder="Enter amount"
+      fullWidth
+      inputProps={{ step: '0.01', min: 0 }}
+      onBlur={(e) => {
+        const value = parseFloat(e.target.value);
+        if (!isNaN(value)) {
+          setValue('healthCertSanitaryFee', value, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Sanitary Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertSanitaryFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                    inputProps={{
-                      step: '0.01', // allows decimal input
-                      min: 0,
-                    }}
-                    onBlur={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value)) {
-                        setValue('healthCertSanitaryFee', value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    }}
-                  />
-                </div>
+  {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
 
-                <div className="flex items-center gap-2">
-                  <label className="w-[120px] text-sm font-medium text-gray-700">
-                    Health Cert Fee:
-                  </label>
-                  <RHFTextField
-                    control={control}
-                    name="healthCertFee"
-                    type="number"
-                    variant="standard"
-                    placeholder="Enter amount"
-                    fullWidth
-                    inputProps={{
-                      step: '0.01',
-                      min: 0,
-                    }}
-                    onBlur={(e) => {
-                      const value = parseFloat(e.target.value);
-                      if (!isNaN(value)) {
-                        setValue('healthCertFee', value, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    }}
-                  />
-                </div>
-
-
-              </div>
-            </div>
+            {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
+  <div className="flex items-center gap-2">
+    <label className="w-[120px] text-sm font-medium text-gray-700">
+      Health Cert Fee:
+    </label>
+    <RHFTextField
+      control={control}
+      name="healthCertFee"
+      type="number"
+      variant="standard"
+      placeholder="Enter amount"
+      fullWidth
+      inputProps={{ step: '0.01', min: 0 }}
+      onBlur={(e) => {
+        const value = parseFloat(e.target.value);
+        if (!isNaN(value)) {
+          setValue('healthCertFee', value, {
+            shouldValidate: true,
+            shouldDirty: true,
+          });
+        }
+      }}
+    />
+  </div>
+</div>
+</div>
 
             {/* Right column: Bulk Personnel Instructions */}
             <div className="flex flex-col w-[450px] gap-2 text-sm">
@@ -1051,50 +1121,60 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
           {/* Column headers */}
           <div className="grid grid-cols-4 gap-4 mb-2">
             <div className="text-sm font-bold text-gray-700 text-center">CHECKLIST</div>
-            <div className="text-sm font-bold text-red-700 text-center">DUE DATE TO COMPLY</div>
+            <div className="text-sm font-bold text-red-700 text-center ml-20">DUE DATE TO COMPLY</div>
             <div className="text-sm font-bold text-gray-700 text-center">CHECKLIST</div>
-            <div className="text-sm font-bold text-red-700 text-center">DUE DATE TO COMPLY</div>
+            <div className="text-sm font-bold text-red-700 text-center ml-20">DUE DATE TO COMPLY</div>
           </div>
 
           {/* Checklist rows */}
-          <div className="grid grid-cols-2 gap-4">
-            {msrChecklist.map((item) => (
-              <div
-                key={item.id}
-                className="grid grid-cols-2 items-center gap-2 border-b border-gray-100 py-1"
-              >
-                {/* Checklist cell */}
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    {...register(`msrChecklist.${item.id}.selected`)} // ✅ RHF-managed checkbox
-                    className="transform scale-125 accent-blue-600 mr-2"
-                  />
-                  <span>{item.label}</span>
-                </label>
+        <div className="grid grid-cols-2 gap-4">
+  {msrChecklist.map((item) => (
+    <div
+      key={item.id}
+      className="grid grid-cols-[1fr_130px] items-center gap-2 border-b border-gray-100 py-1"
+    >
+      {/* Checklist cell */}
+      <label className="flex items-center gap-2 text-sm text-gray-800">
+        <input
+          type="checkbox"
+          {...register(`msrChecklist.${item.id}.selected`)}
+          className="transform scale-125 accent-blue-600 mr-2"
+        />
+        <span>{item.label}</span>
+      </label>
 
-                {/* Due Date cell */}
-                <div className="w-28 mx-auto">
-                  <RHFTextField
-                    control={control}
-                    name={`msrChecklist.${item.id}.dueDate`}   // ✅ RHF-managed due date
-                    type="date"
-                    variant="standard"
-                    label=""
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                    sx={{
-                      color: '#b91c1c',
-                      '& .MuiInputBase-input': { color: '#b91c1c' },
-                      '& .MuiInput-underline:before': { borderBottomColor: '#b91c1c' },
-                      '& .MuiInput-underline:hover:before': { borderBottomColor: '#b91c1c' },
-                      '& .MuiInput-underline:after': { borderBottomColor: '#b91c1c' },
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
+      {/* Due Date cell */}
+     <RHFTextField
+  control={control}
+  name={`msrChecklist.${item.id}.dueDate`}
+  type="date"
+  variant="standard"
+  label=""
+  disabled
+  InputLabelProps={{ shrink: true }}
+InputProps={{
+  readOnly: isLocked,
+  style: isLocked ? { backgroundColor: "#f5f5f5", color: "#555" } : {},
+}}
+
+  sx={{
+    color: '#b91c1c',
+    '& .MuiInputBase-input': {
+      color: '#b91c1c',
+      textAlign: 'center',
+      fontSize: 14,
+      padding: 0,
+    },
+    '& .MuiInput-underline:before': { borderBottomColor: '#b91c1c' },
+    '& .MuiInput-underline:hover:before': { borderBottomColor: '#b91c1c' },
+    '& .MuiInput-underline:after': { borderBottomColor: '#b91c1c' },
+  }}
+/>
+
+    </div>
+  ))}
+</div>
+
 
           <div className="flex flex-wrap justify-between gap-1 mb-6 w-full max-w-screen-lg mx-auto -ml-2 mt-2">
             {/* Left column: NOTE section */}
@@ -1166,9 +1246,14 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                   id="declaredPersonnelDueDate"
                   type="date"
                   {...register('declaredPersonnelDueDate')}
-                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px]"
+                  value={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split('T')[0]} // ✅ set to 90 days from today
+                  readOnly
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] bg-gray-100 text-gray-700 cursor-not-allowed"
                 />
               </div>
+
             </div>
 
             {/* Row 2: Health Certificates + Balance to Comply + Due Date */}
@@ -1219,22 +1304,36 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
 
 
 
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 mt-4">
+                <label
+                  htmlFor="healthCertDueDate"
+                  className="text-sm font-medium text-gray-700"
+                >
+                  HEALTH CERTIFICATE DUE DATE
+                </label>
                 <input
                   id="healthCertDueDate"
                   type="date"
                   {...register('healthCertDueDate')}
-                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] mt-16"
+                  value={new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+                    .toISOString()
+                    .split('T')[0]}
+                  readOnly
+                  className="border border-gray-300 rounded px-2 py-1 w-full max-w-[130px] bg-gray-100 text-gray-700 cursor-not-allowed"
                 />
               </div>
             </div>
           </div>
 
-          {/* Right Column: Inspection Record */}
-          <fieldset
-            disabled={isNew}
-            className={isNew ? 'opacity-50 pointer-events-none' : ''}
-          >
+          {/* Inspection Record */}
+<fieldset
+  disabled={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)}
+  className={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)
+    ? "opacity-50 pointer-events-none"
+    : ""}
+>
+
+
             <div className="w-full max-w-6xl mx-auto px-4 mb-6">
               <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
               <div className="overflow-x-auto">
@@ -1250,67 +1349,82 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                     </tr>
                   </thead>
 
-                 <tbody>
-  {["1st", "2nd"].map((label, index) => {
-    const inspectionRecords = watch("inspectionRecords") || [];
-    const inspectionRecord = inspectionRecords[index] || {};
+                  <tbody>
+                    {["1st", "2nd"].map((label, index) => {
+                      const inspectionRecords = watch("inspectionRecords") || [];
+                      const inspectionRecord = inspectionRecords[index] || {};
 
-    const inspectedBy = inspectionRecord.inspectedBy || "N/A";
-    const inspectionDate = inspectionRecord.date || "";
-    const personnelCount = inspectionRecord.personnelCount || "";
+                      const inspectedBy = inspectionRecord.inspectedBy || "N/A";
+                      const inspectionDate = inspectionRecord.date || "";
+                      const personnelCount = inspectionRecord.personnelCount || "";
 
-    return (
-      <tr key={label} className="bg-white shadow-sm rounded-md">
-        {/* Label */}
-        <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">
-          {label}
-        </td>
+                      return (
+                        <tr key={label} className="bg-white shadow-sm rounded-md">
+                          {/* Label */}
+                          <td className="px-4 py-2 text-sm text-gray-700 text-center font-medium">
+                            {label}
+                          </td>
 
-        {/* Date */}
-        <td className="px-4 py-2">
-          <RHFTextField
-            control={control}
-            name={`inspectionRecords.${index}.date`}
-            variant="standard"
-            type="date"
-            fullWidth
-            defaultValue={inspectionDate}
-          />
-        </td>
+                          {/* Date */}
+                          <td className="px-4 py-2">
+                            <RHFTextField
+                              control={control}
+                              name={`inspectionRecords.${index}.date`}
+                              variant="standard"
+                              type="date"
+                              fullWidth
+                              defaultValue={inspectionDate}
+                            />
+                          </td>
 
-       {/* Actual Personnel Count */}
-<td className="px-4 py-2">
-  <RHFTextField
+                          {/* Actual Personnel Count */}
+                          <td className="px-4 py-2">
+                            <RHFTextField
+                              control={control}
+                              name={`inspectionRecords.${index}.personnelCount`}
+                              variant="standard"
+                              type="number"
+                              fullWidth
+                              defaultValue={personnelCount}
+                              InputProps={{
+                                readOnly:
+                                  !!inspectionRecord.personnelCount ||
+                                  (Array.isArray(businessData?.inspectionRecords) &&
+                                    businessData.inspectionRecords.length > 0),
+                              }}
+                            />
+                          </td>
+
+
+                          {/* Inspected By */}
+                         <td className="px-4 py-2">
+  <Controller
+    name={`inspectionRecords.${index}.inspectedBy`}
     control={control}
-    name={`inspectionRecords.${index}.personnelCount`}
-    variant="standard"
-    type="number"
-    fullWidth
-    defaultValue={personnelCount}
-    InputProps={{
-      readOnly:
-        !!inspectionRecord.personnelCount ||
-        (Array.isArray(businessData?.inspectionRecords) &&
-          businessData.inspectionRecords.length > 0),
-    }}
+    defaultValue=""
+    render={({ field }) => (
+      <TextField
+        {...field}
+        label="Inspected By"
+        variant="standard"
+        fullWidth
+        value={field.value ?? ""}
+        InputProps={{
+          readOnly: !noRecords && isLocked,
+          style:
+            !noRecords && isLocked
+              ? { backgroundColor: "#f5f5f5", color: "#555" }
+              : {},
+        }}
+      />
+    )}
   />
 </td>
 
-
-        {/* Inspected By */}
-        <td className="px-4 py-2">
-          <TextField
-            label="Inspected By"
-            variant="standard"
-            value={inspectedBy}
-            InputProps={{ readOnly: false }}
-            fullWidth
-          />
-        </td>
-      </tr>
-    );
-  })}
-</tbody>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
 
                 </table>
               </div>
@@ -1320,7 +1434,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         </div>
 
         {/* Penalty Record Section */}
-        <fieldset disabled={isNew} className={isNew ? "opacity-50 pointer-events-none" : ""}>
+<fieldset
+  disabled={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)}
+  className={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)
+    ? "opacity-50 pointer-events-none"
+    : ""}
+>
+
           <div className="w-full max-w-6xl mx-auto px-4 mb-6">
             <div className="grid grid-cols-[2fr_1fr] gap-6">
               <div>
@@ -1337,93 +1457,167 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                         <th className="px-2 py-1">Amount</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      {(watch('penaltyRecords') || []).map((row, index) => (
-                        <tr key={index} className="bg-white shadow-sm rounded-md">
-                          {/* Checklist */}
-                          <td className="px-2 py-1 text-sm text-gray-700">
-                            <label className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                className="form-checkbox text-blue-600"
-                                checked={!!row.offense}
-                                readOnly
-                              />
-                              {row.label}
-                            </label>
-                          </td>
+      <tbody>
+  {(watch("penaltyRecords")?.length
+    ? watch("penaltyRecords")
+    : [
+        { label: "Sanitary Permit" },
+        { label: "Health Certificate" },
+        { label: "Water Potability" },
+        { label: "MSR" },
+      ]
+  ).map((row, index) => (
+    <tr key={index} className="bg-white shadow-sm rounded-md">
+      {/* Checklist */}
+      <td className="px-2 py-1 text-sm text-gray-700">
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            className="form-checkbox text-blue-600"
+            {...register(`penaltyRecords.${index}.isChecked`)}
+          />
+          {row.label ||
+            ["Sanitary Permit", "Health Certificate", "Water Potability", "MSR"][index]}
+        </label>
+      </td>
 
-                          {/* Offense */}
-                          <td className="px-2 py-1">
-                            <TextField
-                              variant="standard"
-                              fullWidth
-                              value={row.offense}
-                              InputProps={{
-                                readOnly: true,
-                                style: { backgroundColor: "#f5f5f5", color: "#555" },
-                              }}
-                            />
-                          </td>
+      {/* Offense (dropdown) */}
+      <td className="px-2 py-1">
+        <Controller
+          name={`penaltyRecords.${index}.offense`}
+          control={control}
+          defaultValue={row.offense || ""}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              select
+              variant="standard"
+              fullWidth
+              InputProps={{
+                readOnly: !noRecords && isLocked,
+                style:
+                  !noRecords && isLocked
+                    ? { backgroundColor: "#f5f5f5", color: "#555" }
+                    : {},
+              }}
+            >
+              <MenuItem value="1st">1st</MenuItem>
+              <MenuItem value="2nd">2nd</MenuItem>
+              <MenuItem value="3rd">3rd</MenuItem>
+            </TextField>
+          )}
+        />
+      </td>
 
-                          {/* Year */}
-                          <td className="px-2 py-1">
-                            <TextField
-                              variant="standard"
-                              fullWidth
-                              value={row.year}
-                              InputProps={{
-                                readOnly: true,
-                                style: { backgroundColor: "#f5f5f5", color: "#555" },
-                              }}
-                            />
-                          </td>
+      {/* Year (4 digits only) */}
+      <td className="px-2 py-1">
+        <Controller
+          name={`penaltyRecords.${index}.year`}
+          control={control}
+          defaultValue={row.year || ""}
+          render={({ field: { onChange, value, ...rest } }) => (
+            <TextField
+              {...rest}
+              value={value || ""}
+              onChange={(e) =>
+                onChange(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
+              }
+              variant="standard"
+              fullWidth
+              placeholder="YYYY"
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 4 }}
+              InputProps={{
+                readOnly: !noRecords && isLocked,
+                style:
+                  !noRecords && isLocked
+                    ? { backgroundColor: "#f5f5f5", color: "#555" }
+                    : {},
+              }}
+            />
+          )}
+        />
+      </td>
 
-                          {/* OR Date — manually editable, no autofill */}
-                          <td className="px-2 py-1">
-                            <Controller
-                              name={`penaltyRecords.${index}.orDate`}
-                              control={control}
-                              defaultValue={row.orDate || ""}
-                              render={({ field }) => (
-                                <TextField
-                                  {...field}
-                                  type="date"
-                                  variant="standard"
-                                  fullWidth
-                                />
-                              )}
-                            />
-                          </td>
+      {/* O.R. Date */}
+      <td className="px-2 py-1">
+        <Controller
+          name={`penaltyRecords.${index}.orDate`}
+          control={control}
+          defaultValue={row.orDate || ""}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              type="date"
+              variant="standard"
+              fullWidth
+              InputProps={{
+                readOnly: !noRecords && isLocked,
+                style:
+                  !noRecords && isLocked
+                    ? { backgroundColor: "#f5f5f5", color: "#555" }
+                    : {},
+              }}
+            />
+          )}
+        />
+      </td>
 
-                          {/* OR Number — manually editable, only numbers */}
-                          <td className="px-2 py-1">
-                            <Controller
-                              name={`penaltyRecords.${index}.orNumber`}
-                              control={control}
-                              defaultValue={row.orNumber || ""}
-                              render={({ field: { onChange, value, ...rest } }) => (
-                                <TextField
-                                  {...rest}
-                                  value={value}
-                                  onChange={(e) =>
-                                    onChange(e.target.value.replace(/\D/g, ""))
-                                  }
-                                  variant="standard"
-                                  fullWidth
-                                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-                                />
-                              )}
-                            />
-                          </td>
+      {/* O.R. Number (numbers only) */}
+      <td className="px-2 py-1">
+        <Controller
+          name={`penaltyRecords.${index}.orNumber`}
+          control={control}
+          defaultValue={row.orNumber || ""}
+          render={({ field: { onChange, value, ...rest } }) => (
+            <TextField
+              {...rest}
+              value={value || ""}
+              onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+              variant="standard"
+              fullWidth
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+              InputProps={{
+                readOnly: !noRecords && isLocked,
+                style:
+                  !noRecords && isLocked
+                    ? { backgroundColor: "#f5f5f5", color: "#555" }
+                    : {},
+              }}
+            />
+          )}
+        />
+      </td>
 
-                          {/* Amount (auto-computed) */}
-                          <td className="px-2 py-1 text-center font-semibold text-green-700">
-                            {formatPeso(row.amount)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
+      {/* Amount (editable, numbers only) */}
+      <td className="px-2 py-1 text-center font-semibold text-green-700">
+        <Controller
+          name={`penaltyRecords.${index}.amount`}
+          control={control}
+          defaultValue={row.amount || ""}
+          render={({ field: { onChange, value, ...rest } }) => (
+            <TextField
+              {...rest}
+              value={value || ""}
+              onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+              variant="standard"
+              fullWidth
+              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+              InputProps={{
+                readOnly: !noRecords && isLocked,
+                style:
+                  !noRecords && isLocked
+                    ? { backgroundColor: "#f5f5f5", color: "#555" }
+                    : {},
+              }}
+            />
+          )}
+        />
+      </td>
+    </tr>
+  ))}
+</tbody>
+
+
                   </table>
                 </div>
               </div>

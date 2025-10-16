@@ -213,7 +213,7 @@ if (role === "officer" && body.newStatus === "completed") {
 }
 
 
-// 🔹 DELETE handler
+// 🔹 DELETE handler (soft delete + field reset)
 export async function DELETE(request, { params }) {
   await connectMongoDB();
 
@@ -234,16 +234,66 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    await Business.findByIdAndDelete(business._id);
+    // ✅ Preserve these schema-defined fields
+    const preservedFields = {
+      bidNumber: business.bidNumber || "",
+      businessName: business.businessName || "",
+      businessNickname: business.businessNickname || "",
+      businessType: business.businessType || "",
+      businessAddress: business.businessAddress || "",
+      contactPerson: business.contactPerson || "",
+      landmark: business.landmark || "",
+      contactNumber: business.contactNumber || "",
+    };
+
+    // ✅ Everything else gets cleared
+    const clearedFields = {
+      requestType: "",
+      remarks: "",
+      requirements: "",
+      sanitaryPermitChecklist: [],
+      healthCertificateChecklist: [],
+      msrChecklist: [],
+      orDateHealthCert: null,
+      orNumberHealthCert: "",
+      healthCertSanitaryFee: null,
+      healthCertFee: null,
+      declaredPersonnel: null,
+      declaredPersonnelDueDate: null,
+      healthCertificates: null,
+      healthCertBalanceToComply: null,
+      healthCertDueDate: null,
+      expirationDate: null,
+      gracePeriodDate: null,
+      officerInCharge: null,
+      sanitaryPermitIssuedAt: null,
+      onlineRequest: false,
+      history: [],
+      status: "draft",
+    };
+
+    // ✅ Merge preserved + cleared fields
+    const updateData = { ...preservedFields, ...clearedFields };
+
+    const updated = await Business.findByIdAndUpdate(
+      business._id,
+      updateData,
+      { new: true }
+    ).lean();
+
     return NextResponse.json(
-      { message: "Business deleted successfully" },
+      {
+        message: "Business reset successfully (status set to draft).",
+        business: updated,
+      },
       { status: 200 }
     );
   } catch (err) {
     console.error("DELETE error:", err);
     return NextResponse.json(
-      { error: "Failed to delete business", details: err.message },
+      { error: "Failed to reset business", details: err.message },
       { status: 500 }
     );
   }
 }
+

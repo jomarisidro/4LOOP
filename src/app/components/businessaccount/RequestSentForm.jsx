@@ -10,27 +10,26 @@ import {
   Button,
   Stack,
   CircularProgress,
-  TextField,
+  Divider,
 } from '@mui/material';
 import {
   getSanitationOnlineRequest,
   updateSanitationOnlineRequest,
 } from '@/app/services/OnlineRequest';
+import { HiPencilAlt, HiTrash, HiSave, HiX } from 'react-icons/hi';
 
 export default function RequestSentForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
+  // ✅ Fetch only submitted requests
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ['online-request'],
     queryFn: async () => {
       const response = await getSanitationOnlineRequest();
       const allRequests = Array.isArray(response) ? response : response?.data || [];
-      const submitted = allRequests.filter(req => req.status === 'submitted');
-      const uniqueRequests = Array.from(
-        new Map(submitted.map(req => [`${req._id}-${req.requestType}`, req])).values()
-      );
-      return uniqueRequests;
+      const submitted = allRequests.filter((req) => req.status === 'submitted');
+      return submitted;
     },
     refetchInterval: 5000,
   });
@@ -55,13 +54,27 @@ export default function RequestSentForm() {
 
   const handleEditClick = (req) => setSelectedRequest(req);
 
-  const handleSoftDelete = (req) => {
+  const handleDelete = (req) => {
     if (!window.confirm('Are you sure you want to delete this request?')) return;
-    mutation.mutate({ id: req._id, payload: { newStatus: 'draft' } });
+
+    const payload = {
+      newBidNumber: req.bidNumber || '',
+      newBusinessName: req.businessName || '',
+      newBusinessNickname: req.businessNickname || '',
+      newBusinessType: req.businessType || '',
+      newBusinessAddress: req.businessAddress || '',
+      newContactPerson: req.contactPerson || '',
+      newLandmark: req.landmark || '',
+      newContactNumber: req.contactNumber || '',
+      newRemarks: '',
+      newStatus: 'draft',
+    };
+
+    mutation.mutate({ id: req._id, payload });
   };
 
   const handleFieldChange = (field, value) => {
-    setSelectedRequest(prev => ({ ...prev, [field]: value }));
+    setSelectedRequest((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = () => {
@@ -72,9 +85,7 @@ export default function RequestSentForm() {
       newBusinessType: rest.businessType || '',
       newBusinessAddress: rest.businessAddress || '',
       newBidNumber: rest.bidNumber || '',
-      newRequestType: rest.requestType || '',
       newStatus: rest.status || '',
-      newRequirements: rest.requirements || '',
       newContactPerson: rest.contactPerson || '',
       newContactNumber: rest.contactNumber || '',
       newLandmark: rest.landmark || '',
@@ -83,115 +94,211 @@ export default function RequestSentForm() {
     mutation.mutate({ id: _id, payload });
   };
 
-  const renderField = (label, field, req) => (
-    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-      <Typography variant="subtitle1" sx={{ minWidth: 180 }}>
-        <b>{label}:</b>
-      </Typography>
-      {selectedRequest?._id === req._id ? (
-        <TextField
-          size="small"
-          value={selectedRequest[field] || ''}
-          onChange={(e) => handleFieldChange(field, e.target.value)}
-        />
-      ) : (
-        <Typography>{req[field]}</Typography>
-      )}
-    </Stack>
-  );
+  const renderValue = (label, field, req) => {
+    const value = selectedRequest?._id === req._id
+      ? selectedRequest[field] || ''
+      : req[field] || '—';
+
+    // Read-only Permit Status
+    if (field === 'status') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-gray-700">{label}:</span>
+          <span className="w-full bg-gray-200 text-gray-600 px-3 py-2 rounded-md border border-gray-300 cursor-not-allowed">
+            {req.status || '—'}
+          </span>
+        </div>
+      );
+    }
+
+    // Editable dropdown for businessType
+    if (selectedRequest?._id === req._id && field === 'businessType') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-gray-700">{label}:</span>
+          <select
+            value={value}
+            onChange={(e) => handleFieldChange('businessType', e.target.value)}
+            className="w-full bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+          >
+            <option value="Food">Food</option>
+            <option value="Non-Food">Non-Food</option>
+          </select>
+        </div>
+      );
+    }
+
+    // ✅ Custom BID Number input format
+    if (selectedRequest?._id === req._id && field === 'bidNumber') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-gray-700">{label}:</span>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+              let formatted = '';
+              for (let i = 0; i < val.length; i++) {
+                const c = val[i];
+                if (i < 2 && /[A-Z]/.test(c)) formatted += c;
+                else if (i === 2 && c === '-') formatted += '-';
+                else if (i > 2 && i < 7 && /\d/.test(c)) formatted += c;
+                else if (i === 7 && c === '-') formatted += '-';
+                else if (i > 7 && i < 14 && /\d/.test(c)) formatted += c;
+              }
+              handleFieldChange('bidNumber', formatted.slice(0, 14));
+            }}
+            maxLength={14}
+            placeholder="e.g. AB-2025-123456"
+            className="w-full bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+          />
+        </div>
+      );
+    }
+
+    // ✅ Custom Contact Number input format
+    if (selectedRequest?._id === req._id && field === 'contactNumber') {
+      return (
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-semibold text-gray-700">{label}:</span>
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              let input = e.target.value.replace(/\D/g, '');
+              if (!input.startsWith('09')) input = '09';
+              const trimmed = input.slice(0, 11);
+              handleFieldChange('contactNumber', trimmed);
+            }}
+            inputMode="numeric"
+            maxLength={11}
+            placeholder="e.g. 09123456789"
+            className="w-full bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+          />
+        </div>
+      );
+    }
+
+    // Default text inputs and read-only values
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-semibold text-gray-700">{label}:</span>
+        {selectedRequest?._id === req._id ? (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleFieldChange(field, e.target.value)}
+            className="w-full bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
+          />
+        ) : (
+          <span className="w-full bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+            {value}
+          </span>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <Box position="relative" p={2}>
-      <Button
-        variant="outlined"
-        onClick={() => router.push('/businessaccount/request')}
-        sx={{ mb: 2 }}
-      >
-        ← Back
-      </Button>
+    <Box className="w-full bg-white shadow rounded-lg p-6">
+      {/* Header */}
+      <div className="flex justify-start mb-6">
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={() => router.push('/businessaccount/request')}
+        >
+          ↩️ Back to Request Lists
+        </Button>
+      </div>
 
-      <Typography variant="h6" fontWeight="bold" mb={2} mt={6}>
-        📄 View Request Sent
-      </Typography>
+      <div className="text-center mb-8">
+        <h1 className="text-2xl font-bold text-blue-900 uppercase">
+          View Request Sent
+        </h1>
+        <Divider className="my-3" />
+      </div>
 
-      {isLoading && (
+      {isLoading ? (
         <Stack alignItems="center" mt={4}>
           <CircularProgress />
-          <Typography variant="body2" mt={2}>Loading requests...</Typography>
+          <Typography variant="body2" mt={2}>
+            Loading requests...
+          </Typography>
         </Stack>
-      )}
-
-      {isError && (
+      ) : isError ? (
         <Typography variant="body2" color="error" mt={2}>
           Error fetching requests: {error.message}
         </Typography>
-      )}
+      ) : requests.length > 0 ? (
+        requests.map((req) => {
+          const isEditing = selectedRequest?._id === req._id;
 
-      {!isLoading && !isError && requests.length > 0 ? (
-        <Stack spacing={4}>
-          {requests.map((req, index) => (
+          return (
             <Paper
-              key={`${req._id}-${req.requestType}-${index}`}
+              key={req._id}
               elevation={2}
-              sx={{ p: 2, borderLeft: '6px solid #1976d2' }}
+              className="p-6 mb-10 rounded-lg border border-gray-300 bg-white relative"
             >
-              {renderField('BID Number', 'bidNumber', req)}
-              {renderField('Business Name', 'businessName', req)}
-              {renderField('Trade Name', 'businessNickname', req)}
-              {renderField('Business Type', 'businessType', req)}
-              {renderField('Address', 'businessAddress', req)}
-              {renderField('Request Type', 'requestType', req)}
-              {renderField('Status', 'status', req)}
-              {renderField('Requirements', 'requirements', req)}
-              {renderField('Contact Person', 'contactPerson', req)}
-              {renderField('Contact Number', 'contactNumber', req)}
-              {renderField('Landmark', 'landmark', req)}
-              {renderField('Remarks', 'remarks', req)}
+              {/* Buttons */}
+              <div className="absolute -top-5 -right-5">
+                {isEditing ? (
+                  <Stack direction="row" spacing={1}>
+                    <Button variant="contained" color="success" onClick={handleSave} startIcon={<HiSave />}>
+                      Save
+                    </Button>
+                    <Button variant="outlined" color="secondary" onClick={() => setSelectedRequest(null)} startIcon={<HiX />}>
+                      Cancel
+                    </Button>
+                  </Stack>
+                ) : (
+                  <Stack direction="row" spacing={1}>
+                    <Button variant="contained" color="primary" onClick={() => handleEditClick(req)} startIcon={<HiPencilAlt />}>
+                      Edit
+                    </Button>
+                    <Button variant="contained" color="error" onClick={() => handleDelete(req)} startIcon={<HiTrash />}>
+                      Delete
+                    </Button>
+                  </Stack>
+                )}
+              </div>
 
-              <Typography variant="subtitle1" sx={{ mt: 1 }}>
-                <b>Submitted on:</b> {new Date(req.createdAt).toLocaleString('en-PH')}
+              {/* Form layout */}
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                {renderValue('BID Number', 'bidNumber', req)}
+                {renderValue('Permit Status', 'status', req)}
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                {renderValue('Business Name', 'businessName', req)}
+                {renderValue('Trade Name', 'businessNickname', req)}
+              </div>
+
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                {renderValue('Business Type', 'businessType', req)}
+                {renderValue('Landmark', 'landmark', req)}
+              </div>
+
+              <div className="mb-4">{renderValue('Business Address', 'businessAddress', req)}</div>
+
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                {renderValue('Contact Person', 'contactPerson', req)}
+                {renderValue('Contact Number', 'contactNumber', req)}
+              </div>
+
+              <div className="mb-4">{renderValue('Remarks', 'remarks', req)}</div>
+
+              <Typography variant="subtitle2" sx={{ mt: 2, color: 'gray', fontStyle: 'italic' }}>
+                Submitted on: {new Date(req.createdAt).toLocaleString('en-PH')}
               </Typography>
-
-              {selectedRequest?._id === req._id ? (
-                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleSave}
-                    disabled={mutation.isLoading}
-                  >
-                    {mutation.isLoading ? 'Saving...' : 'Save'}
-                  </Button>
-                  <Button variant="outlined" onClick={() => setSelectedRequest(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="error"
-                    onClick={() => handleSoftDelete(req)}
-                  >
-                    Delete Request
-                  </Button>
-                </Stack>
-              ) : (
-                <Button
-                  variant="contained"
-                  color="success"
-                  sx={{ mt: 2 }}
-                  onClick={() => handleEditClick(req)}
-                >
-                  Edit / View
-                </Button>
-              )}
             </Paper>
-          ))}
-        </Stack>
+          );
+        })
       ) : (
-        !isLoading && !isError && (
-          <Typography variant="body2" color="text.secondary" mt={4}>
-            No submitted online requests at the moment.
-          </Typography>
-        )
+        <Typography variant="body2" color="text.secondary" mt={4}>
+          No submitted online requests at the moment.
+        </Typography>
       )}
     </Box>
   );

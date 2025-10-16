@@ -1,262 +1,237 @@
 'use client';
 
-import * as yup from 'yup';
-import { useForm, Controller } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
-import Button from '@mui/material/Button';
-import { MenuItem, TextField } from '@mui/material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { addOwnerBusiness } from '@/app/services/BusinessService';
+import {
+  Typography,
+  Box,
+  Paper,
+  Button,
+  Stack,
+  CircularProgress,
+  TextField,
+} from '@mui/material';
+import {
+  getSanitationOnlineRequest,
+  updateSanitationOnlineRequest,
+} from '@/app/services/OnlineRequest';
 
-// ✅ Validation schema with BID Number format
-const schema = yup.object().shape({
-  bidNumber: yup
-    .string()
-    .required('BID Number is required')
-    .matches(/^[A-Z]{2}-\d{4}-\d{6}$/, 'Format must be like AM-2025-123456')
-    .length(14, 'BID Number must be exactly 14 characters long'),
-  businessName: yup.string().required('Name of Company is required'),
-  businessNickname: yup.string().required('Name of Owner is required'),
-  businessType: yup.string().required('Line of Business is required'),
-  businessAddress: yup.string().required('Business Address is required'),
-  contactPerson: yup.string().required('Contact Person is required'),
-  contactNumber: yup
-    .string()
-    .required('Contact Number is required')
-    .matches(/^09\d{9}$/, 'Enter a valid 11-digit mobile number (e.g. 09123456789)'),
-});
-
-export default function AddbusinessForm() {
+export default function RequestSentForm() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const {
-    control,
-    handleSubmit,
-    reset,
-    getValues,
-    formState: { errors },
-  } = useForm({
-    defaultValues: {
-      bidNumber: '',
-      businessName: '',
-      businessNickname: '',
-      businessType: '',
-      businessAddress: '',
-      landmark: '',
-      contactPerson: '',
-      contactNumber: '',
+  // ✅ Fetch only submitted requests
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['online-request'],
+    queryFn: async () => {
+      const response = await getSanitationOnlineRequest();
+      const allRequests = Array.isArray(response) ? response : response?.data || [];
+      const submitted = allRequests.filter((req) => req.status === 'submitted');
+      const uniqueRequests = Array.from(
+        new Map(submitted.map((req) => [`${req._id}-${req.requestType}`, req])).values()
+      );
+      return uniqueRequests;
     },
-    resolver: yupResolver(schema),
+    refetchInterval: 5000,
   });
 
-  const { mutate } = useMutation({
-    mutationFn: addOwnerBusiness,
-    onSuccess: (data) => {
-      alert('A new business has been successfully saved to your account.');
-      console.log('Business has been successfully saved!', data?.data);
-      queryClient.invalidateQueries(['business-list']);
-      router.push('/businessaccount/businesses/businesslist');
+  const [requests, setRequests] = useState([]);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+
+  // ✅ Update mutation (used for editing + delete-clean)
+  const mutation = useMutation({
+    mutationFn: ({ id, payload }) => updateSanitationOnlineRequest(id, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['online-request']);
+      setSelectedRequest(null);
     },
     onError: (err) => {
-      console.error('Request Error:', err);
+      console.error('Update failed:', err);
     },
   });
 
-  const onSubmit = (data) => {
-    const payload = { ...data, status: 'draft' };
-    mutate(payload);
-    router.push('/businessaccount/businesses/businesslist');
+  useEffect(() => {
+    if (data) setRequests(data);
+  }, [data]);
+
+  // ✅ Edit handler
+  const handleEditClick = (req) => setSelectedRequest(req);
+
+  // ✅ Soft delete + data clear logic
+  const handleDelete = (req) => {
+    if (!window.confirm('Are you sure you want to delete this request?')) return;
+
+    // Keep only schema-allowed fields, clear others
+    const payload = {
+      // Keep these
+      newBidNumber: req.bidNumber || '',
+      newBusinessName: req.businessName || '',
+      newBusinessNickname: req.businessNickname || '',
+      newBusinessType: req.businessType || '',
+      newBusinessAddress: req.businessAddress || '',
+      newContactPerson: req.contactPerson || '',
+      newLandmark: req.landmark || '',
+      newContactNumber: req.contactNumber || '',
+
+      // Delete (clear) the rest
+      newRequestType: '',
+      newRemarks: '',
+      newRequirements: '',
+      newStatus: 'draft',
+    };
+
+    mutation.mutate({ id: req._id, payload });
   };
 
-  const handleSaveDraft = () => {
-    const draftData = getValues();
-    console.log('Draft saved:', draftData);
+  // ✅ Field change handler for editing
+  const handleFieldChange = (field, value) => {
+    setSelectedRequest((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleClear = () => {
-    reset();
+  // ✅ Save edits
+  const handleSave = () => {
+    const { _id, ...rest } = selectedRequest;
+    const payload = {
+      newBusinessName: rest.businessName || '',
+      newBusinessNickname: rest.businessNickname || '',
+      newBusinessType: rest.businessType || '',
+      newBusinessAddress: rest.businessAddress || '',
+      newBidNumber: rest.bidNumber || '',
+      newRequestType: rest.requestType || '',
+      newStatus: rest.status || '',
+      newRequirements: rest.requirements || '',
+      newContactPerson: rest.contactPerson || '',
+      newContactNumber: rest.contactNumber || '',
+      newLandmark: rest.landmark || '',
+      newRemarks: rest.remarks || '',
+    };
+    mutation.mutate({ id: _id, payload });
   };
+
+  // ✅ Reusable renderField function
+  const renderField = (label, field, req) => (
+    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
+      <Typography variant="subtitle1" sx={{ minWidth: 180 }}>
+        <b>{label}:</b>
+      </Typography>
+      {selectedRequest?._id === req._id ? (
+        <TextField
+          size="small"
+          value={selectedRequest[field] || ''}
+          onChange={(e) => handleFieldChange(field, e.target.value)}
+        />
+      ) : (
+        <Typography>{req[field]}</Typography>
+      )}
+    </Stack>
+  );
 
   return (
-    <>
-      <div className="grid grid-cols-2 gap-6 mb-8 max-w-4xl">
-        <div
-          onClick={() => router.push('/businessaccount/businesses/businesslist')}
-          className="bg-white rounded shadow p-6 hover:shadow-md cursor-pointer transition"
-        >
-          <h2 className="text-lg font-medium mb-2">📋 Business Lists</h2>
-          <p className="text-sm text-gray-600">View and manage registered businesses.</p>
-        </div>
-        <div className="bg-white rounded shadow p-6 hover:shadow-md cursor-pointer">
-          <h2 className="text-lg font-medium mb-2">➕ Add a Business</h2>
-          <p className="text-sm text-gray-600">Register a new business to your list.</p>
-        </div>
-      </div>
+    <Box position="relative" p={2}>
+      <Button
+        variant="outlined"
+        onClick={() => router.push('/businessaccount/request')}
+        sx={{ mb: 2 }}
+      >
+        ← Back
+      </Button>
 
-      <h1 className="text-2xl font-semibold mb-6">Add a New Business</h1>
+      <Typography variant="h6" fontWeight="bold" mb={2} mt={6}>
+        📄 View Request Sent
+      </Typography>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-2 space-y-6 max-w-3xl">
-<Controller
-  name="bidNumber"
-  control={control}
-  render={({ field }) => (
-    <TextField
-      {...field}
-      label="BID Number*"
-      placeholder="e.g. AB-2025-123456"
-      fullWidth
-      inputProps={{
-        maxLength: 14,
-        style: { textTransform: 'uppercase' },
-      }}
-      onInput={(e) => {
-        let value = e.target.value.toUpperCase();
+      {/* Loading state */}
+      {isLoading && (
+        <Stack alignItems="center" mt={4}>
+          <CircularProgress />
+          <Typography variant="body2" mt={2}>
+            Loading requests...
+          </Typography>
+        </Stack>
+      )}
 
-        // Remove invalid characters (anything not A–Z, 0–9, or -)
-        value = value.replace(/[^A-Z0-9-]/g, '');
+      {/* Error state */}
+      {isError && (
+        <Typography variant="body2" color="error" mt={2}>
+          Error fetching requests: {error.message}
+        </Typography>
+      )}
 
-        let formatted = '';
-
-        for (let i = 0; i < value.length; i++) {
-          const char = value[i];
-
-          // Enforce strict positions:
-          // 0–1 → letters only
-          if (i < 2) {
-            if (/[A-Z]/.test(char)) formatted += char;
-          }
-          // 2 → must be dash
-          else if (i === 2) {
-            if (char === '-') formatted += '-';
-          }
-          // 3–6 → digits only (year)
-          else if (i > 2 && i < 7) {
-            if (/\d/.test(char)) formatted += char;
-          }
-          // 7 → must be dash
-          else if (i === 7) {
-            if (char === '-') formatted += '-';
-          }
-          // 8–13 → digits only (serial)
-          else if (i > 7 && i < 14) {
-            if (/\d/.test(char)) formatted += char;
-          }
-        }
-
-        e.target.value = formatted.slice(0, 14);
-        field.onChange(e.target.value);
-      }}
-      error={!!errors.bidNumber}
-      helperText={errors?.bidNumber?.message}
-    />
-  )}
-/>
-
-        <RHFTextField
-          control={control}
-          name="businessName"
-          label="Name of Company*"
-          placeholder="Name of Company*"
-          error={!!errors.businessName}
-          helperText={errors?.businessName?.message}
-        />
-
-        <RHFTextField
-          control={control}
-          name="businessNickname"
-          label="Name of Owner*"
-          placeholder="Name of Owner*"
-          error={!!errors.businessNickname}
-          helperText={errors?.businessNickname?.message}
-        />
-
-        {/* ✅ Dropdown for Line of Business */}
-        <Controller
-          name="businessType"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              select
-              label="Line of Business*"
-              fullWidth
-              error={!!errors.businessType}
-              helperText={errors?.businessType?.message}
+      {/* Request list */}
+      {!isLoading && !isError && requests.length > 0 ? (
+        <Stack spacing={4}>
+          {requests.map((req, index) => (
+            <Paper
+              key={`${req._id}-${req.requestType}-${index}`}
+              elevation={2}
+              sx={{ p: 2, borderLeft: '6px solid #1976d2' }}
             >
-              <MenuItem value="">Select Line of Business</MenuItem>
-              <MenuItem value="Food">Food</MenuItem>
-              <MenuItem value="Non-Food">Non-Food</MenuItem>
-            </TextField>
-          )}
-        />
+              {renderField('BID Number', 'bidNumber', req)}
+              {renderField('Business Name', 'businessName', req)}
+              {renderField('Trade Name', 'businessNickname', req)}
+              {renderField('Business Type', 'businessType', req)}
+              {renderField('Address', 'businessAddress', req)}
+              {renderField('Request Type', 'requestType', req)}
+              {renderField('Status', 'status', req)}
+              {renderField('Requirements', 'requirements', req)}
+              {renderField('Contact Person', 'contactPerson', req)}
+              {renderField('Contact Number', 'contactNumber', req)}
+              {renderField('Landmark', 'landmark', req)}
+              {renderField('Remarks', 'remarks', req)}
 
-        <RHFTextField
-          control={control}
-          name="businessAddress"
-          label="Business Address*"
-          placeholder="Business Address*"
-          error={!!errors.businessAddress}
-          helperText={errors?.businessAddress?.message}
-        />
+              <Typography variant="subtitle1" sx={{ mt: 1 }}>
+                <b>Submitted on:</b>{' '}
+                {new Date(req.createdAt).toLocaleString('en-PH')}
+              </Typography>
 
-        <RHFTextField
-          control={control}
-          name="landmark"
-          label="Landmark*"
-          placeholder="Landmark*"
-          error={!!errors.landmark}
-          helperText={errors?.landmark?.message}
-        />
-
-        <RHFTextField
-          control={control}
-          name="contactPerson"
-          label="Contact Person*"
-          placeholder="Contact Person*"
-          error={!!errors.contactPerson}
-          helperText={errors?.contactPerson?.message}
-        />
-
-        {/* ✅ Contact Number — only allows 11 digits (starts with 09) */}
-        <Controller
-          name="contactNumber"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="Contact Number*"
-              placeholder="e.g. 09123456789"
-              fullWidth
-              inputProps={{
-                maxLength: 11,
-                inputMode: 'numeric',
-                pattern: '[0-9]*',
-              }}
-              onInput={(e) => {
-                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11);
-                field.onChange(e.target.value);
-              }}
-              error={!!errors.contactNumber}
-              helperText={errors?.contactNumber?.message}
-            />
-          )}
-        />
-
-        <div className="flex justify-start gap-4">
-          <Button type="submit" variant="contained" color="primary">
-            Save Business
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={handleSaveDraft}>
-            Save as Draft
-          </Button>
-          <Button variant="text" color="error" onClick={handleClear}>
-            Clear
-          </Button>
-        </div>
-      </form>
-    </>
+              {/* Action buttons */}
+              {selectedRequest?._id === req._id ? (
+                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleSave}
+                    disabled={mutation.isLoading}
+                  >
+                    {mutation.isLoading ? 'Saving...' : 'Save'}
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() => setSelectedRequest(null)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => handleDelete(req)}
+                    disabled={mutation.isLoading}
+                  >
+                    {mutation.isLoading ? 'Deleting...' : 'Delete Request'}
+                  </Button>
+                </Stack>
+              ) : (
+                <Button
+                  variant="contained"
+                  color="success"
+                  sx={{ mt: 2 }}
+                  onClick={() => handleEditClick(req)}
+                >
+                  Edit / View
+                </Button>
+              )}
+            </Paper>
+          ))}
+        </Stack>
+      ) : (
+        !isLoading &&
+        !isError && (
+          <Typography variant="body2" color="text.secondary" mt={4}>
+            No submitted online requests at the moment.
+          </Typography>
+        )
+      )}
+    </Box>
   );
 }

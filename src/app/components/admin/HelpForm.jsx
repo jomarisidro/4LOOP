@@ -69,10 +69,7 @@ export default function HelpForm() {
             <strong>Email:</strong> jomar.isidro@my.jru.edu
           </Typography>
         </Box>
-
         <Divider sx={{ my: 4 }} />
-
-   
       </Paper>
     </Box>
   );
