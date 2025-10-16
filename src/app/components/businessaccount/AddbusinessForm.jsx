@@ -18,7 +18,7 @@ const schema = yup.object().shape({
     .matches(/^[A-Z]{2}-\d{4}-\d{6}$/, 'Format must be like AM-2025-123456')
     .length(14, 'BID Number must be exactly 14 characters long'),
   businessName: yup.string().required('Name of Company is required'),
-  businessNickname: yup.string().required('Trade Name is required'),
+  businessNickname: yup.string().required('Name of Owner is required'),
   businessType: yup.string().required('Line of Business is required'),
   businessAddress: yup.string().required('Business Address is required'),
   contactPerson: yup.string().required('Contact Person is required'),
@@ -167,8 +167,8 @@ export default function AddbusinessForm() {
         <RHFTextField
           control={control}
           name="businessNickname"
-          label="Trade Name*"
-          placeholder="Trade Name*"
+          label="Name of Owner*"
+          placeholder="Name of Owner*"
           error={!!errors.businessNickname}
           helperText={errors?.businessNickname?.message}
         />

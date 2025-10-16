@@ -10,10 +10,20 @@ import { signUpWithCompleteInfo } from "@/app/services/UserService";
 import { useState } from "react";
 import Link from "next/link";
 
+// ✅ Password rules (same as ProfileForm)
+const passwordRules =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+
 // ✅ Validation schema
 const schema = yup.object().shape({
   email: yup.string().email("Provide a valid email").required("Email is required"),
-  password: yup.string().required("Password is required").min(8, "Minimum 8 characters"),
+  password: yup
+    .string()
+    .required("Password is required")
+    .matches(passwordRules, {
+      message:
+        "Must be at least 8 chars, include uppercase, lowercase, number, and special character",
+    }),
   confirmPassword: yup
     .string()
     .required("Confirm your password")
@@ -23,10 +33,12 @@ const schema = yup.object().shape({
 export default function RegistrationForm() {
   const router = useRouter();
   const [emailError, setEmailError] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState("");
 
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -37,7 +49,28 @@ export default function RegistrationForm() {
     resolver: yupResolver(schema),
   });
 
-  // ✅ Register mutation
+  const passwordValue = watch("password");
+
+  // ✅ Check password strength dynamically
+  const checkPasswordStrength = (password) => {
+    const lengthReq = password.length >= 8;
+    const upperReq = /[A-Z]/.test(password);
+    const lowerReq = /[a-z]/.test(password);
+    const numReq = /[0-9]/.test(password);
+    const specialReq = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    const passed = [lengthReq, upperReq, lowerReq, numReq, specialReq].filter(Boolean).length;
+
+    if (password.length === 0) return setPasswordStrength("");
+    if (passed <= 2) return setPasswordStrength("Weak");
+    if (passed === 3 || passed === 4) return setPasswordStrength("Medium");
+    if (passed === 5) return setPasswordStrength("Strong");
+  };
+
+  // Watch password input for strength checking
+  watch((values) => checkPasswordStrength(values.password || ""));
+
+  // ✅ Mutation handler
   const { mutate, isLoading } = useMutation({
     mutationFn: signUpWithCompleteInfo,
     onSuccess: (data) => {
@@ -46,8 +79,7 @@ export default function RegistrationForm() {
 
       if (!verified && email) {
         router.push(`/registration/verifyemail?email=${email}`);
-      } 
-      else {
+      } else {
         router.push("/login");
       }
     },
@@ -63,7 +95,6 @@ export default function RegistrationForm() {
     },
   });
 
-  // ✅ Submit handler
   const onSubmit = ({ email, password }) => {
     setEmailError("");
     mutate({ role: "business", email, password });
@@ -74,35 +105,22 @@ export default function RegistrationForm() {
       className="relative min-h-screen bg-cover bg-center flex items-center justify-center"
       style={{ backgroundImage: "url('/home.png')" }}
     >
-      {/* Overlay for contrast */}
+      {/* Background Overlay */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/90"></div>
 
-      {/* Left Section (Pasig Branding) */}
-      <div
-        className="w-full absolute inset-0 bg-cover bg-center"
-        style={{ backgroundImage: "url('/home.png')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent"></div>
-
-        <div className="relative z-10 h-full flex flex-col justify-center px-10 text-white">
-          <div>
-            <h1 className="text-5xl font-semibold leading-tight">PASIG CITY</h1>
-            <h2 className="text-4xl font-light leading-tight mt-2">SANITATION</h2>
-            <h2 className="text-4xl font-light leading-tight">ONLINE SERVICE</h2>
-          </div>
-        </div>
-      </div>
-
-      {/* Registration Form */}
+      {/* Registration Form Container */}
       <div className="relative z-10 bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-semibold text-center text-gray-800 mb-6">
           Create Your Account
         </h1>
 
+        {/* Registration Form */}
         <form onSubmit={handleSubmit(onSubmit)} autoComplete="off" className="flex flex-col gap-4">
+          {/* Hidden fields to prevent autofill */}
           <input type="text" name="fakeuser" autoComplete="off" style={{ display: "none" }} />
           <input type="password" name="fakepassword" autoComplete="off" style={{ display: "none" }} />
 
+          {/* Email */}
           <RHFTextField
             control={control}
             name="email"
@@ -114,28 +132,46 @@ export default function RegistrationForm() {
             helperText={errors?.email?.message || emailError}
           />
 
-          <RHFTextField
-            control={control}
-            name="password"
-            label="Password*"
-            placeholder="Password*"
-            type="password"
-            autoComplete="new-password"
-            error={!!errors.password}
-            helperText={errors?.password?.message}
-          />
+          {/* Password (with format hint in placeholder) */}
+          <div>
+            <RHFTextField
+              control={control}
+              name="password"
+              label="Password*"
+              placeholder="Password (min 8 chars, A-Z, a-z, 0-9, symbol)"
+              type="password"
+              autoComplete="new-password"
+              error={!!errors.password}
+              helperText={errors?.password?.message}
+            />
+            {passwordStrength && (
+              <p
+                className={`text-sm mt-1 ${
+                  passwordStrength === "Weak"
+                    ? "text-red-500"
+                    : passwordStrength === "Medium"
+                    ? "text-yellow-600"
+                    : "text-green-600"
+                }`}
+              >
+                Password Strength: {passwordStrength}
+              </p>
+            )}
+          </div>
 
+          {/* Confirm Password */}
           <RHFTextField
             control={control}
             name="confirmPassword"
             label="Confirm Password*"
-            placeholder="Confirm Password*"
+            placeholder="Re-enter your password"
             type="password"
             autoComplete="new-password"
             error={!!errors.confirmPassword}
             helperText={errors?.confirmPassword?.message}
           />
 
+          {/* Register Button */}
           <button
             type="submit"
             disabled={isLoading}
@@ -147,6 +183,7 @@ export default function RegistrationForm() {
           </button>
         </form>
 
+        {/* Footer Links */}
         <div className="text-center mt-6">
           <hr className="border-t border-gray-300 mb-4" />
           <p className="text-sm text-gray-700 mb-2">
@@ -159,6 +196,7 @@ export default function RegistrationForm() {
           </Link>
         </div>
 
+        {/* Footer */}
         <footer className="mt-10 text-center text-xs text-gray-400">
           © 2025 CITY GOVERNMENT OF PASIG
         </footer>

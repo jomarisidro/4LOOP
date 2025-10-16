@@ -20,6 +20,14 @@ const BusinessSchema = new Schema(
     expirationDate: { type: Date },
     gracePeriodDate: { type: Date },
     
+
+    // inside BusinessSchema definition
+officerInCharge: {
+  type: Schema.Types.ObjectId,
+  ref: 'User',
+  default: null,
+},
+
     // ✅ Checklist groups (based on your const names)
     sanitaryPermitChecklist: [
       {

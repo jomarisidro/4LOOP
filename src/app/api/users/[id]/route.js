@@ -47,9 +47,10 @@ export async function PUT(request, context) {
 
   try {
     const body = await request.json();
+    const { action } = body;
 
-    // ✅ Officer Profile / Password Update
-    if (body.action === "updateProfile" || body.action === "changePassword") {
+    // ✅ 1. Update Profile or Change Password (when logged in)
+    if (action === "updateProfile" || action === "changePassword") {
       const { fullName, email, currentPassword, newPassword } = body;
       const user = await User.findById(userId);
       if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
@@ -67,10 +68,12 @@ export async function PUT(request, context) {
           return NextResponse.json({ error: "Incorrect current password." }, { status: 401 });
         }
 
-        const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+        const strongPasswordRegex =
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
         if (!strongPasswordRegex.test(newPassword)) {
           return NextResponse.json({
-            error: "Weak password. Must include upper & lowercase letters, a number, a special character, and be at least 8 characters long.",
+            error:
+              "Weak password. Must include upper & lowercase letters, a number, a special character, and be at least 8 characters long.",
           }, { status: 400 });
         }
 
@@ -83,40 +86,85 @@ export async function PUT(request, context) {
       return NextResponse.json({ success: true, message: "Profile updated successfully." }, { status: 200 });
     }
 
-    // ✅ Business Verification
-    const { code, email } = body;
-    if (!code || !email) {
-      return NextResponse.json({ error: "Verification code and email are required." }, { status: 400 });
+    // ✅ 2. Forgot Password (no login required)
+    if (action === "forgotPassword") {
+      const { email, oldPassword, newPassword, confirmPassword } = body;
+      if (!email || !oldPassword || !newPassword || !confirmPassword) {
+        return NextResponse.json({ error: "All fields are required." }, { status: 400 });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return NextResponse.json({ error: "New passwords do not match." }, { status: 400 });
+      }
+
+      const user = await User.findOne({ email });
+      if (!user) return NextResponse.json({ error: "User not found." }, { status: 404 });
+
+      const isMatch = await bcrypt.compare(oldPassword, user.password);
+      if (!isMatch) {
+        return NextResponse.json({ error: "Incorrect old password." }, { status: 401 });
+      }
+
+      const strongPasswordRegex =
+        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+      if (!strongPasswordRegex.test(newPassword)) {
+        return NextResponse.json({
+          error:
+            "Weak password. Must include upper & lowercase letters, a number, a special character, and be at least 8 characters long.",
+        }, { status: 400 });
+      }
+
+      user.password = await bcrypt.hash(newPassword, 10);
+      await user.save();
+
+      console.log(`🔑 Password reset successful for ${email}`);
+
+      return NextResponse.json({
+        success: true,
+        message: "Password changed successfully. You can now log in.",
+      }, { status: 200 });
     }
 
-  
-    if (user.verified) {
-      return NextResponse.json({ message: "User already verified", verified: true }, { status: 200 });
+    // ✅ 3. Business Verification
+    if (action === "verifyBusiness") {
+      const { code, email } = body;
+      if (!code || !email) {
+        return NextResponse.json({ error: "Verification code and email are required." }, { status: 400 });
+      }
+
+      const user = await User.findById(userId);
+      if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+
+      if (user.verified) {
+        return NextResponse.json({ message: "User already verified", verified: true }, { status: 200 });
+      }
+
+      if (user.role !== "business") {
+        return NextResponse.json({ error: "Only business accounts can be verified through this route." }, { status: 403 });
+      }
+
+      if (user.email !== email) {
+        return NextResponse.json({ error: "Email does not match the registered account." }, { status: 400 });
+      }
+
+      if (user.verificationCode !== code) {
+        return NextResponse.json({ error: "Invalid verification code." }, { status: 401 });
+      }
+
+      user.verified = true;
+      user.verificationCode = null;
+      await user.save();
+
+      console.log(`✅ Verified business account for ${email}`);
+
+      return NextResponse.json({
+        message: "Account successfully verified",
+        verified: true,
+        status: "active",
+      }, { status: 200 });
     }
 
-    if (user.role !== "business") {
-      return NextResponse.json({ error: "Only business accounts can be verified through this route." }, { status: 403 });
-    }
-
-    if (user.email !== email) {
-      return NextResponse.json({ error: "Email does not match the registered account." }, { status: 400 });
-    }
-
-    if (user.verificationCode !== code) {
-      return NextResponse.json({ error: "Invalid verification code." }, { status: 401 });
-    }
-
-    user.verified = true;
-    user.verificationCode = null;
-    await user.save();
-
-    console.log(`✅ Verified business account for ${email}`);
-
-    return NextResponse.json({
-      message: "Account successfully verified",
-      verified: true,
-      status: "active",
-    }, { status: 200 });
+    return NextResponse.json({ error: "Unknown action." }, { status: 400 });
   } catch (err) {
     console.error("❌ Verification or Profile Update Error:", err);
     return NextResponse.json({ error: "Failed to verify or update user." }, { status: 500 });
