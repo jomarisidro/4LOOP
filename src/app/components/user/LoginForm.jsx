@@ -1,4 +1,5 @@
 'use client';
+
 import Link from "next/link";
 import * as yup from "yup";
 import { useForm } from "react-hook-form";
@@ -12,9 +13,13 @@ const loginSchema = yup.object().shape({
   password: yup.string().required("Password is required").min(8, "Password must be at least 8 characters"),
 });
 
-const changePasswordSchema = yup.object().shape({
+const forgotPasswordSchema = yup.object().shape({
   email: yup.string().email("Provide valid email").required("Email is required"),
-  oldPassword: yup.string().required("Old password is required"),
+});
+
+const resetPasswordSchema = yup.object().shape({
+  email: yup.string().email("Provide valid email").required("Email is required"),
+  resetCode: yup.string().required("Verification code is required"),
   newPassword: yup
     .string()
     .required("New password is required")
@@ -32,29 +37,29 @@ const changePasswordSchema = yup.object().shape({
 export default function LoginForm() {
   const router = useRouter();
   const [loginError, setLoginError] = useState("");
-  const [showChangePassword, setShowChangePassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
+  const [showReset, setShowReset] = useState(false);
 
-  // ✅ React Hook Form setup (will dynamically swap schema)
   const {
     control,
     handleSubmit,
     reset,
     formState: { errors },
   } = useForm({
+    resolver: yupResolver(
+      showReset ? resetPasswordSchema : showForgot ? forgotPasswordSchema : loginSchema
+    ),
     defaultValues: {
       email: "",
       password: "",
-      oldPassword: "",
+      resetCode: "",
       newPassword: "",
       confirmPassword: "",
     },
-    resolver: yupResolver(showChangePassword ? changePasswordSchema : loginSchema),
   });
 
-  // ==========================
-  // LOGIN SUBMIT
-  // ==========================
+  // === LOGIN HANDLER ===
   const onSubmitLogin = async ({ email, password }) => {
     setLoginError("");
     setSuccessMessage("");
@@ -74,7 +79,6 @@ export default function LoginForm() {
           router.push(`/registration/verifyemail?email=${encodeURIComponent(email)}`);
           return;
         }
-
         setLoginError(data.error || "Login failed.");
         return;
       }
@@ -91,13 +95,11 @@ export default function LoginForm() {
         return;
       }
 
-      // Save user info
       sessionStorage.setItem("userId", user._id);
       sessionStorage.setItem("userRole", user.role);
       localStorage.setItem("loggedUserId", user._id);
       localStorage.setItem("loggedUserRole", user.role);
 
-      // Redirect based on role
       switch (user.role.toLowerCase()) {
         case "admin":
           router.push("/admin");
@@ -117,60 +119,81 @@ export default function LoginForm() {
     }
   };
 
-  // ==========================
-  // CHANGE PASSWORD SUBMIT
-  // ==========================
-const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
-  setLoginError("");
-  setSuccessMessage("");
-
-  try {
-    const userId = sessionStorage.getItem("userId");
-
-    const res = await fetch(`/api/users/${userId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "forgotPassword",
-        email,
-        oldPassword,
-        newPassword,
-        confirmPassword: newPassword,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setLoginError(data.error || "Password change failed.");
-      return;
-    }
-
-    // ✅ Success message appears briefly
-    setSuccessMessage("Password changed successfully! You can now log in.");
+  // === SEND RESET CODE HANDLER ===
+  const onSubmitForgot = async ({ email }) => {
     setLoginError("");
-    reset();
+    setSuccessMessage("");
 
-    // Hide success message and go back to login form after 3 seconds
-    setTimeout(() => {
-      setSuccessMessage("");
-      setShowChangePassword(false);
-    }, 3000);
-  } catch (error) {
-    console.error("Change password error:", error);
-    setLoginError("Something went wrong. Please try again.");
-  }
-};
+    try {
+      const res = await fetch("/api/users/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setLoginError(data.error || "Failed to send reset code.");
+        return;
+      }
+
+      setSuccessMessage("Reset code sent to your email. Please check your inbox.");
+      setShowForgot(false);
+      setShowReset(true);
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      setLoginError("Something went wrong. Please try again.");
+    }
+  };
+
+  // === RESET PASSWORD HANDLER ===
+  const onSubmitReset = async ({ email, resetCode, newPassword, confirmPassword }) => {
+    setLoginError("");
+    setSuccessMessage("");
+
+    try {
+      const res = await fetch("/api/users/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, resetCode, newPassword, confirmPassword }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setLoginError(data.error || "Password reset failed.");
+        return;
+      }
+
+      setSuccessMessage("Password reset successful! You can now log in.");
+      reset();
+      setTimeout(() => {
+        setShowReset(false);
+        setSuccessMessage("");
+      }, 3000);
+    } catch (error) {
+      console.error("Reset password error:", error);
+      setLoginError("Something went wrong. Please try again.");
+    }
+  };
+
+  // === FORM SWITCH ===
+  const switchToLogin = () => {
+    reset();
+    setShowForgot(false);
+    setShowReset(false);
+    setLoginError("");
+    setSuccessMessage("");
+  };
 
   return (
     <div
       className="relative min-h-screen bg-cover bg-center flex items-center justify-center"
       style={{ backgroundImage: "url('/home.png')" }}
     >
-      {/* Overlay for contrast */}
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/90"></div>
 
-      {/* LEFT TEXT SECTION */}
       <div className="absolute inset-0 z-0 flex flex-col justify-center px-10 text-white -mt-10">
         <div>
           <h1 className="text-5xl font-semibold leading-tight">PASIG CITY</h1>
@@ -179,19 +202,22 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
         </div>
       </div>
 
-      {/* FORM CARD */}
       <div className="relative z-10 bg-white p-8 rounded-lg shadow-lg w-full max-w-md -mt-20">
         <h1 className="text-2xl font-semibold text-center text-gray-800 mb-6">
-          {showChangePassword ? "Change Your Password" : "Login to Your Account"}
+          {showReset
+            ? "Reset Your Password"
+            : showForgot
+            ? "Forgot Password"
+            : "Login to Your Account"}
         </h1>
 
         <form
           onSubmit={handleSubmit(
-            showChangePassword ? onSubmitChangePassword : onSubmitLogin
+            showReset ? onSubmitReset : showForgot ? onSubmitForgot : onSubmitLogin
           )}
           className="flex flex-col gap-4"
         >
-          {/* Email Field */}
+          {/* === Email Field (Always Visible) === */}
           <RHFTextField
             control={control}
             name="email"
@@ -202,9 +228,9 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
             helperText={errors?.email?.message}
           />
 
-          {!showChangePassword ? (
+          {/* === LOGIN FIELDS === */}
+          {!showForgot && !showReset && (
             <>
-              {/* Password Field */}
               <RHFTextField
                 control={control}
                 name="password"
@@ -215,12 +241,11 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
                 helperText={errors?.password?.message}
               />
 
-              {/* Forgot Password link */}
               <div className="text-right mt-1">
                 <button
                   type="button"
                   onClick={() => {
-                    setShowChangePassword(true);
+                    setShowForgot(true);
                     setLoginError("");
                     setSuccessMessage("");
                     reset();
@@ -231,20 +256,32 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
                 </button>
               </div>
             </>
-          ) : (
+          )}
+
+          {/* === FORGOT PASSWORD (EMAIL ONLY) === */}
+          {showForgot && !showReset && (
+            <div className="text-right mt-1">
+              <button
+                type="button"
+                onClick={switchToLogin}
+                className="text-sm text-blue-700 hover:text-blue-900 font-medium"
+              >
+                ← Back to Login
+              </button>
+            </div>
+          )}
+
+          {/* === RESET PASSWORD FIELDS === */}
+          {showReset && (
             <>
-              {/* Old Password */}
               <RHFTextField
                 control={control}
-                name="oldPassword"
-                label="Old Password*"
-                placeholder="Enter your old password"
-                type="password"
-                error={!!errors.oldPassword}
-                helperText={errors?.oldPassword?.message}
+                name="resetCode"
+                label="Verification Code*"
+                placeholder="Enter the code from your email"
+                error={!!errors.resetCode}
+                helperText={errors?.resetCode?.message}
               />
-
-              {/* New Password */}
               <RHFTextField
                 control={control}
                 name="newPassword"
@@ -254,8 +291,6 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
                 error={!!errors.newPassword}
                 helperText={errors?.newPassword?.message}
               />
-
-              {/* Confirm Password */}
               <RHFTextField
                 control={control}
                 name="confirmPassword"
@@ -265,17 +300,10 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
                 error={!!errors.confirmPassword}
                 helperText={errors?.confirmPassword?.message}
               />
-
-              {/* Back to Login */}
               <div className="text-right mt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowChangePassword(false);
-                    setLoginError("");
-                    setSuccessMessage("");
-                    reset();
-                  }}
+                  onClick={switchToLogin}
                   className="text-sm text-blue-700 hover:text-blue-900 font-medium"
                 >
                   ← Back to Login
@@ -284,7 +312,7 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
             </>
           )}
 
-          {/* Errors / Success */}
+          {/* === STATUS MESSAGES === */}
           {loginError && (
             <p className="text-red-600 text-sm text-center">{loginError}</p>
           )}
@@ -292,16 +320,20 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
             <p className="text-green-600 text-sm text-center">{successMessage}</p>
           )}
 
-          {/* Buttons */}
+          {/* === ACTION BUTTONS === */}
           <div className="flex gap-4 justify-center mt-4">
             <button
               type="submit"
               className="bg-blue-900 text-white px-6 py-2 rounded-md hover:bg-blue-800 transition"
             >
-              {showChangePassword ? "Change Password" : "Login"}
+              {showReset
+                ? "Reset Password"
+                : showForgot
+                ? "Send Reset Code"
+                : "Login"}
             </button>
 
-            {!showChangePassword && (
+            {!showForgot && !showReset && (
               <Link href="/registration">
                 <button
                   type="button"
@@ -317,6 +349,10 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
         <footer className="mt-10 text-center text-xs text-gray-400">
           © 2025 CITY GOVERNMENT OF PASIG
         </footer>
+
+        <p className="mt-2 text-center text-xs text-red-500 font-medium">
+          ⚠️ This website is currently under development and not yet officially authorized by the City Government of Pasig.
+        </p>
       </div>
     </div>
   );

@@ -36,9 +36,15 @@ const UserSchema = new Schema(
 
     businessAccount: { type: Schema.Types.ObjectId, ref: "User" },
 
+    // Email verification fields
     verified: { type: Boolean, default: false },
     verificationCode: { type: String },
     verificationExpiry: { type: Date },
+
+    // Password reset fields
+    resetCode: { type: String },
+    resetExpiry: { type: Date },
+
     systemMessageEnabled: { type: Boolean, default: false },
   },
   {
