@@ -11,7 +11,6 @@ CORS(app)
 # === Load dataset path ===
 file_path = os.path.join(os.path.dirname(__file__), "ML_DATASET.csv")
 
-
 # === Helper for regression ===
 def linear_forecast(df, target_col, year_range):
     X = df[['registrationYear']]
@@ -23,7 +22,6 @@ def linear_forecast(df, target_col, year_range):
         pred = model.predict([[year]])[0]
         preds.append({"registrationYear": int(year), target_col: float(pred)})
     return preds
-
 
 # === Root route ===
 @app.route('/')
@@ -155,7 +153,6 @@ def predict_comparison():
     except Exception as e:
         print("Error /predict-comparison:", e)
         return jsonify({"error": str(e)}), 500
-
 
 # === Run app ===
 if __name__ == '__main__':
