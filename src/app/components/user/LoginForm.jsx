@@ -8,9 +8,13 @@ import RHFTextField from "@/app/components/ReactHookFormElements/RHFTextField";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+// === Validation Schemas ===
 const loginSchema = yup.object().shape({
   email: yup.string().email("Provide valid email").required("Email is required"),
-  password: yup.string().required("Password is required").min(8, "Password must be at least 8 characters"),
+  password: yup
+    .string()
+    .required("Password is required")
+    .min(8, "Password must be at least 8 characters"),
 });
 
 const forgotPasswordSchema = yup.object().shape({
@@ -40,6 +44,7 @@ export default function LoginForm() {
   const [successMessage, setSuccessMessage] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [showReset, setShowReset] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const {
     control,
@@ -63,6 +68,7 @@ export default function LoginForm() {
   const onSubmitLogin = async ({ email, password }) => {
     setLoginError("");
     setSuccessMessage("");
+    setIsSubmitting(true);
 
     try {
       const res = await fetch("/api/login", {
@@ -116,6 +122,8 @@ export default function LoginForm() {
     } catch (error) {
       console.error("Login error:", error);
       setLoginError("Something went wrong during login.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -123,9 +131,10 @@ export default function LoginForm() {
   const onSubmitForgot = async ({ email }) => {
     setLoginError("");
     setSuccessMessage("");
+    setIsSubmitting(true);
 
     try {
-      const res = await fetch("/api/users/forgot-password", {
+      const res = await fetch("/api/forgotpassword/sendcode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -144,30 +153,54 @@ export default function LoginForm() {
     } catch (error) {
       console.error("Forgot password error:", error);
       setLoginError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // === RESET PASSWORD HANDLER ===
+  // === VERIFY CODE AND RESET PASSWORD HANDLER ===
   const onSubmitReset = async ({ email, resetCode, newPassword, confirmPassword }) => {
     setLoginError("");
     setSuccessMessage("");
+    setIsSubmitting(true);
 
     try {
-      const res = await fetch("/api/users/reset-password", {
+      // Step 1: Verify the code
+      const verifyRes = await fetch("/api/forgotpassword/verifycode", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, resetCode, newPassword, confirmPassword }),
+        body: JSON.stringify({ email, code: resetCode }),
       });
 
-      const data = await res.json();
+      const verifyData = await verifyRes.json();
 
-      if (!res.ok) {
-        setLoginError(data.error || "Password reset failed.");
+      if (!verifyRes.ok) {
+        setLoginError(verifyData.error || "Invalid or expired verification code.");
         return;
       }
 
-      setSuccessMessage("Password reset successful! You can now log in.");
+      // Step 2: Reset the password
+      const resetRes = await fetch("/api/forgotpassword/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          code: resetCode,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+
+      const resetData = await resetRes.json();
+
+      if (!resetRes.ok) {
+        setLoginError(resetData.error || "Password reset failed.");
+        return;
+      }
+
+      setSuccessMessage("✅ Password reset successful! You can now log in.");
       reset();
+
       setTimeout(() => {
         setShowReset(false);
         setSuccessMessage("");
@@ -175,6 +208,8 @@ export default function LoginForm() {
     } catch (error) {
       console.error("Reset password error:", error);
       setLoginError("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -194,7 +229,7 @@ export default function LoginForm() {
     >
       <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-blue-900/90"></div>
 
-      <div className="absolute inset-0 z-0 flex flex-col justify-center px-10 text-white -mt-10">
+      <div className="absolute inset-0 z-0 flex flex-col justify-center px-10 text-white mt-12">
         <div>
           <h1 className="text-5xl font-semibold leading-tight">PASIG CITY</h1>
           <h2 className="text-4xl font-light leading-tight mt-2">SANITATION</h2>
@@ -202,7 +237,7 @@ export default function LoginForm() {
         </div>
       </div>
 
-      <div className="relative z-10 bg-white p-8 rounded-lg shadow-lg w-full max-w-md -mt-20">
+      <div className="relative z-10 bg-white p-8 rounded-lg shadow-lg w-full max-w-md mt-20">
         <h1 className="text-2xl font-semibold text-center text-gray-800 mb-6">
           {showReset
             ? "Reset Your Password"
@@ -217,7 +252,6 @@ export default function LoginForm() {
           )}
           className="flex flex-col gap-4"
         >
-          {/* === Email Field (Always Visible) === */}
           <RHFTextField
             control={control}
             name="email"
@@ -324,9 +358,16 @@ export default function LoginForm() {
           <div className="flex gap-4 justify-center mt-4">
             <button
               type="submit"
-              className="bg-blue-900 text-white px-6 py-2 rounded-md hover:bg-blue-800 transition"
+              disabled={isSubmitting}
+              className={`px-6 py-2 rounded-md transition ${
+                isSubmitting
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-900 hover:bg-blue-800 text-white"
+              }`}
             >
-              {showReset
+              {isSubmitting
+                ? "Please wait..."
+                : showReset
                 ? "Reset Password"
                 : showForgot
                 ? "Send Reset Code"
