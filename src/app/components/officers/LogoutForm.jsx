@@ -6,10 +6,26 @@ import { Typography, Button, Stack, Box } from '@mui/material';
 export default function LogoutForm() {
   const router = useRouter();
 
-  const handleLogout = () => {
-    // 🔒 Insert your logout logic here (e.g. clearing tokens, session)
-  router.push("/login"); // ✅ relative path works in dev & prod
-};
+  const handleLogout = async () => {
+    try {
+      // 🔒 Call backend to clear session cookie
+      await fetch("/api/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      // 🧹 Clear localStorage hints
+      localStorage.removeItem("loggedUserId");
+      localStorage.removeItem("loggedUserRole");
+      localStorage.removeItem("profilePicture");
+
+      // 🚪 Redirect to login
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout failed:", err);
+      // Optionally show error to user
+    }
+  };
 
   return (
     <Box textAlign="center">

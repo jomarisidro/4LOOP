@@ -1,7 +1,6 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 
 // 🔐 Use environment variable for secret
 const secretKey = process.env.JWT_SECRET || "fallback_secret";
@@ -10,9 +9,11 @@ const key = new TextEncoder().encode(secretKey);
 // 🧠 Session duration (15 days)
 const SESSION_DURATION_MS = 15 * 24 * 60 * 60 * 1000;
 
-// 🔑 Generate a secure random nonce
+// 🔑 Generate a secure random nonce (Edge-compatible)
 function generateNonce() {
-  return crypto.randomBytes(16).toString("hex");
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 // 🔒 Encrypt a payload into a JWT
@@ -44,7 +45,7 @@ export async function login(user) {
 
   const session = await encrypt(sessionPayload);
 
-  const cookieStore = await cookies(); // ✅ await required
+  const cookieStore = cookies(); // ✅ no await needed
   cookieStore.set("session", session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -56,7 +57,7 @@ export async function login(user) {
 
 // 🚪 Logout helper — clears the cookie
 export async function logout() {
-  const cookieStore = await cookies(); // ✅ await required
+  const cookieStore = cookies();
   cookieStore.set("session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -68,7 +69,7 @@ export async function logout() {
 
 // 🧩 Get the current session (decoded JWT)
 export async function getSession() {
-  const cookieStore = await cookies(); // ✅ await required
+  const cookieStore = cookies();
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
 

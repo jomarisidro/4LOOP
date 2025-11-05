@@ -162,8 +162,6 @@ const onSubmitChangePassword = async ({ email, oldPassword, newPassword }) => {
   }
 };
 
-
-
   return (
     <div
       className="relative min-h-screen bg-cover bg-center flex items-center justify-center"
