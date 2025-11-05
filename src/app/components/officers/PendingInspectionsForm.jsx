@@ -80,9 +80,9 @@ export default function PendingInspectionsForm() {
                       variant="contained"
                       size="small"
                       onClick={() => {
-  console.log("Opening ticket:", ticket._id, ticket.business?._id);
-  router.push(`/officers/inspections/pendinginspections/inspectingcurrentbusiness?id=${ticket._id}`);
-}}
+                        console.log("Opening ticket:", ticket._id, ticket.business?._id);
+                        router.push(`/officers/inspections/pendinginspections/inspectingcurrentbusiness?id=${ticket._id}`);
+                      }}
 
                       sx={{ mr: 1 }}
                     >
