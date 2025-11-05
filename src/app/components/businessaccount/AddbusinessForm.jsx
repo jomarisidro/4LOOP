@@ -6,7 +6,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import { useRouter } from 'next/navigation';
 import RHFTextField from '@/app/components/ReactHookFormElements/RHFTextField';
 import Button from '@mui/material/Button';
-import { MenuItem, TextField } from '@mui/material';
+import { MenuItem, TextField, Divider } from '@mui/material';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { addOwnerBusiness } from '@/app/services/BusinessService';
 
@@ -36,7 +36,6 @@ export default function AddbusinessForm() {
     control,
     handleSubmit,
     reset,
-    getValues,
     formState: { errors },
   } = useForm({
     defaultValues: {
@@ -71,11 +70,6 @@ export default function AddbusinessForm() {
     router.push('/businessaccount/businesses/businesslist');
   };
 
-  const handleSaveDraft = () => {
-    const draftData = getValues();
-    console.log('Draft saved:', draftData);
-  };
-
   const handleClear = () => {
     reset();
   };
@@ -98,162 +92,153 @@ export default function AddbusinessForm() {
 
       <h1 className="text-2xl font-semibold mb-6">Add a New Business</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-3xl">
-<Controller
-  name="bidNumber"
-  control={control}
-  render={({ field }) => (
-    <TextField
-      {...field}
-      label="BID Number*"
-      placeholder="e.g. AB-2025-123456"
-      fullWidth
-      inputProps={{
-        maxLength: 14,
-        style: { textTransform: 'uppercase' },
-      }}
-      onInput={(e) => {
-        let value = e.target.value.toUpperCase();
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-10 max-w-3xl">
+        {/* === BUSINESS DETAILS SECTION === */}
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-gray-700">🏢 Business Details</h2>
 
-        // Remove invalid characters (anything not A–Z, 0–9, or -)
-        value = value.replace(/[^A-Z0-9-]/g, '');
+          <Controller
+            name="bidNumber"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="BID Number*"
+                placeholder="e.g. AB-2025-123456"
+                fullWidth
+                margin="normal"
+                inputProps={{
+                  maxLength: 14,
+                  style: { textTransform: 'uppercase' },
+                }}
+                onInput={(e) => {
+                  let value = e.target.value.toUpperCase();
+                  value = value.replace(/[^A-Z0-9-]/g, '');
+                  let formatted = '';
+                  for (let i = 0; i < value.length; i++) {
+                    const char = value[i];
+                    if (i < 2) {
+                      if (/[A-Z]/.test(char)) formatted += char;
+                    } else if (i === 2) {
+                      if (char === '-') formatted += '-';
+                    } else if (i > 2 && i < 7) {
+                      if (/\d/.test(char)) formatted += char;
+                    } else if (i === 7) {
+                      if (char === '-') formatted += '-';
+                    } else if (i > 7 && i < 14) {
+                      if (/\d/.test(char)) formatted += char;
+                    }
+                  }
+                  e.target.value = formatted.slice(0, 14);
+                  field.onChange(e.target.value);
+                }}
+                error={!!errors.bidNumber}
+                helperText={errors?.bidNumber?.message}
+              />
+            )}
+          />
 
-        let formatted = '';
+          <RHFTextField
+            control={control}
+            name="businessName"
+            label="Name of Company*"
+            placeholder="Name of Company*"
+            error={!!errors.businessName}
+            helperText={errors?.businessName?.message}
+          />
 
-        for (let i = 0; i < value.length; i++) {
-          const char = value[i];
+          <RHFTextField
+            control={control}
+            name="businessNickname"
+            label="Trade Name*"
+            placeholder="Trade Name*"
+            error={!!errors.businessNickname}
+            helperText={errors?.businessNickname?.message}
+          />
 
-          // Enforce strict positions:
-          // 0–1 → letters only
-          if (i < 2) {
-            if (/[A-Z]/.test(char)) formatted += char;
-          }
-          // 2 → must be dash
-          else if (i === 2) {
-            if (char === '-') formatted += '-';
-          }
-          // 3–6 → digits only (year)
-          else if (i > 2 && i < 7) {
-            if (/\d/.test(char)) formatted += char;
-          }
-          // 7 → must be dash
-          else if (i === 7) {
-            if (char === '-') formatted += '-';
-          }
-          // 8–13 → digits only (serial)
-          else if (i > 7 && i < 14) {
-            if (/\d/.test(char)) formatted += char;
-          }
-        }
+          <Controller
+            name="businessType"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                select
+                label="Line of Business*"
+                fullWidth
+                margin="normal"
+                error={!!errors.businessType}
+                helperText={errors?.businessType?.message}
+              >
+                <MenuItem value="">Select Line of Business</MenuItem>
+                <MenuItem value="Food">Food</MenuItem>
+                <MenuItem value="Non-Food">Non-Food</MenuItem>
+              </TextField>
+            )}
+          />
 
-        e.target.value = formatted.slice(0, 14);
-        field.onChange(e.target.value);
-      }}
-      error={!!errors.bidNumber}
-      helperText={errors?.bidNumber?.message}
-    />
-  )}
-/>
+          <RHFTextField
+            control={control}
+            name="businessAddress"
+            label="Business Address*"
+            placeholder="Business Address*"
+            error={!!errors.businessAddress}
+            helperText={errors?.businessAddress?.message}
+          />
 
+          <RHFTextField
+            control={control}
+            name="landmark"
+            label="Landmark*"
+            placeholder="Landmark*"
+            error={!!errors.landmark}
+            helperText={errors?.landmark?.message}
+          />
+        </div>
 
+        <Divider />
 
+        {/* === CONTACT INFORMATION SECTION === */}
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-gray-700">📞 Contact Information</h2>
 
-        <RHFTextField
-          control={control}
-          name="businessName"
-          label="Name of Company*"
-          placeholder="Name of Company*"
-          error={!!errors.businessName}
-          helperText={errors?.businessName?.message}
-        />
+          <RHFTextField
+            control={control}
+            name="contactPerson"
+            label="Contact Person*"
+            placeholder="Contact Person*"
+            error={!!errors.contactPerson}
+            helperText={errors?.contactPerson?.message}
+          />
 
-        <RHFTextField
-          control={control}
-          name="businessNickname"
-          label="Trade Name*"
-          placeholder="Trade Name*"
-          error={!!errors.businessNickname}
-          helperText={errors?.businessNickname?.message}
-        />
+          <Controller
+            name="contactNumber"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Contact Number*"
+                placeholder="e.g. 09123456789"
+                fullWidth
+                margin="normal"
+                inputProps={{
+                  maxLength: 11,
+                  inputMode: 'numeric',
+                  pattern: '[0-9]*',
+                }}
+                onInput={(e) => {
+                  e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11);
+                  field.onChange(e.target.value);
+                }}
+                error={!!errors.contactNumber}
+                helperText={errors?.contactNumber?.message}
+              />
+            )}
+          />
+        </div>
 
-        {/* ✅ Dropdown for Line of Business */}
-        <Controller
-          name="businessType"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              select
-              label="Line of Business*"
-              fullWidth
-              error={!!errors.businessType}
-              helperText={errors?.businessType?.message}
-            >
-              <MenuItem value="">Select Line of Business</MenuItem>
-              <MenuItem value="Food">Food</MenuItem>
-              <MenuItem value="Non-Food">Non-Food</MenuItem>
-            </TextField>
-          )}
-        />
-
-        <RHFTextField
-          control={control}
-          name="businessAddress"
-          label="Business Address*"
-          placeholder="Business Address*"
-          error={!!errors.businessAddress}
-          helperText={errors?.businessAddress?.message}
-        />
-
-        <RHFTextField
-          control={control}
-          name="landmark"
-          label="Landmark*"
-          placeholder="Landmark*"
-          error={!!errors.landmark}
-          helperText={errors?.landmark?.message}
-        />
-
-        <RHFTextField
-          control={control}
-          name="contactPerson"
-          label="Contact Person*"
-          placeholder="Contact Person*"
-          error={!!errors.contactPerson}
-          helperText={errors?.contactPerson?.message}
-        />
-
-        {/* ✅ Contact Number — only allows 11 digits (starts with 09) */}
-        <Controller
-          name="contactNumber"
-          control={control}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              label="Contact Number*"
-              placeholder="e.g. 09123456789"
-              fullWidth
-              inputProps={{
-                maxLength: 11,
-                inputMode: 'numeric',
-                pattern: '[0-9]*',
-              }}
-              onInput={(e) => {
-                e.target.value = e.target.value.replace(/\D/g, '').slice(0, 11);
-                field.onChange(e.target.value);
-              }}
-              error={!!errors.contactNumber}
-              helperText={errors?.contactNumber?.message}
-            />
-          )}
-        />
-
-        <div className="flex justify-start gap-4">
+        <div className="flex justify-start gap-4 pt-4">
           <Button type="submit" variant="contained" color="primary">
             Save Business
-          </Button>
-          <Button variant="outlined" color="secondary" onClick={handleSaveDraft}>
-            Save as Draft
           </Button>
           <Button variant="text" color="error" onClick={handleClear}>
             Clear
