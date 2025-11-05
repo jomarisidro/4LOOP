@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Make a Request', path: '/businessaccount/request' },
   { label: 'Pending Request', path: '/businessaccount/pending' },
   { label: 'Completed Request', path: '/businessaccount/completed' },
+  { label: 'Change Password', path: '/businessaccount/changepassword' },
   { label: 'Help', path: '/businessaccount/help' },
   { label: 'Logout', path: '/businessaccount/logout' },
 ];

@@ -2,12 +2,13 @@ import axios from "axios";
 
 const baseURL = process.env.NEXT_PUBLIC_URL_AND_PORT;
 
-// ✅ Create a shared Axios instance
+// ✅ Create shared axios instance
 const axiosInstance = axios.create({
   baseURL,
   headers: {
     "Content-Type": "application/json",
   },
+  withCredentials: true,
 });
 
 // ✅ Registration service
@@ -18,4 +19,9 @@ export const signUpWithCompleteInfo = (data) => {
 // ✅ Login service
 export const userLogin = (data) => {
   return axiosInstance.post("/api/login", data);
+};
+
+// ✅ ✅ Change password for logged-in user
+export const updateUserPassword = (userId, data) => {
+  return axiosInstance.put(`/api/users/${userId}`, data);
 };
