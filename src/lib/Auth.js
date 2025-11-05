@@ -13,13 +13,17 @@ const SESSION_DURATION_MS = 15 * 24 * 60 * 60 * 1000;
 function generateNonce() {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 // 🔒 Encrypt a payload into a JWT
 export async function encrypt(payload) {
-  const now = Math.floor(Date.now() / 1000); // current time in seconds
-  return await new SignJWT({ ...payload, iat: now, exp: now + SESSION_DURATION_MS / 1000 })
+  const now = Math.floor(Date.now() / 1000);
+  return await new SignJWT({
+    ...payload,
+    iat: now,
+    exp: now + SESSION_DURATION_MS / 1000,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .sign(key);
 }
@@ -45,7 +49,7 @@ export async function login(user) {
 
   const session = await encrypt(sessionPayload);
 
-  const cookieStore = cookies(); // ✅ no await needed
+  const cookieStore = await cookies(); // ✅ must be awaited
   cookieStore.set("session", session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -57,7 +61,7 @@ export async function login(user) {
 
 // 🚪 Logout helper — clears the cookie
 export async function logout() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies(); // ✅ must be awaited
   cookieStore.set("session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -69,7 +73,7 @@ export async function logout() {
 
 // 🧩 Get the current session (decoded JWT)
 export async function getSession() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies(); // ✅ must be awaited
   const token = cookieStore.get("session")?.value;
   if (!token) return null;
 
@@ -93,7 +97,7 @@ export async function updateSession(request) {
 
   try {
     const parsed = await decrypt(token);
-    parsed.nonce = generateNonce(); // 🔁 rotate nonce
+    parsed.nonce = generateNonce();
 
     const refreshed = await encrypt(parsed);
     const res = NextResponse.next();

@@ -1,7 +1,7 @@
-const mongoose = require('mongoose');
-const { Schema } = mongoose;
+import mongoose, { Schema } from "mongoose";
+import mongoosePaginate from "mongoose-paginate-v2";
+
 mongoose.Promise = global.Promise;
-const mongoosePaginate = require('mongoose-paginate-v2');
 
 const BusinessSchema = new Schema(
   {
@@ -19,41 +19,40 @@ const BusinessSchema = new Schema(
     sanitaryPermitIssuedAt: { type: Date },
     expirationDate: { type: Date },
     gracePeriodDate: { type: Date },
-    
 
-    // inside BusinessSchema definition
-officerInCharge: {
-  type: Schema.Types.ObjectId,
-  ref: 'User',
-  default: null,
-},
+    officerInCharge: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
 
-    // ✅ Checklist groups (based on your const names)
     sanitaryPermitChecklist: [
       {
         id: { type: String, required: true },
-        label: { type: String, required: true }
-      }
+        label: { type: String, required: true },
+      },
     ],
 
     healthCertificateChecklist: [
       {
         id: { type: String, required: true },
-        label: { type: String, required: true }
-      }
+        label: { type: String, required: true },
+      },
     ],
+
     msrChecklist: [
       {
         id: { type: String, required: true },
         label: { type: String, required: true },
         dueDate: { type: Date },
-      }
+      },
     ],
+
     history: [
       {
         remarks: { type: String, required: true },
         date: { type: Date },
-      }
+      },
     ],
 
     orDateHealthCert: { type: Date },
@@ -72,33 +71,33 @@ officerInCharge: {
     status: {
       type: String,
       enum: [
-        'draft',
-        'submitted',
-        'pending',
-        'pending2',
-        'pending3',
-        'completed',
-        'released',
-        'expired'
+        "draft",
+        "submitted",
+        "pending",
+        "pending2",
+        "pending3",
+        "completed",
+        "released",
+        "expired",
       ],
-      default: 'draft'
+      default: "draft",
     },
 
     businessAccount: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
-      index: true
-    }
+      index: true,
+    },
   },
   {
     timestamps: true,
     strict: true,
-    strictQuery: false
+    strictQuery: false,
   }
 );
 
 BusinessSchema.plugin(mongoosePaginate);
 
-module.exports =
-  mongoose.models.Business || mongoose.model('Business', BusinessSchema);
+// ✅ Correct export for Next.js
+export default mongoose.models.Business || mongoose.model("Business", BusinessSchema);

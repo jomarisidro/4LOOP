@@ -1,30 +1,29 @@
-const mongoose = require('mongoose');
-const { Schema } = mongoose;
+import mongoose, { Schema } from "mongoose";
 
 const ViolationSchema = new Schema(
   {
-    ticket: { type: Schema.Types.ObjectId, ref: 'Ticket', required: true },
+    ticket: { type: Schema.Types.ObjectId, ref: "Ticket", required: true },
 
     code: {
       type: String,
       enum: [
-        'no_sanitary_permit',
-        'no_health_certificate',
-        'failure_display_sanitary',
-        'failure_display_health',
-        'failure_renew_sanitary',
-        'failure_renew_health',
-        'tampered_documents',
-        'fake_documents',
-        'expired_documents',
-        'other',
+        "no_sanitary_permit",
+        "no_health_certificate",
+        "failure_display_sanitary",
+        "failure_display_health",
+        "failure_renew_sanitary",
+        "failure_renew_health",
+        "tampered_documents",
+        "fake_documents",
+        "expired_documents",
+        "other",
       ],
       required: true,
     },
 
     ordinanceSection: {
       type: String,
-      default: 'Ordinance No. 53, s.2022',
+      default: "Ordinance No. 53, s.2022",
     },
 
     description: { type: String },
@@ -33,11 +32,15 @@ const ViolationSchema = new Schema(
 
     violationStatus: {
       type: String,
-      enum: ['pending', 'resolved', 'dismissed'],
-      default: 'pending',
+      enum: ["pending", "resolved", "dismissed"],
+      default: "pending",
     },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.models.Violation || mongoose.model('Violation', ViolationSchema);
+// ✅ Use ES module export (Next.js compatible)
+const Violation =
+  mongoose.models.Violation || mongoose.model("Violation", ViolationSchema);
+
+export default Violation;
