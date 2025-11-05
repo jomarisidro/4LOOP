@@ -67,13 +67,26 @@ export default function DashboardForm() {
 
   // ✅ Fetch notifications periodically (every 10 seconds)
   useEffect(() => {
+    const userId =
+      sessionStorage.getItem('userId') ||
+      localStorage.getItem('loggedUserId');
+
+    if (!userId) return; // 🔒 Prevent fetching without a logged-in user
+
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const res = await fetch('/api/notifications');
+        const res = await fetch(`/api/notifications?userId=${userId}`);
         const data = await res.json();
+
         if (res.ok) {
-          setNotifications(data.notifications || []);
+          // ✅ Sort latest first
+          const sorted = (data.notifications || []).sort(
+            (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          );
+          setNotifications(sorted);
+        } else {
+          console.error('Notification fetch error:', data.error);
         }
       } catch (err) {
         console.error('Notification fetch error:', err);
@@ -94,6 +107,12 @@ export default function DashboardForm() {
   // ✅ Handle notification click with redirect
   const handleNotificationClick = (notif) => {
     handleMenuClose();
+
+    if (notif.link) {
+      router.push(notif.link);
+      return;
+    }
+
     if (!notif.status) return;
 
     const status = notif.status.toLowerCase();
@@ -165,23 +184,22 @@ export default function DashboardForm() {
                     display: 'block',
                   }}
                 >
-               <div className="mb-1 text-sm text-gray-500">
-  {/* ✅ Show BID Number if available */}
-  {notif.bidNumber && (
-    <span className="font-medium text-gray-600">
-      {notif.bidNumber}
-    </span>
-  )}
-</div>
+                  <div className="mb-1 text-sm text-gray-500">
+                    {/* ✅ Show BID Number if available */}
+                    {notif.bidNumber && (
+                      <span className="font-medium text-gray-600">
+                        {notif.bidNumber}
+                      </span>
+                    )}
+                  </div>
 
-<strong className="block mb-1 text-gray-800">
-  {statusLabels[notif.status] || 'Update'}
-</strong>
+                  <strong className="block mb-1 text-gray-800">
+                    {statusLabels[notif.status] || 'Notification'}
+                  </strong>
 
-<span className="text-gray-700">
-  {notif.message || 'New update available'}
-</span>
-
+                  <span className="text-gray-700">
+                    {notif.message || 'New update available'}
+                  </span>
                 </MenuItem>
               ))
             )}

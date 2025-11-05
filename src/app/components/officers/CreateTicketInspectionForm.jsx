@@ -41,27 +41,21 @@ export default function CreateTicketInspectionForm() {
   const router = useRouter();
   const currentYear = new Date().getFullYear();
 
-  // Fetch all businesses
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['business-list'],
     queryFn: () => getAddOwnerBusiness(),
   });
 
-  // UI + filter states
   const [searchType, setSearchType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredBusinesses, setFilteredBusinesses] = useState([]);
   const [inspectionCounts, setInspectionCounts] = useState({});
   const [selectedBusiness, setSelectedBusiness] = useState(null);
   const [inspectionDate, setInspectionDate] = useState('');
-  const [remarks, setRemarks] = useState('');
   const [openConfirm, setOpenConfirm] = useState(false);
 
-  // Pagination
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-
-  // Sorting
   const [sortColumn, setSortColumn] = useState('');
   const [sortDirection, setSortDirection] = useState('asc');
 
@@ -94,7 +88,6 @@ export default function CreateTicketInspectionForm() {
           ? name.includes(q) || bid.includes(q)
           : b[searchType]?.toLowerCase().includes(q);
 
-      // ✅ Show all except those with excluded statuses
       const isEligible = !excludedStatuses.includes(b.status?.toLowerCase());
 
       return matches && isEligible;
@@ -103,7 +96,6 @@ export default function CreateTicketInspectionForm() {
     setFilteredBusinesses(filtered);
     setPage(1);
   }, [searchTerm, searchType, data]);
-
 
   // Helper for limited concurrent fetches
   async function fetchWithLimit(items, limit, fn) {
@@ -125,7 +117,6 @@ export default function CreateTicketInspectionForm() {
 
   const inspectionCache = useRef({});
 
-  // Fetch inspection info
   useEffect(() => {
     if (!data?.data?.length) return;
 
@@ -182,40 +173,37 @@ export default function CreateTicketInspectionForm() {
     fetchInspectionInfo();
   }, [page, limit, filteredBusinesses, data]);
 
-
   async function fetchInspectionInfoForBusiness(businessId) {
-  try {
-    const [ticketRes, violationRes] = await Promise.all([
-      axios.get(`/api/ticket?businessId=${businessId}&year=${currentYear}`),
-      axios.get(`/api/violation?businessId=${businessId}`),
-    ]);
+    try {
+      const [ticketRes, violationRes] = await Promise.all([
+        axios.get(`/api/ticket?businessId=${businessId}&year=${currentYear}`),
+        axios.get(`/api/violation?businessId=${businessId}`),
+      ]);
 
-    const tickets = ticketRes.data || [];
-    const completedCount = tickets.filter(
-      (t) => t.inspectionStatus === 'completed'
-    ).length;
-    const hasPending = tickets.some((t) => t.inspectionStatus === 'pending');
+      const tickets = ticketRes.data || [];
+      const completedCount = tickets.filter(
+        (t) => t.inspectionStatus === 'completed'
+      ).length;
+      const hasPending = tickets.some((t) => t.inspectionStatus === 'pending');
 
-    const violations = violationRes.data || [];
-    const activeViolation = violations.find((v) => v.status === 'pending');
+      const violations = violationRes.data || [];
+      const activeViolation = violations.find((v) => v.status === 'pending');
 
-    setInspectionCounts((prev) => ({
-      ...prev,
-      [businessId]: {
-        completedCount,
-        hasPending,
-        violation: activeViolation
-          ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
-          : '',
-      },
-    }));
-  } catch (error) {
-    console.error('Error refreshing inspection info:', error);
+      setInspectionCounts((prev) => ({
+        ...prev,
+        [businessId]: {
+          completedCount,
+          hasPending,
+          violation: activeViolation
+            ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
+            : '',
+        },
+      }));
+    } catch (error) {
+      console.error('Error refreshing inspection info:', error);
+    }
   }
-}
 
-
-  // Sorting Logic
   const sortedBusinesses = useMemo(() => {
     const list = [...filteredBusinesses];
     if (!sortColumn) return list;
@@ -268,54 +256,56 @@ export default function CreateTicketInspectionForm() {
     page * limit
   );
 
-  // Dialog actions
   const handleOpenConfirm = (business) => {
     setSelectedBusiness(business);
     setOpenConfirm(true);
     setInspectionDate(new Date().toISOString().split('T')[0]);
-    setRemarks('');
   };
 
   const handleCloseConfirm = () => {
     setSelectedBusiness(null);
     setOpenConfirm(false);
     setInspectionDate('');
-    setRemarks('');
   };
 
- const handleSaveInspection = async () => {
-  if (!selectedBusiness || !inspectionDate) return;
+  const handleSaveInspection = async () => {
+    if (!selectedBusiness || !inspectionDate) return;
 
-  try {
-    await axios.post(
-      '/api/ticket',
-      {
-        businessId: selectedBusiness._id,
-        inspectionDate,
-        remarks,
-        inspectionStatus: 'pending',
-      },
-      { withCredentials: true }
-    );
+    try {
+      // 1️⃣ Create inspection ticket
+      const ticketRes = await axios.post(
+        '/api/ticket',
+        {
+          businessId: selectedBusiness._id,
+          inspectionDate,
+          inspectionStatus: 'pending',
+        },
+        { withCredentials: true }
+      );
 
-    alert('✅ Inspection ticket created!');
+      // 2️⃣ Create corresponding notification for business owner
+      await axios.post('/api/notification', {
+        user: selectedBusiness.businessAccount, // the business owner's user ID
+        business: selectedBusiness._id,
+        type: 'inspection_created',
+        message: `A new inspection has been scheduled for your business "${selectedBusiness.businessName}" on ${new Date(
+          inspectionDate
+        ).toLocaleDateString()}.`,
+        link: `/business/inspections`, // optional: adjust if you have a route for the business side
+      });
 
-    // Close dialog
-    handleCloseConfirm();
+      // 3️⃣ Local updates
+      alert('✅ Inspection ticket created!');
+      handleCloseConfirm();
 
-    // 🧠 Clear cache for this business so we can refresh its inspection info
-    delete inspectionCache.current[selectedBusiness._id];
-
-    // 🔁 Force reload of inspection info for updated business
-    await fetchInspectionInfoForBusiness(selectedBusiness._id);
-
-    // ✅ Also refetch the business list to reflect inspectionStatus
-    await refetch();
-  } catch (error) {
-    console.error('Error saving inspection:', error);
-    alert('❌ Failed to save inspection.');
-  }
-};
+      delete inspectionCache.current[selectedBusiness._id];
+      await fetchInspectionInfoForBusiness(selectedBusiness._id);
+      await refetch();
+    } catch (error) {
+      console.error('Error saving inspection:', error);
+      alert('❌ Failed to save inspection.');
+    }
+  };
 
 
   const handleViewStatus = async (business) => {
@@ -463,12 +453,12 @@ export default function CreateTicketInspectionForm() {
                       <Button
                         variant="contained"
                         size="small"
-                        color={pending ? 'warning' : 'primary'}
+                        color={pending ? 'inherit' : 'primary'}
                         onClick={() => {
                           if (pending) handleViewStatus(business);
                           else if (!maxed) handleOpenConfirm(business);
                         }}
-                        disabled={maxed}
+                        disabled={maxed || pending}
                       >
                         {pending
                           ? 'Pending Inspection'
@@ -527,15 +517,6 @@ export default function CreateTicketInspectionForm() {
             InputLabelProps={{ shrink: true }}
             value={inspectionDate}
             onChange={(e) => setInspectionDate(e.target.value)}
-            sx={{ mb: 2 }}
-          />
-          <TextField
-            label="Remarks"
-            fullWidth
-            multiline
-            rows={3}
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
           />
         </DialogContent>
         <DialogActions>

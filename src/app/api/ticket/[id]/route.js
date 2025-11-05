@@ -4,9 +4,9 @@ import Ticket from "@/models/Ticket";
 import Business from "@/models/Business";
 import User from "@/models/User";
 import Violation from "@/models/Violation";
+import Notification from "@/models/Notification"; // 🟢 NEW
 import { getSession } from "@/lib/Auth";
 
-// 🟢 GET Ticket
 // 🟢 GET Ticket (with inspection history)
 export async function GET(request, { params }) {
   await connectMongoDB();
@@ -50,7 +50,6 @@ export async function GET(request, { params }) {
     );
   }
 }
-
 
 // 🟡 UPDATE Ticket
 export async function PUT(request, { params }) {
@@ -173,8 +172,26 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // ✅ Save the ticket first
     await ticket.save();
 
+    // 🟢 Create notification if inspection completed
+    if (ticket.inspectionStatus === "completed") {
+      try {
+        await Notification.create({
+          user: ticket.business.businessAccount,
+          business: ticket.business._id,
+          ticket: ticket._id,
+          message: `Your business "${ticket.business.businessName}" has completed its inspection.`,
+          type: "inspection_completed",
+          link: `/businessaccount/tickets/${ticket._id}`,
+        });
+      } catch (notifErr) {
+        console.error("⚠️ Failed to create completion notification:", notifErr);
+      }
+    }
+
+    // ✅ Populate before returning
     const populatedTicket = await ticket.populate([
       { path: "business", select: "businessName bidNumber businessType contactPerson businessAddress" },
       { path: "officerInCharge", select: "fullName email" },

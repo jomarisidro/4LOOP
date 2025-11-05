@@ -172,13 +172,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
         businessAddress: '',
         businessEstablishment: '',
         status: '',
-// ✅ Preserve MSR due dates while clearing selections and labels
-msrChecklist: Object.fromEntries(
-  msrChecklist.map((item) => [
-    item.id,
-    { selected: false, label: "", dueDate: item.dueDate },
-  ])
-),
+        // ✅ Preserve MSR due dates while clearing selections and labels
+        msrChecklist: Object.fromEntries(
+          msrChecklist.map((item) => [
+            item.id,
+            { selected: false, label: "", dueDate: item.dueDate },
+          ])
+        ),
         inspectionRecords: [],
         penaltyRecords: [],
         remarks: '',
@@ -194,11 +194,11 @@ msrChecklist: Object.fromEntries(
         requestType: '',
       });
 
- setSanitaryPermitChecklistState([]);
-setHealthCertificateChecklistState('');
-setMsrChecklistState([]);
-clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
-setWarningMessage('');
+      setSanitaryPermitChecklistState([]);
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+      clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+      setWarningMessage('');
 
       queryClient.removeQueries({ queryKey: ['business'] });
       queryClient.removeQueries({ queryKey: ['tickets'] });
@@ -220,13 +220,13 @@ setWarningMessage('');
         status: '',
         remarks: '',
         requestType: '',
-// ✅ Preserve MSR due dates while clearing selections and labels
-msrChecklist: Object.fromEntries(
-  msrChecklist.map((item) => [
-    item.id,
-    { selected: false, label: "", dueDate: item.dueDate },
-  ])
-),
+        // ✅ Preserve MSR due dates while clearing selections and labels
+        msrChecklist: Object.fromEntries(
+          msrChecklist.map((item) => [
+            item.id,
+            { selected: false, label: "", dueDate: item.dueDate },
+          ])
+        ),
         inspectionRecords: [],
         penaltyRecords: [],
         declaredPersonnel: '',
@@ -241,10 +241,10 @@ msrChecklist: Object.fromEntries(
       }));
 
       setSanitaryPermitChecklistState([]);
-setHealthCertificateChecklistState('');
-setMsrChecklistState([]);
-clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
-setWarningMessage('');
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+      clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+      setWarningMessage('');
 
 
       // 🧹 Also clear cached queries so old tickets/records aren't reused
@@ -274,10 +274,10 @@ setWarningMessage('');
     staleTime: 0,            // ✅ force immediate revalidation
   });
 
-const hasInspections = (businessData?.inspectionRecords?.length || 0) > 0;
-const hasPenalties = (businessData?.penaltyRecords?.length || 0) > 0;
-const isLocked = requestType === "Renewal" && (hasInspections || hasPenalties);
-const noRecords = !hasInspections && !hasPenalties;
+  const hasInspections = (businessData?.inspectionRecords?.length || 0) > 0;
+  const hasPenalties = (businessData?.penaltyRecords?.length || 0) > 0;
+  const isLocked = requestType === "Renewal" && (hasInspections || hasPenalties);
+  const noRecords = !hasInspections && !hasPenalties;
 
 
   // ✅ Extract businessId after data is loaded
@@ -370,11 +370,11 @@ const noRecords = !hasInspections && !hasPenalties;
     onSuccess: (data) => {
       queryClient.invalidateQueries(['business', data.business.bidNumber]);
       reset();
-    setSanitaryPermitChecklistState([]);
-setHealthCertificateChecklistState('');
-setMsrChecklistState([]);
-clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
-setWarningMessage('');
+      setSanitaryPermitChecklistState([]);
+      setHealthCertificateChecklistState('');
+      setMsrChecklistState([]);
+      clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates intact
+      setWarningMessage('');
 
       router.push('/businessaccount/request');
     },
@@ -454,14 +454,14 @@ setWarningMessage('');
     mutate({ ...getValues(), status: 'draft' });
   };
 
-const handleClear = () => {
-  reset();
-  setSanitaryPermitChecklistState([]);
-  setHealthCertificateChecklistState([]);
-  setMsrChecklistState([]);
-  clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates
-  setWarningMessage('');
-};
+  const handleClear = () => {
+    reset();
+    setSanitaryPermitChecklistState([]);
+    setHealthCertificateChecklistState([]);
+    setMsrChecklistState([]);
+    clearMsrSelectionsButKeepDueDates(msrChecklist, setValue); // ✅ keep due dates
+    setWarningMessage('');
+  };
 
 
   const { data: userBusinesses = [], isLoading: loadingBusinesses } = useQuery({
@@ -491,13 +491,13 @@ const handleClear = () => {
         businessAddress: "",
         businessEstablishment: "",
         status: "",
-// ✅ Preserve MSR due dates while clearing selections and labels
-msrChecklist: Object.fromEntries(
-  msrChecklist.map((item) => [
-    item.id,
-    { selected: false, label: "", dueDate: item.dueDate },
-  ])
-),
+        // ✅ Preserve MSR due dates while clearing selections and labels
+        msrChecklist: Object.fromEntries(
+          msrChecklist.map((item) => [
+            item.id,
+            { selected: false, label: "", dueDate: item.dueDate },
+          ])
+        ),
         inspectionRecords: [],
         penaltyRecords: [],
         remarks: "",
@@ -553,21 +553,21 @@ msrChecklist: Object.fromEntries(
     setValue("businessEstablishment", businessData?.businessEstablishment || "");
   }, [businessData, bidNumber, tickets?.length, reset, setValue, watch]);
 
-useEffect(() => {
-  // compute 90 days from today
-  const dueDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  useEffect(() => {
+    // compute 90 days from today
+    const dueDate = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
 
-  // existing defaults
-  setValue("declaredPersonnelDueDate", dueDate);
-  setValue("healthCertDueDate", dueDate);
+    // existing defaults
+    setValue("declaredPersonnelDueDate", dueDate);
+    setValue("healthCertDueDate", dueDate);
 
-  // ✅ set 90-day due date for all MSR checklist items
-  msrChecklist?.forEach((item) => {
-    setValue(`msrChecklist.${item.id}.dueDate`, dueDate);
-  });
-}, [setValue, msrChecklist]);
+    // ✅ set 90-day due date for all MSR checklist items
+    msrChecklist?.forEach((item) => {
+      setValue(`msrChecklist.${item.id}.dueDate`, dueDate);
+    });
+  }, [setValue, msrChecklist]);
 
 
   // ✅ Autofill from businessData.inspectionRecords
@@ -988,101 +988,101 @@ useEffect(() => {
               <h1 className="ml-12 mb-4">- Health Certificate Fee</h1>
 
               {/* Input fields */}
-             <div className="grid grid-cols-2 gap-4">
-  {/* ✅ O.R. Date (optional but validates format) */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      O.R. Date:
-    </label>
-    <RHFTextField
-      control={control}
-      name="orDateHealthCert"
-      type="date"
-      variant="standard"
-      fullWidth
-      InputLabelProps={{ shrink: true }}
-    />
-  </div>
+              <div className="grid grid-cols-2 gap-4">
+                {/* ✅ O.R. Date (optional but validates format) */}
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    O.R. Date:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="orDateHealthCert"
+                    type="date"
+                    variant="standard"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </div>
 
-  {/* ✅ O.R. Number (optional but must be digits) */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      O.R. Number:
-    </label>
-    <RHFTextField
-      control={control}
-      name="orNumberHealthCert"
-      type="text"
-      variant="standard"
-      placeholder="Enter O.R. Number"
-      fullWidth
-      inputProps={{
-        inputMode: 'numeric',
-        maxLength: 20,
-      }}
-      onChange={(e) => {
-        const digitsOnly = e.target.value.replace(/\D/g, '');
-        setValue('orNumberHealthCert', digitsOnly, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-      }}
-    />
-  </div>
+                {/* ✅ O.R. Number (optional but must be digits) */}
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    O.R. Number:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="orNumberHealthCert"
+                    type="text"
+                    variant="standard"
+                    placeholder="Enter O.R. Number"
+                    fullWidth
+                    inputProps={{
+                      inputMode: 'numeric',
+                      maxLength: 20,
+                    }}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '');
+                      setValue('orNumberHealthCert', digitsOnly, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    }}
+                  />
+                </div>
 
-  {/* ✅ Sanitary Fee (optional, validates number ≥ 0) */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      Sanitary Fee:
-    </label>
-    <RHFTextField
-      control={control}
-      name="healthCertSanitaryFee"
-      type="number"
-      variant="standard"
-      placeholder="Enter amount"
-      fullWidth
-      inputProps={{ step: '0.01', min: 0 }}
-      onBlur={(e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value)) {
-          setValue('healthCertSanitaryFee', value, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
+                {/* ✅ Sanitary Fee (optional, validates number ≥ 0) */}
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Sanitary Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertSanitaryFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{ step: '0.01', min: 0 }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertSanitaryFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
 
-  {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
+                {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
 
-            {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
-  <div className="flex items-center gap-2">
-    <label className="w-[120px] text-sm font-medium text-gray-700">
-      Health Cert Fee:
-    </label>
-    <RHFTextField
-      control={control}
-      name="healthCertFee"
-      type="number"
-      variant="standard"
-      placeholder="Enter amount"
-      fullWidth
-      inputProps={{ step: '0.01', min: 0 }}
-      onBlur={(e) => {
-        const value = parseFloat(e.target.value);
-        if (!isNaN(value)) {
-          setValue('healthCertFee', value, {
-            shouldValidate: true,
-            shouldDirty: true,
-          });
-        }
-      }}
-    />
-  </div>
-</div>
-</div>
+                {/* ✅ Health Certificate Fee (optional, validates number ≥ 0) */}
+                <div className="flex items-center gap-2">
+                  <label className="w-[120px] text-sm font-medium text-gray-700">
+                    Health Cert Fee:
+                  </label>
+                  <RHFTextField
+                    control={control}
+                    name="healthCertFee"
+                    type="number"
+                    variant="standard"
+                    placeholder="Enter amount"
+                    fullWidth
+                    inputProps={{ step: '0.01', min: 0 }}
+                    onBlur={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setValue('healthCertFee', value, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
 
             {/* Right column: Bulk Personnel Instructions */}
             <div className="flex flex-col w-[450px] gap-2 text-sm">
@@ -1127,53 +1127,53 @@ useEffect(() => {
           </div>
 
           {/* Checklist rows */}
-        <div className="grid grid-cols-2 gap-4">
-  {msrChecklist.map((item) => (
-    <div
-      key={item.id}
-      className="grid grid-cols-[1fr_130px] items-center gap-2 border-b border-gray-100 py-1"
-    >
-      {/* Checklist cell */}
-      <label className="flex items-center gap-2 text-sm text-gray-800">
-        <input
-          type="checkbox"
-          {...register(`msrChecklist.${item.id}.selected`)}
-          className="transform scale-125 accent-blue-600 mr-2"
-        />
-        <span>{item.label}</span>
-      </label>
+          <div className="grid grid-cols-2 gap-4">
+            {msrChecklist.map((item) => (
+              <div
+                key={item.id}
+                className="grid grid-cols-[1fr_130px] items-center gap-2 border-b border-gray-100 py-1"
+              >
+                {/* Checklist cell */}
+                <label className="flex items-center gap-2 text-sm text-gray-800">
+                  <input
+                    type="checkbox"
+                    {...register(`msrChecklist.${item.id}.selected`)}
+                    className="transform scale-125 accent-blue-600 mr-2"
+                  />
+                  <span>{item.label}</span>
+                </label>
 
-      {/* Due Date cell */}
-     <RHFTextField
-  control={control}
-  name={`msrChecklist.${item.id}.dueDate`}
-  type="date"
-  variant="standard"
-  label=""
-  disabled
-  InputLabelProps={{ shrink: true }}
-InputProps={{
-  readOnly: isLocked,
-  style: isLocked ? { backgroundColor: "#f5f5f5", color: "#555" } : {},
-}}
+                {/* Due Date cell */}
+                <RHFTextField
+                  control={control}
+                  name={`msrChecklist.${item.id}.dueDate`}
+                  type="date"
+                  variant="standard"
+                  label=""
+                  disabled
+                  InputLabelProps={{ shrink: true }}
+                  InputProps={{
+                    readOnly: isLocked,
+                    style: isLocked ? { backgroundColor: "#f5f5f5", color: "#555" } : {},
+                  }}
 
-  sx={{
-    color: '#b91c1c',
-    '& .MuiInputBase-input': {
-      color: '#b91c1c',
-      textAlign: 'center',
-      fontSize: 14,
-      padding: 0,
-    },
-    '& .MuiInput-underline:before': { borderBottomColor: '#b91c1c' },
-    '& .MuiInput-underline:hover:before': { borderBottomColor: '#b91c1c' },
-    '& .MuiInput-underline:after': { borderBottomColor: '#b91c1c' },
-  }}
-/>
+                  sx={{
+                    color: '#b91c1c',
+                    '& .MuiInputBase-input': {
+                      color: '#b91c1c',
+                      textAlign: 'center',
+                      fontSize: 14,
+                      padding: 0,
+                    },
+                    '& .MuiInput-underline:before': { borderBottomColor: '#b91c1c' },
+                    '& .MuiInput-underline:hover:before': { borderBottomColor: '#b91c1c' },
+                    '& .MuiInput-underline:after': { borderBottomColor: '#b91c1c' },
+                  }}
+                />
 
-    </div>
-  ))}
-</div>
+              </div>
+            ))}
+          </div>
 
 
           <div className="flex flex-wrap justify-between gap-1 mb-6 w-full max-w-screen-lg mx-auto -ml-2 mt-2">
@@ -1205,7 +1205,7 @@ InputProps={{
 
             {/* Right column: MSR Verified block */}
             <div className="flex flex-col items-end w-full max-w-xs">
-              <h3 className="text-base font-bold mb-10">MSR VERIFIED AND CHECKED:</h3>
+
               <h3 className="text-base font-semibold">DINA E. CRUZ</h3>
               <h3 className="text-sm text-gray-700">MSR, SUPERVISOR</h3>
             </div>
@@ -1324,16 +1324,19 @@ InputProps={{
               </div>
             </div>
           </div>
-
           {/* Inspection Record */}
-<fieldset
-  disabled={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)}
-  className={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)
-    ? "opacity-50 pointer-events-none"
-    : ""}
->
-
-
+          <fieldset
+            disabled={
+              (bidNumber && requestType === "New") ||
+              (!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties))
+            }
+            className={
+              (bidNumber && requestType === "New") ||
+                (!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties))
+                ? "opacity-50 pointer-events-none"
+                : ""
+            }
+          >
             <div className="w-full max-w-6xl mx-auto px-4 mb-6">
               <h3 className="text-lg font-bold text-gray-700 mb-2">Inspection Record</h3>
               <div className="overflow-x-auto">
@@ -1354,7 +1357,6 @@ InputProps={{
                       const inspectionRecords = watch("inspectionRecords") || [];
                       const inspectionRecord = inspectionRecords[index] || {};
 
-                      const inspectedBy = inspectionRecord.inspectedBy || "N/A";
                       const inspectionDate = inspectionRecord.date || "";
                       const personnelCount = inspectionRecord.personnelCount || "";
 
@@ -1395,9 +1397,8 @@ InputProps={{
                             />
                           </td>
 
-
-                          {/* Inspected By */}
-                         <td className="px-4 py-2">
+                        {/* Inspected By */}
+<td className="px-4 py-2">
   <Controller
     name={`inspectionRecords.${index}.inspectedBy`}
     control={control}
@@ -1405,16 +1406,19 @@ InputProps={{
     render={({ field }) => (
       <TextField
         {...field}
-        label="Inspected By"
+    
         variant="standard"
-        fullWidth
+        fullWidth={false} // disable fullWidth so width can be controlled manually
         value={field.value ?? ""}
+        sx={{
+          minWidth: 120, // 🔹 increase this to make it longer (e.g. 250 or 300)
+          ...( !noRecords && isLocked
+            ? { backgroundColor: "#f5f5f5", color: "#555" }
+            : {}
+          ),
+        }}
         InputProps={{
           readOnly: !noRecords && isLocked,
-          style:
-            !noRecords && isLocked
-              ? { backgroundColor: "#f5f5f5", color: "#555" }
-              : {},
         }}
       />
     )}
@@ -1425,22 +1429,27 @@ InputProps={{
                       );
                     })}
                   </tbody>
-
                 </table>
               </div>
             </div>
           </fieldset>
 
+
         </div>
 
         {/* Penalty Record Section */}
-<fieldset
-  disabled={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)}
-  className={!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties)
-    ? "opacity-50 pointer-events-none"
-    : ""}
->
-
+        <fieldset
+          disabled={
+            (bidNumber && requestType === "New") ||
+            (!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties))
+          }
+          className={
+            (bidNumber && requestType === "New") ||
+              (!noRecords && requestType === "Renewal" && (hasInspections || hasPenalties))
+              ? "opacity-50 pointer-events-none"
+              : ""
+          }
+        >
           <div className="w-full max-w-6xl mx-auto px-4 mb-6">
             <div className="grid grid-cols-[2fr_1fr] gap-6">
               <div>
@@ -1457,182 +1466,183 @@ InputProps={{
                         <th className="px-2 py-1">Amount</th>
                       </tr>
                     </thead>
-      <tbody>
-  {(watch("penaltyRecords")?.length
-    ? watch("penaltyRecords")
-    : [
-        { label: "Sanitary Permit" },
-        { label: "Health Certificate" },
-        { label: "Water Potability" },
-        { label: "MSR" },
-      ]
-  ).map((row, index) => (
-    <tr key={index} className="bg-white shadow-sm rounded-md">
-      {/* Checklist */}
-      <td className="px-2 py-1 text-sm text-gray-700">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            className="form-checkbox text-blue-600"
-            {...register(`penaltyRecords.${index}.isChecked`)}
-          />
-          {row.label ||
-            ["Sanitary Permit", "Health Certificate", "Water Potability", "MSR"][index]}
-        </label>
-      </td>
+                    <tbody>
+                      {(watch("penaltyRecords")?.length
+                        ? watch("penaltyRecords")
+                        : [
+                          { label: "Sanitary Permit" },
+                          { label: "Health Certificate" },
+                          { label: "Water Potability" },
+                          { label: "MSR" },
+                        ]
+                      ).map((row, index) => (
+                        <tr key={index} className="bg-white shadow-sm rounded-md">
+                          {/* Checklist */}
+                          <td className="px-2 py-1 text-sm text-gray-700">
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                className="form-checkbox text-blue-600"
+                                {...register(`penaltyRecords.${index}.isChecked`)}
+                              />
+                              {row.label ||
+                                ["Sanitary Permit", "Health Certificate", "Water Potability", "MSR"][index]}
+                            </label>
+                          </td>
 
-      {/* Offense (dropdown) */}
-      <td className="px-2 py-1">
-        <Controller
-          name={`penaltyRecords.${index}.offense`}
-          control={control}
-          defaultValue={row.offense || ""}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              select
-              variant="standard"
-              fullWidth
-              InputProps={{
-                readOnly: !noRecords && isLocked,
-                style:
-                  !noRecords && isLocked
-                    ? { backgroundColor: "#f5f5f5", color: "#555" }
-                    : {},
-              }}
-            >
-              <MenuItem value="1st">1st</MenuItem>
-              <MenuItem value="2nd">2nd</MenuItem>
-              <MenuItem value="3rd">3rd</MenuItem>
-            </TextField>
-          )}
-        />
-      </td>
+                          {/* Offense */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.offense`}
+                              control={control}
+                              defaultValue={row.offense || ""}
+                              render={({ field }) => (
+                                <TextField
+                                  {...field}
+                                  select
+                                  variant="standard"
+                                  fullWidth
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                    style:
+                                      !noRecords && isLocked
+                                        ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                        : {},
+                                  }}
+                                >
+                                  <MenuItem value="1st">1st</MenuItem>
+                                  <MenuItem value="2nd">2nd</MenuItem>
+                                  <MenuItem value="3rd">3rd</MenuItem>
+                                </TextField>
+                              )}
+                            />
+                          </td>
 
-      {/* Year (4 digits only) */}
-      <td className="px-2 py-1">
-        <Controller
-          name={`penaltyRecords.${index}.year`}
-          control={control}
-          defaultValue={row.year || ""}
-          render={({ field: { onChange, value, ...rest } }) => (
-            <TextField
-              {...rest}
-              value={value || ""}
-              onChange={(e) =>
-                onChange(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
-              }
-              variant="standard"
-              fullWidth
-              placeholder="YYYY"
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 4 }}
-              InputProps={{
-                readOnly: !noRecords && isLocked,
-                style:
-                  !noRecords && isLocked
-                    ? { backgroundColor: "#f5f5f5", color: "#555" }
-                    : {},
-              }}
-            />
-          )}
-        />
-      </td>
+                          {/* Year */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.year`}
+                              control={control}
+                              defaultValue={row.year || ""}
+                              render={({ field: { onChange, value, ...rest } }) => (
+                                <TextField
+                                  {...rest}
+                                  value={value || ""}
+                                  onChange={(e) =>
+                                    onChange(e.target.value.replace(/[^0-9]/g, "").slice(0, 4))
+                                  }
+                                  variant="standard"
+                                  fullWidth
+                                  placeholder="YYYY"
+                                  inputProps={{
+                                    inputMode: "numeric",
+                                    pattern: "[0-9]*",
+                                    maxLength: 4,
+                                  }}
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                    style:
+                                      !noRecords && isLocked
+                                        ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                        : {},
+                                  }}
+                                />
+                              )}
+                            />
+                          </td>
 
-      {/* O.R. Date */}
-      <td className="px-2 py-1">
-        <Controller
-          name={`penaltyRecords.${index}.orDate`}
-          control={control}
-          defaultValue={row.orDate || ""}
-          render={({ field }) => (
-            <TextField
-              {...field}
-              type="date"
-              variant="standard"
-              fullWidth
-              InputProps={{
-                readOnly: !noRecords && isLocked,
-                style:
-                  !noRecords && isLocked
-                    ? { backgroundColor: "#f5f5f5", color: "#555" }
-                    : {},
-              }}
-            />
-          )}
-        />
-      </td>
+                          {/* O.R. Date */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.orDate`}
+                              control={control}
+                              defaultValue={row.orDate || ""}
+                              render={({ field }) => (
+                                <TextField
+                                  {...field}
+                                  type="date"
+                                  variant="standard"
+                                  fullWidth
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                    style:
+                                      !noRecords && isLocked
+                                        ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                        : {},
+                                  }}
+                                />
+                              )}
+                            />
+                          </td>
 
-      {/* O.R. Number (numbers only) */}
-      <td className="px-2 py-1">
-        <Controller
-          name={`penaltyRecords.${index}.orNumber`}
-          control={control}
-          defaultValue={row.orNumber || ""}
-          render={({ field: { onChange, value, ...rest } }) => (
-            <TextField
-              {...rest}
-              value={value || ""}
-              onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-              variant="standard"
-              fullWidth
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-              InputProps={{
-                readOnly: !noRecords && isLocked,
-                style:
-                  !noRecords && isLocked
-                    ? { backgroundColor: "#f5f5f5", color: "#555" }
-                    : {},
-              }}
-            />
-          )}
-        />
-      </td>
+                          {/* O.R. Number */}
+                          <td className="px-2 py-1">
+                            <Controller
+                              name={`penaltyRecords.${index}.orNumber`}
+                              control={control}
+                              defaultValue={row.orNumber || ""}
+                              render={({ field: { onChange, value, ...rest } }) => (
+                                <TextField
+                                  {...rest}
+                                  value={value || ""}
+                                  onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+                                  variant="standard"
+                                  fullWidth
+                                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                    style:
+                                      !noRecords && isLocked
+                                        ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                        : {},
+                                  }}
+                                />
+                              )}
+                            />
+                          </td>
 
-      {/* Amount (editable, numbers only) */}
-      <td className="px-2 py-1 text-center font-semibold text-green-700">
-        <Controller
-          name={`penaltyRecords.${index}.amount`}
-          control={control}
-          defaultValue={row.amount || ""}
-          render={({ field: { onChange, value, ...rest } }) => (
-            <TextField
-              {...rest}
-              value={value || ""}
-              onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
-              variant="standard"
-              fullWidth
-              inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
-              InputProps={{
-                readOnly: !noRecords && isLocked,
-                style:
-                  !noRecords && isLocked
-                    ? { backgroundColor: "#f5f5f5", color: "#555" }
-                    : {},
-              }}
-            />
-          )}
-        />
-      </td>
-    </tr>
-  ))}
-</tbody>
-
-
+                          {/* Amount */}
+                          <td className="px-2 py-1 text-center font-semibold text-green-700">
+                            <Controller
+                              name={`penaltyRecords.${index}.amount`}
+                              control={control}
+                              defaultValue={row.amount || ""}
+                              render={({ field: { onChange, value, ...rest } }) => (
+                                <TextField
+                                  {...rest}
+                                  value={value || ""}
+                                  onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+                                  variant="standard"
+                                  fullWidth
+                                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                    style:
+                                      !noRecords && isLocked
+                                        ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                        : {},
+                                  }}
+                                />
+                              )}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
                   </table>
                 </div>
               </div>
 
               {/* Right Column: Verification */}
               <div className="flex flex-col justify-center text-sm text-gray-700">
-                <p className="font-semibold uppercase mb-4">
-                  Payments Verified and Checked:
-                </p>
+                <p className="font-semibold uppercase mb-4">Payments Verified and Checked:</p>
                 <p className="font-bold text-lg">ELEONOR M. JUNDARINO</p>
                 <p className="uppercase">Revenue Unit Supervisor</p>
               </div>
             </div>
           </div>
         </fieldset>
+
 
 
         {/* Remark Field - Inline Label and Input */}

@@ -1,8 +1,9 @@
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
-import Business from "@/models/Business";
+import Notification from "@/models/Notification";
 import { getSession } from "@/lib/Auth";
 
+// 🟢 GET Notifications (for logged-in business account)
 export async function GET() {
   await connectMongoDB();
 
@@ -13,53 +14,18 @@ export async function GET() {
 
   const { role, id: userId } = session.user;
 
+  // Only business users should see notifications
+  if (role !== "business") {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+
   try {
-    // Fetch businesses relevant to this user (business owner or officer)
-    const filter =
-      role === "business"
-        ? { businessAccount: userId, status: { $in: ["pending", "pending2", "pending3", "completed", "released"] } }
-        : { status: { $in: ["pending", "pending2", "pending3", "completed", "released"] } };
-
-    const businesses = await Business.find(filter)
-      .select("bidNumber businessName status")
+    // Fetch notifications related to this user's account
+    const notifications = await Notification.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .populate("ticket", "inspectionStatus inspectionNumber")
+      .populate("business", "businessName bidNumber")
       .lean();
-
-    // Build messages dynamically
-    const notifications = businesses.map((biz) => {
-      let message = "";
-
-      switch (biz.status) {
-        case "pending":
-          message = `BID-${biz.bidNumber}: Your business "${biz.businessName}" is currently under verification.`;
-          break;
-
-        case "pending2":
-          message = `BID-${biz.bidNumber}: Your business "${biz.businessName}" requires compliance documents. Please submit the necessary files.`;
-          break;
-
-        case "pending3":
-          message = `BID-${biz.bidNumber}: Your business "${biz.businessName}" is now in the approval stage.`;
-          break;
-
-        case "completed":
-          message = `BID-${biz.bidNumber}: Your request for "${biz.businessName}" has been approved! Please proceed to the office to claim your printed Sanitary Permit.`;
-          break;
-
-        case "released  ":
-          message = `BID-${biz.bidNumber}: Your request for "${biz.businessName}" has been released. Thank you!`;
-          break;
-
-        default:
-          message = `BID-${biz.bidNumber}: Your request status is "${biz.status}".`;
-      }
-
-      return {
-        id: biz._id,
-        bidNumber: biz.bidNumber,
-        status: biz.status,
-        message,
-      };
-    });
 
     return NextResponse.json({ notifications }, { status: 200 });
   } catch (error) {
@@ -68,5 +34,29 @@ export async function GET() {
       { error: "Failed to fetch notifications" },
       { status: 500 }
     );
+  }
+}
+
+// 🟡 PATCH — mark notification as read
+export async function PATCH(request) {
+  await connectMongoDB();
+
+  try {
+    const { id } = await request.json();
+
+    const notif = await Notification.findByIdAndUpdate(
+      id,
+      { isRead: true },
+      { new: true }
+    );
+
+    if (!notif) {
+      return NextResponse.json({ error: "Notification not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ msg: "Notification marked as read", notif });
+  } catch (error) {
+    console.error("Notification PATCH error:", error);
+    return NextResponse.json({ error: "Failed to update notification" }, { status: 500 });
   }
 }

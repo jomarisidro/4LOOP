@@ -1,10 +1,13 @@
 import axios from "axios";
 
+const URL = process.env.NEXT_PUBLIC_URL_AND_PORT;
+
+// 🔐 Shared headers
 const jsonHeader = {
   headers: {
     "Content-Type": "application/json",
   },
-  withCredentials: true,
+  withCredentials: true, // ✅ Ensures cookies are sent for session-based auth
 };
 
 const formHeader = {
@@ -14,24 +17,41 @@ const formHeader = {
   withCredentials: true,
 };
 
-// 🔍 GET business by bidNumber
+// 🔍 GET business by bidNumber (query param version)
 export const getBusinessByBid = async (bidNumber) => {
   const res = await axios.get(`/api/business?bidNumber=${bidNumber}`, jsonHeader);
-  if (Array.isArray(res.data)) return res.data[0];
-  return res.data;
+
+  // 🧠 unwrap the data before returning
+  if (Array.isArray(res.data)) {
+    return res.data[0]; // if backend sends an array
+  }
+  return res.data; // fallback if backend returns an object
 };
 
-// ✏️ Update business request by bidNumber
+
+// ✏️ PUT update business by bidNumber
 export const updateBusinessRequest = (bidNumber, payload) => {
   return axios.put(`/api/business/${bidNumber}`, payload, jsonHeader);
 };
 
-// ➕ Add new business
+// ➕ POST new business (owner only)
 export const addOwnerBusiness = (data) => {
   return axios.post(`/api/business`, data, jsonHeader);
 };
 
-// 📥 Fetch all businesses
+// 📥 GET all businesses (owner or officer)
 export const getAddOwnerBusiness = () => {
   return axios.get(`/api/business`, jsonHeader);
+};
+
+export async function getUserBusinesses() {
+  const res = await fetch('/api/business'); // adjust API endpoint as needed
+  if (!res.ok) throw new Error('Failed to fetch user businesses');
+  return res.json();
+}
+
+
+// ✅ 🔐 Change Business Account Password by User ID
+export const updateBusinessUserPassword = (userId, data) => {
+  return axios.put(`/api/users/${userId}`, data, jsonHeader);
 };

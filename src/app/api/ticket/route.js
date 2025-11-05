@@ -3,6 +3,7 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Ticket from "@/models/Ticket";
 import Business from "@/models/Business";
+import Notification from "@/models/Notification"; // 🟢 NEW
 import { getSession } from "@/lib/Auth";
 import mongoose from "mongoose";
 
@@ -28,17 +29,14 @@ export async function GET(request) {
 
     if (status) query.inspectionStatus = status;
 
-   if (businessId) {
-  // Always filter by businessId first if provided
-  if (!mongoose.Types.ObjectId.isValid(businessId)) {
-    return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
-  }
-  query.business = new mongoose.Types.ObjectId(businessId);
-} else if (role === "business") {
-  // Fallback: show all tickets for the logged-in business account
-  query.businessAccount = userId;
-}
-
+    if (businessId) {
+      if (!mongoose.Types.ObjectId.isValid(businessId)) {
+        return NextResponse.json({ error: "Invalid businessId" }, { status: 400 });
+      }
+      query.business = new mongoose.Types.ObjectId(businessId);
+    } else if (role === "business") {
+      query.businessAccount = userId;
+    }
 
     if (year) {
       const start = new Date(`${year}-01-01T00:00:00Z`);
@@ -50,14 +48,13 @@ export async function GET(request) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // ✅ Add .populate("officerInCharge", "fullName email")
     const tickets = await Ticket.find(query)
       .sort({ createdAt: -1 })
       .populate(
         "business",
         "businessName bidNumber businessType contactPerson businessAddress requestType"
       )
-      .populate("officerInCharge", "fullName email") // 🟢 FIX: Populate officer name
+      .populate("officerInCharge", "fullName email")
       .populate({
         path: "violations",
         select: "code ordinanceSection description penalty violationStatus createdAt",
@@ -70,7 +67,6 @@ export async function GET(request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-
 
 // =========================
 // POST /api/ticket
@@ -93,20 +89,22 @@ export async function POST(request) {
     } = body;
 
     const session = await getSession();
-    const { id: officerId, role } = session?.user || {};
-
-    if (!officerId || !["officer", "admin"].includes(role)) {
+    if (!session || !["officer", "admin"].includes(session.user?.role)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    let business;
-    if (businessId) business = await Business.findById(businessId);
-    else if (bidNumber) business = await Business.findOne({ bidNumber });
+    const { id: officerId } = session.user;
+
+    // ✅ Find the business
+    let business =
+      (businessId && (await Business.findById(businessId))) ||
+      (bidNumber && (await Business.findOne({ bidNumber })));
 
     if (!business) {
       return NextResponse.json({ error: "Business not found" }, { status: 404 });
     }
 
+    // ✅ Check inspection limits per year
     const currentYear = new Date().getFullYear();
     const start = new Date(`${currentYear}-01-01T00:00:00Z`);
     const end = new Date(`${currentYear}-12-31T23:59:59Z`);
@@ -119,13 +117,12 @@ export async function POST(request) {
 
     if (inspectionStatus === "completed" && completedInspectionsThisYear >= 2) {
       return NextResponse.json(
-        {
-          error: `Maximum of 2 completed inspections per year reached for ${business.businessName}.`,
-        },
+        { error: `Maximum of 2 completed inspections per year reached for ${business.businessName}.` },
         { status: 400 }
       );
     }
 
+    // ✅ Generate ticket number
     const count = await Ticket.countDocuments({
       createdAt: { $gte: start, $lte: end },
     });
@@ -138,7 +135,7 @@ export async function POST(request) {
 
     const typeToUse = inspectionNumber === 1 ? "routine" : "reinspection";
 
-    // ✅ Normalize checklist keys to match schema
+    // ✅ Normalize checklist structure
     const checklist = {
       sanitaryPermit: inspectionChecklist?.sanitaryPermit ?? "",
       healthCertificates: {
@@ -154,6 +151,7 @@ export async function POST(request) {
         inspectionChecklist?.sanitaryOrder02 ?? inspectionChecklist?.sanitaryOrder2 ?? "",
     };
 
+    // ✅ Create the ticket
     const ticket = await Ticket.create({
       ticketNumber,
       business: business._id,
@@ -170,10 +168,25 @@ export async function POST(request) {
       inspectionNumber,
     });
 
+    // ✅ Populate for response
     const populatedTicket = await ticket.populate(
       "business",
       "businessName bidNumber businessType contactPerson businessAddress requestType"
     );
+
+    // ✅ Create Notification for business owner
+    try {
+      await Notification.create({
+        user: business.businessAccount, // recipient
+        business: business._id,
+        ticket: ticket._id,
+        message: `A new inspection (${ticketNumber}) has been created for your business "${business.businessName}".`,
+        type: "inspection_created",
+        link: `/businessaccount/tickets/${ticket._id}`,
+      });
+    } catch (notifErr) {
+      console.error("⚠️ Notification creation failed:", notifErr);
+    }
 
     return NextResponse.json(
       { msg: "Ticket created successfully", ticket: populatedTicket },
