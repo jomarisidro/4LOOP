@@ -242,8 +242,8 @@ export default function LoginForm() {
           {showReset
             ? "Reset Your Password"
             : showForgot
-            ? "Forgot Password"
-            : "Login to Your Account"}
+              ? "Forgot Password"
+              : "Login to Your Account"}
         </h1>
 
         <form
@@ -359,19 +359,18 @@ export default function LoginForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`px-6 py-2 rounded-md transition ${
-                isSubmitting
+              className={`px-6 py-2 rounded-md transition ${isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-900 hover:bg-blue-800 text-white"
-              }`}
+                }`}
             >
               {isSubmitting
                 ? "Please wait..."
                 : showReset
-                ? "Reset Password"
-                : showForgot
-                ? "Send Reset Code"
-                : "Login"}
+                  ? "Reset Password"
+                  : showForgot
+                    ? "Send Reset Code"
+                    : "Login"}
             </button>
 
             {!showForgot && !showReset && (
