@@ -37,30 +37,74 @@ input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* ---------------- PRINT STYLES ---------------- */
+/* ---------------- SCREEN STYLES ---------------- */
 @media screen {
   .permit-print {
-    max-width: 800px;
+    max-width: 1000px;
     margin: 0 auto;
     box-shadow: 0 0 8px rgba(0,0,0,0.15);
+    background: white;
+    padding: 2rem;
+  }
+
+  .permit-logo-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2.5rem; /* spacing between left and middle group */
+    margin-bottom: 1rem;
+  }
+
+  .permit-logo {
+    width: 110px;
+    height: auto;
   }
 }
 
+/* ---------------- PRINT STYLES ---------------- */
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 20mm;
+    size: A4 landscape; /* ✅ Landscape print */
+    margin: 10mm 15mm;
+  }
+
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    transform: scale(0.95);
+    transform-origin: top left;
   }
 
   .permit-print {
-    width: 210mm;
-    min-height: 297mm;
+    width: 297mm; /* ✅ A4 landscape width */
+    min-height: 210mm;
     margin: 0 auto;
-    box-shadow: none;
     border: none;
+    box-shadow: none;
+    background: white;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    padding: 1.5rem;
   }
 
-  button, .no-print {
+  /* ✅ Center and space out logos */
+  .permit-logo-group {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    gap: 3rem !important;
+    margin-bottom: 1rem;
+  }
+
+  .permit-logo {
+    width: 120px !important; /* ✅ Slightly larger for printing */
+    height: auto !important;
+  }
+
+  /* ✅ Hide UI elements not meant for printing */
+  button,
+  .no-print {
     display: none !important;
   }
 }

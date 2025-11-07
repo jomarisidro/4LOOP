@@ -246,7 +246,6 @@ export default function AcceptedOnlineRequestForm() {
       : '—'],
     ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
     ['Inspection Status', business.inspectionStatus ?? '—'],
-    ['Ticket ID', business.ticketId ?? '—'],
     ['Inspection Count This Year', business.inspectionCountThisYear ?? 0],
     ['Recorded Violation', business.recordedViolation ?? '—'],
     ['Permit Status', business.permitStatus ?? '—'],

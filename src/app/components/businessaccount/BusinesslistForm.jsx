@@ -44,37 +44,36 @@ export default function BusinesslistForm() {
   });
 
   const [businesses, setBusinesses] = useState([]);
-  const [newId, setNewId] = useState(null);
-  const [newBusiness, setNewBusiness] = useState({});
+
   const [searchType, setSearchType] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expanded, setExpanded] = useState({}); // ✅ track expanded businesses
-  
+
   const validateBusiness = () => {
-  const errors = {};
+    const errors = {};
     return errors;
   };
 
   const displayStatus = (status) => {
-  switch (status) {
-    case 'draft':
-      return '-';
-    case 'submitted':
-      return 'Request Submitted';
-    case 'pending':
-    case 'pending2':
-    case 'pending3':
-      return 'Processing';
-    case 'completed':
-      return 'Approved';
-    case 'released':
-      return 'Valid';
-    case 'expired':
-      return 'Expired';
-    default:
-      return status || '-';
-  }
-};
+    switch (status) {
+      case 'draft':
+        return '-';
+      case 'submitted':
+        return 'Request Submitted';
+      case 'pending':
+      case 'pending2':
+      case 'pending3':
+        return 'Processing';
+      case 'completed':
+        return 'Approved';
+      case 'released':
+        return 'Valid';
+      case 'expired':
+        return 'Expired';
+      default:
+        return status || '-';
+    }
+  };
 
 
   useEffect(() => {
@@ -120,13 +119,15 @@ export default function BusinesslistForm() {
     fetchInspectionDetails();
   }, [data]);
 
-  const handleEdit = (business) => {
-    setNewId(business._id);
-    setNewBusiness({ ...business });
-  };
 
-  const handleDelete = async (businessId) => {
-    const confirmDelete = window.confirm('Are you sure you want to delete this business?');
+  const handleDelete = async (businessId, status) => {
+    // ✅ Only allow delete for drafts
+    if (status !== 'draft') {
+      alert('❌ Only businesses in draft status can be deleted.');
+      return;
+    }
+
+    const confirmDelete = window.confirm('Are you sure you want to permanently delete this business?');
     if (!confirmDelete) return;
 
     try {
@@ -134,114 +135,23 @@ export default function BusinesslistForm() {
         method: 'DELETE',
       });
 
-      if (!res.ok) throw new Error('Failed to delete');
+      const result = await res.json();
+
+      if (!res.ok) {
+        alert(result.error || 'Failed to delete business.');
+        return;
+      }
+
+      alert('✅ Business deleted permanently.');
       await queryClient.invalidateQueries(['business-list']);
     } catch (err) {
       console.error('Delete failed:', err);
-    }
-  };
-
-  const handleCancel = () => {
-    setNewId(null);
-    setNewBusiness({});
-  };
-
-  const handleSave = async () => {
-    const {
-      bidNumber,
-      status,
-      businessName,
-      businessNickname,
-      businessType,
-      businessAddress,
-      landmark,
-      contactPerson,
-      contactNumber
-    } = newBusiness;
-
-    // Manual validation
-    const errors = [];
-
-    if (!bidNumber?.trim()) {
-      errors.push('BID Number is required');
-    } else if (!/^[A-Z]{2}-\d{4}-\d{6}$/.test(bidNumber)) {
-      errors.push('BID Number format must be like AM-2025-123456');
-    } else if (bidNumber.length !== 14) {
-      errors.push('BID Number must be exactly 14 characters long');
-    }
-
-    if (!status?.trim()) {
-      errors.push('Permit Status is required');
-    }
-
-    if (!businessName?.trim()) {
-      errors.push('Business Name is required');
-    }
-
-    if (!businessNickname?.trim()) {
-      errors.push('Trade Name is required');
-    }
-
-    if (!businessType?.trim()) {
-      errors.push('Line of Business is required');
-    }
-
-    if (!businessAddress?.trim()) {
-      errors.push('Business Address is required');
-    }
-
-    if (!landmark?.trim()) {
-      errors.push('Landmark is required');
-    }
-
-    if (!contactPerson?.trim()) {
-      errors.push('Contact Person is required');
-    }
-
-    if (!contactNumber?.trim()) {
-      errors.push('Contact Number is required');
-    } else if (!/^09\d{9}$/.test(contactNumber)) {
-      errors.push('Contact Number must be exactly 11 digits and start with 09 (e.g. 09123456789)');
-    }
-
-    if (errors.length > 0) {
-      alert(errors.join('\n'));
-      return; // Block submission
-    }
-
-    // Proceed with save
-    try {
-      const res = await fetch(`/api/business/${newId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newBidNumber: bidNumber,
-          newBusinessName: businessName,
-          newBusinessNickname: businessNickname,
-          newBusinessType: businessType,
-          newBusinessAddress: businessAddress,
-          newLandmark: landmark,
-          newContactPerson: contactPerson,
-          newContactNumber: contactNumber,
-          newStatus: status
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to update');
-      await res.json();
-      await queryClient.invalidateQueries(['business-list']);
-
-      setNewId(null);
-      setNewBusiness({});
-    } catch (err) {
-      console.error('Update failed:', err);
+      alert('An error occurred while deleting the business.');
     }
   };
 
 
-  const handleChange = (field, value) => {
-    setNewBusiness((prev) => ({ ...prev, [field]: value }));
-  };
+
 
   const filteredBusinesses = useMemo(() => {
     if (!searchQuery.trim()) return businesses;
@@ -366,7 +276,8 @@ export default function BusinesslistForm() {
 
 
       {filteredBusinesses.map((business) => {
-        const isEditing = newId === business._id;
+
+
         const isExpanded = expanded[business._id];
 
         return (
@@ -375,195 +286,85 @@ export default function BusinesslistForm() {
             elevation={2}
             className="p-6 mb-12 rounded-lg border border-gray-300 bg-white relative"
           >
-            {/* Edit/Delete Buttons */}
+            {/* Action Buttons */}
             <div className="absolute -top-5 -right-5">
-              {isEditing ? (
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    color="success"
-                    onClick={handleSave}
-                    startIcon={<HiSave />}
-                  >
-                    Save
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    onClick={handleCancel}
-                    startIcon={<HiX />}
-                  >
-                    Cancel
-                  </Button>
-                </Stack>
-              ) : (
-                <Stack direction="row" spacing={1}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => handleEdit(business)}
-                    startIcon={<HiPencilAlt />}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    onClick={() => handleDelete(business._id)}
-                    startIcon={<HiTrash />}
-                  >
-                    Delete
-                  </Button>
-                </Stack>
-              )}
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="contained"
+                  color="error"
+                  onClick={() => handleDelete(business._id, business.status)}
+                  startIcon={<HiTrash />}
+                  disabled={business.status !== 'draft'}
+                >
+                  Delete
+                </Button>
+              </Stack>
             </div>
-          <div className="w-full max-w-4xl mx-auto space-y-6 mb-15">
-  {[['BID Number', 'bidNumber'],
-    ['Permit Status', 'status'],
-    ['Business Name', 'businessName'],
-    ['Trade Name', 'businessNickname'],
-    ['Business Type', 'businessType'],
-    ['Landmark', 'landmark'],
-    ['Business Address', 'businessAddress']]
-    .reduce((rows, [label, field]) => {
-      const value = isEditing
-        ? newBusiness[field] || ''
-        : business[field] || '—';
 
-      const element = (
-        <div key={field} className="flex items-start gap-2 w-full">
-          <span className="min-w-[180px] text-sm font-semibold text-gray-700">
-            {label}:
-          </span>
+            <div className="w-full max-w-4xl mx-auto space-y-6 mb-15">
+              {/* Basic Info */}
+              {[['BID Number', 'bidNumber'],
+              ['Permit Status', 'status'],
+              ['Business Name', 'businessName'],
+              ['Trade Name', 'businessNickname'],
+              ['Business Type', 'businessType'],
+              ['Landmark', 'landmark'],
+              ['Business Address', 'businessAddress']]
+                .reduce((rows, [label, field]) => {
+                  const value = business[field] || '—';
 
-          {isEditing && field === 'businessType' ? (
-            <select
-              value={newBusiness.businessType || ''}
-              onChange={(e) => handleChange('businessType', e.target.value)}
-              className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-            >
-              <option value="Food">Food</option>
-              <option value="Non-Food">Non-Food</option>
-            </select>
-          ) : isEditing && field === 'bidNumber' ? (
-            <input
-              type="text"
-              value={newBusiness.bidNumber || ''}
-              onChange={(e) => {
-                let value = e.target.value.toUpperCase();
-                value = value.replace(/[^A-Z0-9-]/g, '');
+                  const element = (
+                    <div key={field} className="flex items-start gap-2 w-full">
+                      <span className="min-w-[180px] text-sm font-semibold text-gray-700">
+                        {label}:
+                      </span>
+                      <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+                        {field === 'status' ? displayStatus(value) : value}
+                      </span>
+                    </div>
+                  );
 
-                let formatted = '';
-                for (let i = 0; i < value.length; i++) {
-                  const char = value[i];
-                  if (i < 2) {
-                    if (/[A-Z]/.test(char)) formatted += char;
-                  } else if (i === 2) {
-                    if (char === '-') formatted += '-';
-                  } else if (i > 2 && i < 7) {
-                    if (/\d/.test(char)) formatted += char;
-                  } else if (i === 7) {
-                    if (char === '-') formatted += '-';
-                  } else if (i > 7 && i < 14) {
-                    if (/\d/.test(char)) formatted += char;
+                  const isFullRow = field === 'businessAddress';
+                  const item = { element, fullRow: isFullRow };
+
+                  if (isFullRow || !rows.length || rows[rows.length - 1].length === 2) {
+                    rows.push([item]);
+                  } else {
+                    rows[rows.length - 1].push(item);
                   }
-                }
 
-                handleChange('bidNumber', formatted.slice(0, 14));
-              }}
-              maxLength={14}
-              placeholder="e.g. AB-2025-123456"
-              className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-            />
-          ) : (
-            <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
-              {field === 'status' ? displayStatus(value) : value}
-            </span>
-          )}
-        </div>
-      );
+                  return rows;
+                }, [])
+                .map((row, i) => (
+                  <div key={i} className="grid grid-cols-2 gap-6">
+                    {row.map(({ element, fullRow }, j) => (
+                      <div key={j} className={fullRow ? 'col-span-2' : ''}>
+                        {element}
+                      </div>
+                    ))}
+                  </div>
+                ))}
 
-      const isFullRow = field === 'businessAddress';
-      const item = { element, fullRow: isFullRow };
-
-      if (isFullRow || !rows.length || rows[rows.length - 1].length === 2) {
-        rows.push([item]);
-      } else {
-        rows[rows.length - 1].push(item);
-      }
-
-      return rows;
-    }, [])
-    .map((row, i) => (
-      <div key={i} className="grid grid-cols-2 gap-6">
-        {row.map(({ element, fullRow }, j) => (
-          <div key={j} className={fullRow ? 'col-span-2' : ''}>
-            {element}
-          </div>
-        ))}
-      </div>
-    ))}
-
-
-              {/* Contact Person + Contact Number */}
+              {/* Contact Info */}
               <div className="grid grid-cols-2 gap-6">
-                {['Contact Person', 'contactPerson', 'Contact Number', 'contactNumber']
-                  .reduce((acc, _, i, arr) => {
-                    if (i % 2 === 0) {
-                      const label = arr[i];
-                      const field = arr[i + 1];
-                      const value = isEditing
-                        ? newBusiness[field] || ''
-                        : business[field] || '—';
+                <div className="flex items-start gap-2 w-full">
+                  <span className="min-w-[180px] text-sm font-semibold text-gray-700">
+                    Contact Person:
+                  </span>
+                  <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+                    {business.contactPerson || '—'}
+                  </span>
+                </div>
 
-                      const inputElement = isEditing ? (
-                        field === 'contactNumber' ? (
-                          <input
-                            type="text"
-                            value={newBusiness.contactNumber || ''}
-                            onChange={(e) => {
-                              let input = e.target.value.replace(/\D/g, ''); // digits only
-                              if (!input.startsWith('09')) {
-                                input = '09'; // force prefix
-                              }
-                              const trimmed = input.slice(0, 11); // max 11 digits
-                              handleChange('contactNumber', trimmed);
-                            }}
-                            inputMode="numeric"
-                            pattern="09[0-9]{9}"
-                            maxLength={11}
-                            placeholder="e.g. 09123456789"
-                            className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-                          />
-
-
-                        ) : (
-                          <input
-                            type="text"
-                            value={value}
-                            onChange={(e) => handleChange(field, e.target.value)}
-                            className="w-full min-h-[40px] bg-white text-gray-800 px-3 py-2 rounded-md border border-gray-400"
-                          />
-                        )
-                      ) : (
-                        <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
-                          {value}
-                        </span>
-                      );
-
-                      acc.push(
-                        <div key={field} className="flex items-start gap-2 w-full">
-                          <span className="min-w-[180px] text-sm font-semibold text-gray-700">
-                            {label}:
-                          </span>
-                          {inputElement}
-                        </div>
-                      );
-                    }
-                    return acc;
-                  }, [])}
+                <div className="flex items-start gap-2 w-full">
+                  <span className="min-w-[180px] text-sm font-semibold text-gray-700">
+                    Contact Number:
+                  </span>
+                  <span className="w-full min-h-[40px] bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300">
+                    {business.contactNumber || '—'}
+                  </span>
+                </div>
               </div>
-
 
               {/* Remarks */}
               <div className="grid grid-cols-1">
@@ -577,6 +378,7 @@ export default function BusinesslistForm() {
                 </div>
               </div>
             </div>
+
 
 
             {/* Toggle Button */}
@@ -687,34 +489,34 @@ export default function BusinesslistForm() {
 
                 <div className="w-full max-w-4xl mx-auto space-y-6 mb-10 mt-10">
                   {[
-  [
-    'Health Cert Fee',
-    typeof business.healthCertFee === 'number'
-      ? `₱${new Intl.NumberFormat('en-PH', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(business.healthCertFee)}`
-      : '—',
-  ],
-  [
-    'Health Cert Sanitary Fee',
-    typeof business.healthCertSanitaryFee === 'number'
-      ? `₱${new Intl.NumberFormat('en-PH', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(business.healthCertSanitaryFee)}`
-      : '—',
-  ],
-  [
-    'OR Date (Health Cert)',
-    business.orDateHealthCert
-      ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
-      : '—',
-  ],
-  ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
+                    [
+                      'Health Cert Fee',
+                      typeof business.healthCertFee === 'number'
+                        ? `₱${new Intl.NumberFormat('en-PH', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).format(business.healthCertFee)}`
+                        : '—',
+                    ],
+                    [
+                      'Health Cert Sanitary Fee',
+                      typeof business.healthCertSanitaryFee === 'number'
+                        ? `₱${new Intl.NumberFormat('en-PH', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        }).format(business.healthCertSanitaryFee)}`
+                        : '—',
+                    ],
+                    [
+                      'OR Date (Health Cert)',
+                      business.orDateHealthCert
+                        ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
+                        : '—',
+                    ],
+                    ['OR Number (Health Cert)', business.orNumberHealthCert ?? '—'],
 
 
-                    
+
                     ['Inspection Status', business.inspectionStatus ?? '—'],
                     ['Inspection Count This Year', business.inspectionCountThisYear ?? '—'],
                     ['Recorded Violation', business.recordedViolation ?? '—'],

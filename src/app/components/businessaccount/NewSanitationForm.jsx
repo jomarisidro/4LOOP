@@ -48,6 +48,15 @@ const schema = yup.object().shape({
   healthCertDueDate: yup.date().nullable().transform((v, o) => (o === '' ? null : v)).typeError('Please enter a valid date'),
 });
 
+// Utility function for computing 90 days from today
+function get90DaysFromNow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 90);
+  return d.toISOString().split('T')[0]; // e.g. "2025-10-22"
+}
+
+const dueDate = get90DaysFromNow();
+
 
 const sanitaryPermitChecklist = [
   { id: 'tax_order_of_payment_TOP', label: 'Tax Order of Payment (TOP)' },
@@ -60,14 +69,6 @@ const healthCertificateChecklist = [
   { id: 'if_pregnant_xpert_mtb_rif_exam', label: 'If pregnant — Xpert MTB / RIF Exam instead of Chest X-Ray' }
 ];
 
-// Utility function for computing 90 days from today
-function get90DaysFromNow() {
-  const d = new Date();
-  d.setDate(d.getDate() + 90);
-  return d.toISOString().split('T')[0]; // e.g. "2025-10-22"
-}
-
-const dueDate = get90DaysFromNow();
 
 export const msrChecklist = [
   { id: 'health_certificate', label: 'Health Certificate', dueDate },
@@ -1643,8 +1644,6 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
           </div>
         </fieldset>
 
-
-
         {/* Remark Field - Inline Label and Input */}
         <div className="w-full max-w-6xl mx-auto px-4 mb-6">
           <div className="flex items-center gap-4">
@@ -1664,10 +1663,12 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
           </div>
         </div>
 
-        <h1 className="text-blue-700 text-lg font-bold text-center mx-auto max-w-4xl">
-          PLEASE BRING THIS FORM FOR UPDATING OF MINIMUM SANITARY REQUIREMENTS (MSR) / HEALTH CERTIFICATE AND DURING RENEWAL AND
-          <span className="text-red-600"> HAVE IT AVAILABLE DURING INSPECTION</span>
-        </h1>
+      <h1 className="text-blue-700 text-lg font-bold text-center mx-auto max-w-4xl">
+  PLEASE KEEP A DIGITAL COPY OF THIS FORM FOR YOUR RECORDS. STAY ALERT FOR UPDATES VIA THE APP OR EMAIL REGARDING MINIMUM SANITARY REQUIREMENTS (MSR) AND HEALTH CERTIFICATE STATUS.
+  <span className="text-red-600">
+     ALWAYS HAVE THE REQUIRED CERTIFICATIONS READY DURING INSPECTION OR RENEWAL WHEN REQUESTED BY THE SANITATION OFFICE.
+  </span>
+</h1>
 
         {/* Action Buttons */}
         <div className="flex justify-center gap-4 pt-6">

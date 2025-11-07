@@ -382,7 +382,7 @@ export default function PendingRequestForm() {
                     ],
                     ['OR Number (Health Cert)', req.orNumberHealthCert ?? '—'],
                     ['Inspection Status', req.inspectionStatus ?? '—'],
-                    ['Ticket ID', req.ticketId ?? '—'],
+        
                     ['Inspection Count', req.inspectionCountThisYear ?? '—'],
                     ['Recorded Violation', req.recordedViolation ?? '—'],
                  

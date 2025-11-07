@@ -10,11 +10,10 @@ import {
   Divider,
   TextField,
   IconButton,
+  MenuItem,
 } from '@mui/material';
 import { AddCircle, Delete, Edit, Save } from '@mui/icons-material';
 import { useEffect, useState } from 'react';
-import { Select, MenuItem } from '@mui/material';
-
 
 export default function ComplianceOnlineRequestForm() {
   const router = useRouter();
@@ -25,11 +24,10 @@ export default function ComplianceOnlineRequestForm() {
 
   // checklist editable states
   const [editing, setEditing] = useState(false);
-  const [sanitaryItems, setSanitaryItems] = useState([]); // [{ id, label }]
+  const [sanitaryItems, setSanitaryItems] = useState([]);
   const [healthItems, setHealthItems] = useState([]);
   const [msrItems, setMsrItems] = useState([]);
   const [loadingSave, setLoadingSave] = useState(false);
-
 
   // ✅ Dropdown options
   const sanitaryPermitOptions = [
@@ -40,7 +38,10 @@ export default function ComplianceOnlineRequestForm() {
   const healthCertificateOptions = [
     { id: 'chest_x-ray', label: 'Chest X-ray' },
     { id: 'chest_x_ray_and_urine_and_stool', label: 'Chest X-ray, Urine & Stool' },
-    { id: 'if_pregnant_xpert_mtb_rif_exam', label: 'If pregnant — Xpert MTB / RIF Exam instead of Chest X-Ray' },
+    {
+      id: 'if_pregnant_xpert_mtb_rif_exam',
+      label: 'If pregnant — Xpert MTB / RIF Exam instead of Chest X-Ray',
+    },
   ];
 
   const msrOptions = [
@@ -51,7 +52,10 @@ export default function ComplianceOnlineRequestForm() {
     { id: 'fda_license_to_operate', label: 'FDA - License to Operate' },
     { id: 'food_safety_compliance_officer', label: 'Food Safety Compliance Officer (FSCO)' },
     { id: 'doh_license_or_accreditation', label: 'DOH License / Accreditation' },
-    { id: 'manufacturers_distributors_importers_of_excreta_sewage', label: 'Manufacturers/distributors/importers...' },
+    {
+      id: 'manufacturers_distributors_importers_of_excreta_sewage',
+      label: 'Manufacturers/distributors/importers...',
+    },
     { id: 'clearance_from_social_hygiene_clinic', label: 'Clearance From Social Hygiene Clinic' },
     { id: 'permit_to_operate', label: 'Permit to Operate...' },
     { id: 'material_information_data_sheet', label: 'Material Information Data Sheet (Industrial Company)' },
@@ -61,7 +65,7 @@ export default function ComplianceOnlineRequestForm() {
     { id: 'others', label: 'Others' },
   ];
 
-
+  // ✅ Fetch business info
   const {
     data: business,
     isLoading,
@@ -78,14 +82,13 @@ export default function ComplianceOnlineRequestForm() {
     enabled: !!id,
   });
 
-  // When business data loads/changes, populate checklist states
+  // ✅ Populate checklists once data loads
   useEffect(() => {
     if (!business) return;
-    // Normalize items to objects with id + label
     const mapToObjects = (arr) =>
       (arr || []).map((it, i) => ({
         id: it.id ?? `i-${i}-${Date.now()}`,
-        label: (typeof it === 'string' ? it : it.label || '') || '',
+        label: typeof it === 'string' ? it : it.label || '',
       }));
 
     setSanitaryItems(mapToObjects(business.sanitaryPermitChecklist));
@@ -93,24 +96,28 @@ export default function ComplianceOnlineRequestForm() {
     setMsrItems(mapToObjects(business.msrChecklist));
   }, [business]);
 
+
+  // ✅ Officer remarks/status update (separate button)
   const handleUpdate = async () => {
     try {
+      const payload = {
+        newRemarks: remark.trim(),
+        newStatus: 'pending3', // or completed/released depending on step
+      };
+
       const res = await fetch(`/api/business/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          newRemarks: remark,
-          newStatus: 'pending3',
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
       const result = await res.json();
+      if (!res.ok) throw new Error(result.error || `Server responded with ${res.status}`);
 
-      console.log('✅ Updated:', result);
+      console.log('✅ Officer remarks/status updated:', result);
+
       setRemark('');
       refetch();
-      localStorage.removeItem('complianceRequestId');
       queryClient.invalidateQueries(['compliance-requests']);
       router.push('/officers/workbench/compliance');
     } catch (err) {
@@ -118,13 +125,15 @@ export default function ComplianceOnlineRequestForm() {
     }
   };
 
-  // Helpers for editing lists
+
+  // add a blank item (officer will choose from dropdown or type a label)
   const addItem = (which) => {
-    const newObj = { id: `new-${Date.now()}`, label: '' };
+    const newObj = { id: '', label: '' }; // empty id — we'll resolve it on save
     if (which === 'sanitary') setSanitaryItems((s) => [...s, newObj]);
     if (which === 'health') setHealthItems((s) => [...s, newObj]);
     if (which === 'msr') setMsrItems((s) => [...s, newObj]);
   };
+
 
   const updateItemLabel = (which, idx, label) => {
     if (which === 'sanitary') {
@@ -150,25 +159,53 @@ export default function ComplianceOnlineRequestForm() {
     if (which === 'msr') setMsrItems((s) => s.filter((_, i) => i !== idx));
   };
 
+  // ✅ Save checklists
+  // ✅ Save checklists (officer override)
   const handleSaveChecklists = async () => {
+    // prevent accidental empty submission
+    if (
+      sanitaryItems.length === 0 &&
+      healthItems.length === 0 &&
+      msrItems.length === 0
+    ) {
+      alert('Please add at least one checklist item before saving.');
+      return;
+    }
+
     setLoadingSave(true);
     try {
-      // Prepare payload: send arrays of simple label objects (or strings if your backend expects that)
-      const payload = {
-        sanitaryPermitChecklist: sanitaryItems.map((it) => ({
-          id: it.id,
-          label: it.label,
-        })),
-        healthCertificateChecklist: healthItems.map((it) => ({
-          id: it.id,
-          label: it.label,
-        })),
-        msrChecklist: msrItems.map((it) => ({
-          id: it.id,
-          label: it.label,
-        })),
+      const resolveItems = (items, canonicalOptions) => {
+        return (items || [])
+          .filter((it) => it && (it.label || it.id))
+          .map((it) => {
+            const label = (it.label || '').trim();
+            let opt = canonicalOptions.find((o) => o.id === it.id);
+            if (!opt && label) opt = canonicalOptions.find((o) => o.label === label);
+            if (opt) return { id: opt.id, label: opt.label };
+            const customId =
+              it.id && it.id.startsWith('custom_')
+                ? it.id
+                : `custom_${Date.now()}_${Math.floor(Math.random() * 9000 + 1000)}`;
+            return { id: customId, label };
+          });
       };
 
+      const payload = {
+        sanitaryPermitChecklist: resolveItems(
+          sanitaryItems,
+          sanitaryPermitOptions
+        ),
+        healthCertificateChecklist: resolveItems(
+          healthItems,
+          healthCertificateOptions
+        ),
+        msrChecklist: resolveItems(msrItems, msrOptions),
+        forceChecklistUpdate: true, // triggers officer override in API
+        newStatus: 'pending3',
+      };
+
+      console.log('📤 Officer checklist update payload:', payload);
+console.log('📤 Payload to API:', JSON.stringify(payload, null, 2));
 
       const res = await fetch(`/api/business/${id}`, {
         method: 'PUT',
@@ -176,20 +213,27 @@ export default function ComplianceOnlineRequestForm() {
         body: JSON.stringify(payload),
       });
 
-      if (!res.ok) throw new Error(`Server responded with ${res.status}`);
-      await res.json();
+      const result = await res.json();
+      if (!res.ok)
+        throw new Error(result.error || `Server responded with ${res.status}`);
 
-      // After saving, re-fetch so the UI shows the authoritative data
+      console.log('✅ Saved compliance checklist:', result);
+
       await refetch();
+      queryClient.invalidateQueries(['business', id]);
+      queryClient.invalidateQueries(['compliance-requests']);
       setEditing(false);
     } catch (err) {
       console.error('❌ Failed to save checklists:', err);
-      // optionally show a notification
     } finally {
       setLoadingSave(false);
     }
   };
 
+
+
+
+  // ✅ UI while loading/error
   if (isLoading) {
     return (
       <Box mt={4} textAlign="center">
@@ -214,6 +258,9 @@ export default function ComplianceOnlineRequestForm() {
     if (val instanceof Date) return val.toLocaleString('en-PH');
     return val;
   };
+
+  // your JSX layout (business info, checklists, buttons, etc.) stays the same
+
 
   return (
     <Box className="w-full bg-white shadow rounded-lg p-6">
@@ -312,11 +359,13 @@ export default function ComplianceOnlineRequestForm() {
             <Button
               variant="outlined"
               color="secondary"
-              onClick={() => {
-                // revert to latest business data
+              onClick={async () => {
+                // refetch fresh data before revert
+                const latest = await refetch();
+                const data = latest?.data || business;
 
                 setSanitaryItems(
-                  (business.sanitaryPermitChecklist || []).map((it, i) => ({
+                  (data.sanitaryPermitChecklist || []).map((it, i) => ({
                     id:
                       it.id ||
                       sanitaryPermitOptions.find((o) => o.label === it.label)?.id ||
@@ -326,7 +375,7 @@ export default function ComplianceOnlineRequestForm() {
                 );
 
                 setHealthItems(
-                  (business.healthCertificateChecklist || []).map((it, i) => ({
+                  (data.healthCertificateChecklist || []).map((it, i) => ({
                     id:
                       it.id ||
                       healthCertificateOptions.find((o) => o.label === it.label)?.id ||
@@ -336,19 +385,21 @@ export default function ComplianceOnlineRequestForm() {
                 );
 
                 setMsrItems(
-                  (business.msrChecklist || []).map((it, i) => ({
+                  (data.msrChecklist || []).map((it, i) => ({
                     id:
-                      it.id || msrOptions.find((o) => o.label === it.label)?.id || `i-${i}`,
+                      it.id ||
+                      msrOptions.find((o) => o.label === it.label)?.id ||
+                      `i-${i}`,
                     label: it.label ?? '',
                   }))
                 );
 
                 setEditing(false);
-
               }}
             >
               Cancel
             </Button>
+
           </div>
         )}
       </div>
@@ -611,7 +662,6 @@ export default function ComplianceOnlineRequestForm() {
           ],
           ['OR Number (Health Cert)', business.orNumberHealthCert],
           ['Inspection Status', business.inspectionStatus],
-          ['Ticket ID', business.ticketId],
           ['Inspection Count This Year', business.inspectionCountThisYear ?? 0],
           ['Recorded Violation', business.recordedViolation],
           ['Permit Status', business.permitStatus],
@@ -670,15 +720,35 @@ export default function ComplianceOnlineRequestForm() {
         />
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-center gap-4 mt-10">
-        <Button variant="contained" color="primary" onClick={handleUpdate}>
-          Proceed
-        </Button>
-        <Button variant="outlined" color="secondary" onClick={() => router.back()}>
-          Back
-        </Button>
-      </div>
+{/* Submit Button (only active when not editing) */}
+<div className="flex justify-center mt-10">
+  <Button
+    variant="contained"
+    color="primary"
+    onClick={async () => {
+      if (editing) return; // do nothing if editing mode is active
+
+      setLoadingSave(true);
+      try {
+        await handleUpdate(); // only submit remarks + status (NOT checklists)
+        console.log("✅ Form successfully submitted!");
+      } catch (err) {
+        console.error("❌ Submission failed:", err);
+      } finally {
+        setLoadingSave(false);
+      }
+    }}
+    disabled={editing || loadingSave} // disable when editing or submitting
+    sx={{
+      opacity: editing ? 0.5 : 1,
+      pointerEvents: editing ? 'none' : 'auto',
+    }}
+  >
+    {loadingSave ? "Submitting..." : "Submit"}
+  </Button>
+</div>
+
+
     </Box>
   );
 }

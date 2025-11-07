@@ -10,6 +10,7 @@ import {
   MenuItem,
   CircularProgress,
 } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 export default function DashboardForm() {
   const [user, setUser] = useState(null);
@@ -21,7 +22,6 @@ export default function DashboardForm() {
 
   const open = Boolean(anchorEl);
 
-  // ✅ Status to readable label mapping
   const statusLabels = {
     draft: 'Draft',
     submitted: 'Submitted',
@@ -31,7 +31,6 @@ export default function DashboardForm() {
     completed: 'Approved',
   };
 
-  // ✅ Fetch user data
   useEffect(() => {
     const userId =
       sessionStorage.getItem('userId') ||
@@ -65,22 +64,20 @@ export default function DashboardForm() {
     fetchUser();
   }, []);
 
-  // ✅ Fetch notifications periodically (every 10 seconds)
   useEffect(() => {
     const userId =
       sessionStorage.getItem('userId') ||
       localStorage.getItem('loggedUserId');
 
-    if (!userId) return; // 🔒 Prevent fetching without a logged-in user
+    if (!userId) return;
 
     const fetchNotifications = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`/api/notifications?userId=${userId}`);
+        const res = await fetch(`/api/notifications`);
         const data = await res.json();
 
         if (res.ok) {
-          // ✅ Sort latest first
           const sorted = (data.notifications || []).sort(
             (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
           );
@@ -100,11 +97,9 @@ export default function DashboardForm() {
     return () => clearInterval(interval);
   }, []);
 
-  // ✅ Notification menu handlers
   const handleBellClick = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
 
-  // ✅ Handle notification click with redirect
   const handleNotificationClick = (notif) => {
     handleMenuClose();
 
@@ -131,13 +126,30 @@ export default function DashboardForm() {
     }
   };
 
+  const handleDeleteNotification = async (id) => {
+    try {
+      const res = await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setNotifications((prev) => prev.filter((n) => n._id !== id));
+      } else {
+        console.error('Delete failed:', data.error);
+      }
+    } catch (err) {
+      console.error('Delete error:', err);
+    }
+  };
+
   return (
     <div className="relative">
-      {/* --- Header Section with Bell --- */}
       <div className="flex justify-between items-center mb-6 px-4">
         <h1 className="text-2xl font-semibold">Welcome to Your Dashboard</h1>
 
-        {/* 🔔 Notification Bell */}
         <div className="relative mr-4">
           <IconButton
             color="primary"
@@ -175,31 +187,44 @@ export default function DashboardForm() {
               notifications.map((notif, i) => (
                 <MenuItem
                   key={i}
-                  onClick={() => handleNotificationClick(notif)}
                   sx={{
                     whiteSpace: 'normal',
                     lineHeight: 1.5,
                     fontSize: '1rem',
                     py: 1.5,
-                    display: 'block',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
                   }}
                 >
-                  <div className="mb-1 text-sm text-gray-500">
-                    {/* ✅ Show BID Number if available */}
-                    {notif.bidNumber && (
-                      <span className="font-medium text-gray-600">
-                        {notif.bidNumber}
-                      </span>
-                    )}
+                  <div
+                    className="flex-1 cursor-pointer"
+                    onClick={() => handleNotificationClick(notif)}
+                  >
+                    <div className="mb-1 text-sm text-gray-500">
+                      {notif.bidNumber && (
+                        <span className="font-medium text-gray-600">
+                          {notif.bidNumber}
+                        </span>
+                      )}
+                    </div>
+
+                    <strong className="block mb-1 text-gray-800">
+                      {statusLabels[notif.status] || 'Notification'}
+                    </strong>
+
+                    <span className="text-gray-700">
+                      {notif.message || 'New update available'}
+                    </span>
                   </div>
 
-                  <strong className="block mb-1 text-gray-800">
-                    {statusLabels[notif.status] || 'Notification'}
-                  </strong>
-
-                  <span className="text-gray-700">
-                    {notif.message || 'New update available'}
-                  </span>
+                  <IconButton
+                    size="small"
+                    onClick={() => handleDeleteNotification(notif._id)}
+                    sx={{ ml: 1 }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
                 </MenuItem>
               ))
             )}
@@ -207,7 +232,6 @@ export default function DashboardForm() {
         </div>
       </div>
 
-      {/* --- Error --- */}
       {error && <div className="text-red-500 mb-4">Error: {error}</div>}
     </div>
   );
