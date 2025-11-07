@@ -5,21 +5,23 @@ const ViolationSchema = new Schema(
     ticket: { type: Schema.Types.ObjectId, ref: "Ticket", required: true },
 
     code: {
-      type: String,
-      enum: [
-        "no_sanitary_permit",
-        "no_health_certificate",
-        "failure_display_sanitary",
-        "failure_display_health",
-        "failure_renew_sanitary",
-        "failure_renew_health",
-        "tampered_documents",
-        "fake_documents",
-        "expired_documents",
-        "other",
-      ],
-      required: true,
-    },
+  type: String,
+  enum: [
+    "no_sanitary_permit",
+    "no_health_certificate",
+    "failure_display_sanitary",
+    "failure_display_health",
+    "failure_renew_sanitary",
+    "failure_renew_health",
+    "tampered_documents",
+    "fake_documents",
+    "expired_documents",
+    "other",
+    "pest_control_noncompliance", // ✅ add this
+  ],
+  required: true,
+},
+
 
     ordinanceSection: {
       type: String,

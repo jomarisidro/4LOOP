@@ -122,22 +122,15 @@ export default function CreateTicketInspectionForm() {
 
   const inspectionCache = useRef({});
 
-  useEffect(() => {
+useEffect(() => {
   if (!filteredBusinesses.length) return;
+
   const start = (page - 1) * limit;
   const end = page * limit;
   const currentBusinesses = filteredBusinesses.slice(start, end);
 
-  const cached = JSON.parse(sessionStorage.getItem('inspectionCache') || '{}');
-  const toFetch = currentBusinesses.filter(b => !cached[b._id]);
-
-  if (!toFetch.length) {
-    setInspectionCounts(cached);
-    return;
-  }
-
   async function fetchInspectionInfo() {
-    await fetchWithLimit(toFetch, 5, async (b) => {
+    await fetchWithLimit(currentBusinesses, 5, async (b) => {
       try {
         const [ticketRes, violationRes] = await Promise.all([
           axios.get(`/api/ticket?businessId=${b._id}&year=${currentYear}`),
@@ -153,7 +146,7 @@ export default function CreateTicketInspectionForm() {
         const violations = violationRes.data || [];
         const activeViolation = violations.find((v) => v.status === 'pending');
 
-        cached[b._id] = {
+        inspectionCache.current[b._id] = {
           completedCount,
           hasPending,
           violation: activeViolation
@@ -161,48 +154,44 @@ export default function CreateTicketInspectionForm() {
             : '',
         };
       } catch {
-        cached[b._id] = { completedCount: 0, hasPending: false, violation: '' };
+        inspectionCache.current[b._id] = { completedCount: 0, hasPending: false, violation: '' };
       }
     });
 
-    sessionStorage.setItem('inspectionCache', JSON.stringify(cached));
-    setInspectionCounts({ ...cached });
+    // Update state **after all fetches complete**
+    setInspectionCounts({ ...inspectionCache.current });
   }
 
   requestIdleCallback(fetchInspectionInfo);
 }, [page, limit, filteredBusinesses]);
 
 
-  async function fetchInspectionInfoForBusiness(businessId) {
-    try {
-      const [ticketRes, violationRes] = await Promise.all([
-        axios.get(`/api/ticket?businessId=${businessId}&year=${currentYear}`),
-        axios.get(`/api/violation?businessId=${businessId}`),
-      ]);
 
-      const tickets = ticketRes.data || [];
-      const completedCount = tickets.filter(
-        (t) => t.inspectionStatus === 'completed'
-      ).length;
-      const hasPending = tickets.some((t) => t.inspectionStatus === 'pending');
+ async function fetchInspectionInfoForBusiness(businessId) {
+  try {
+    const res = await axios.get(`/api/ticket?businessId=${businessId}&year=${currentYear}`);
+    const tickets = res.data || [];
 
-      const violations = violationRes.data || [];
-      const activeViolation = violations.find((v) => v.status === 'pending');
+    const completedCount = tickets.filter(t => t.inspectionStatus === 'completed').length;
+    const pendingCount = tickets.filter(t => t.inspectionStatus === 'pending').length;
 
-      setInspectionCounts((prev) => ({
-        ...prev,
-        [businessId]: {
-          completedCount,
-          hasPending,
-          violation: activeViolation
-            ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
-            : '',
-        },
-      }));
-    } catch (error) {
-      console.error('Error refreshing inspection info:', error);
-    }
+    setInspectionCounts(prev => ({
+      ...prev,
+      [businessId]: {
+        completedCount,
+        pendingCount,
+        totalCount: completedCount + pendingCount, // reflects immediately
+      },
+    }));
+  } catch (error) {
+    console.error('Error fetching inspection info:', error);
+    setInspectionCounts(prev => ({
+      ...prev,
+      [businessId]: { completedCount: 0, pendingCount: 0, totalCount: 0 },
+    }));
   }
+}
+
 
   const sortedBusinesses = useMemo(() => {
     const list = [...filteredBusinesses];
@@ -301,7 +290,10 @@ const handleSaveInspection = async () => {
         inspectionStatus: "pending",
       },
       { withCredentials: true }
-    );
+    )
+    await fetchInspectionInfoForBusiness(populatedBusiness._id); // refresh count immediately
+
+    ;
 
     // 2️⃣ Create notification
     await axios.post("/api/notifications", {

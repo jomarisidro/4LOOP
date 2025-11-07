@@ -1398,33 +1398,33 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                             />
                           </td>
 
-                        {/* Inspected By */}
-<td className="px-4 py-2">
-  <Controller
-    name={`inspectionRecords.${index}.inspectedBy`}
-    control={control}
-    defaultValue=""
-    render={({ field }) => (
-      <TextField
-        {...field}
-    
-        variant="standard"
-        fullWidth={false} // disable fullWidth so width can be controlled manually
-        value={field.value ?? ""}
-        sx={{
-          minWidth: 120, // 🔹 increase this to make it longer (e.g. 250 or 300)
-          ...( !noRecords && isLocked
-            ? { backgroundColor: "#f5f5f5", color: "#555" }
-            : {}
-          ),
-        }}
-        InputProps={{
-          readOnly: !noRecords && isLocked,
-        }}
-      />
-    )}
-  />
-</td>
+                          {/* Inspected By */}
+                          <td className="px-4 py-2">
+                            <Controller
+                              name={`inspectionRecords.${index}.inspectedBy`}
+                              control={control}
+                              defaultValue=""
+                              render={({ field }) => (
+                                <TextField
+                                  {...field}
+
+                                  variant="standard"
+                                  fullWidth={false} // disable fullWidth so width can be controlled manually
+                                  value={field.value ?? ""}
+                                  sx={{
+                                    minWidth: 120, // 🔹 increase this to make it longer (e.g. 250 or 300)
+                                    ...(!noRecords && isLocked
+                                      ? { backgroundColor: "#f5f5f5", color: "#555" }
+                                      : {}
+                                    ),
+                                  }}
+                                  InputProps={{
+                                    readOnly: !noRecords && isLocked,
+                                  }}
+                                />
+                              )}
+                            />
+                          </td>
 
                         </tr>
                       );
@@ -1612,10 +1612,13 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                                 <TextField
                                   {...rest}
                                   value={value || ""}
-                                  onChange={(e) => onChange(e.target.value.replace(/\D/g, ""))}
+                                  onChange={(e) => {
+                                    const sanitized = e.target.value.replace(/[^0-9.]/g, "");
+                                    onChange(sanitized);
+                                  }}
                                   variant="standard"
                                   fullWidth
-                                  inputProps={{ inputMode: "numeric", pattern: "[0-9]*" }}
+                                  inputProps={{ inputMode: "decimal", pattern: "[0-9.]*" }}
                                   InputProps={{
                                     readOnly: !noRecords && isLocked,
                                     style:
@@ -1627,6 +1630,7 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
                               )}
                             />
                           </td>
+
                         </tr>
                       ))}
                     </tbody>
@@ -1663,12 +1667,12 @@ export default function NewSanitationForm({ initialData, readOnly = false }) {
           </div>
         </div>
 
-      <h1 className="text-blue-700 text-lg font-bold text-center mx-auto max-w-4xl">
-  PLEASE KEEP A DIGITAL COPY OF THIS FORM FOR YOUR RECORDS. STAY ALERT FOR UPDATES VIA THE APP OR EMAIL REGARDING MINIMUM SANITARY REQUIREMENTS (MSR) AND HEALTH CERTIFICATE STATUS.
-  <span className="text-red-600">
-     ALWAYS HAVE THE REQUIRED CERTIFICATIONS READY DURING INSPECTION OR RENEWAL WHEN REQUESTED BY THE SANITATION OFFICE.
-  </span>
-</h1>
+        <h1 className="text-blue-700 text-lg font-bold text-center mx-auto max-w-4xl">
+          PLEASE KEEP A DIGITAL COPY OF THIS FORM FOR YOUR RECORDS. STAY ALERT FOR UPDATES VIA THE APP OR EMAIL REGARDING MINIMUM SANITARY REQUIREMENTS (MSR) AND HEALTH CERTIFICATE STATUS.
+          <span className="text-red-600">
+            ALWAYS HAVE THE REQUIRED CERTIFICATIONS READY DURING INSPECTION OR RENEWAL WHEN REQUESTED BY THE SANITATION OFFICE.
+          </span>
+        </h1>
 
         {/* Action Buttons */}
         <div className="flex justify-center gap-4 pt-6">

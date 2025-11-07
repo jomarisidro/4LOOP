@@ -15,6 +15,14 @@ import {
   CircularProgress,
   Divider,
 } from '@mui/material';
+// Helper to format violation codes nicely
+function formatViolationCode(code) {
+  if (!code) return '';
+  return code
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
 
 
 const schema = yup.object().shape({
@@ -77,47 +85,62 @@ export default function BusinesslistForm() {
 
 
   useEffect(() => {
-    async function fetchInspectionDetails() {
-      if (!data?.data) return;
+  async function fetchInspectionDetails() {
+    if (!data?.data) return;
 
-      try {
-        const res = await fetch(`/api/ticket`);
-        if (!res.ok) return;
+    try {
+      const res = await fetch(`/api/ticket`);
+      if (!res.ok) return;
 
-        const allTickets = await res.json();
+      const allTickets = await res.json();
 
-        const updatedBusinesses = await Promise.all(
-          data.data.map(async (biz) => {
-            const bizTickets = allTickets.filter(
-              (t) => t.business === biz._id || t.business?._id === biz._id
-            );
+      const updatedBusinesses = await Promise.all(
+        data.data.map(async (biz) => {
+          const bizTickets = allTickets.filter(
+            (t) => t.business === biz._id || t.business?._id === biz._id
+          );
 
-            const latestTicket = bizTickets.length
-              ? bizTickets.sort(
+          const latestTicket = bizTickets.length
+            ? bizTickets.sort(
                 (a, b) =>
                   new Date(b.inspectionDate) - new Date(a.inspectionDate)
               )[0]
-              : null;
+            : null;
 
-            const violations = latestTicket?.violations || [];
+          const violations = latestTicket?.violations || [];
 
-            return {
-              ...biz,
-              inspectionStatus: latestTicket?.inspectionStatus || '-',
-              resolutionStatus: latestTicket?.resolutionStatus || '-',
-              violations,
-            };
-          })
-        );
+          // ✅ Aggregate violation codes for display
+          const recordedViolation =
+            violations.length > 0
+              ? violations.map((v) => v.code).join(", ")
+              : "—";
 
-        setBusinesses(updatedBusinesses);
-      } catch (err) {
-        console.error('Failed to fetch inspection details:', err);
-      }
+          // ✅ Calculate total penalty fee
+          const penaltyFee =
+            violations.length > 0
+              ? violations.reduce((sum, v) => sum + (v.penalty || 0), 0)
+              : 0;
+
+          return {
+            ...biz,
+            inspectionStatus: latestTicket?.inspectionStatus || "-",
+            resolutionStatus: latestTicket?.resolutionStatus || "-",
+            violations,
+            recordedViolation,
+            penaltyFee,
+          };
+        })
+      );
+
+      setBusinesses(updatedBusinesses);
+    } catch (err) {
+      console.error("Failed to fetch inspection details:", err);
     }
+  }
 
-    fetchInspectionDetails();
-  }, [data]);
+  fetchInspectionDetails();
+}, [data]);
+
 
 
   const handleDelete = async (businessId, status) => {
@@ -519,7 +542,24 @@ export default function BusinesslistForm() {
 
                     ['Inspection Status', business.inspectionStatus ?? '—'],
                     ['Inspection Count This Year', business.inspectionCountThisYear ?? '—'],
-                    ['Recorded Violation', business.recordedViolation ?? '—'],
+                    // Replace this line:
+// ['Recorded Violation', business.recordedViolation ?? '—'],
+
+// With this:
+[
+  'Recorded Violation',
+  business.violations && business.violations.length > 0
+    ? business.violations.map((v, idx) => (
+        <div key={idx} className="flex flex-col gap-1">
+          <span>
+            {formatViolationCode(v.code)} — ₱{v.penalty?.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ({v.status})
+          </span>
+        </div>
+      ))
+    : '—'
+],
+
+                    ["Penalty Fee", `₱${business.penaltyFee?.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
 
                   ]
                     .reduce((rows, [label, value]) => {

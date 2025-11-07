@@ -40,23 +40,57 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    const { ticketId, code, description, penalty, ordinanceSection, offenseCount, violationStatus } = body;
+    const {
+      ticketId,
+      code,
+      description,
+      penalty,
+      ordinanceSection,
+      offenseCount,
+      violationStatus,
+    } = body;
 
     if (!ticketId || !code || !description) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Determine penalty amount based on code if not explicitly provided
+    let computedPenalty = penalty;
+    if (!computedPenalty) {
+      switch (code) {
+        case "sanitary_permit":
+        case "failure_renew_sanitary":
+          computedPenalty = 2000;
+          break;
+        case "pest_control_noncompliance":
+          computedPenalty = 2000;
+          break;
+        case "health_certificate_missing":
+          computedPenalty = 500 * (offenseCount || 1);
+          break;
+        case "water_potability":
+          computedPenalty = 500;
+          break;
+        case "msr_violation":
+          computedPenalty =
+            offenseCount === 1 ? 1000 : offenseCount === 2 ? 2000 : 5000;
+          break;
+        default:
+          computedPenalty = 2000;
+      }
     }
 
     const violation = await Violation.create({
       ticket: ticketId,
       code,
       description,
-      penalty: penalty || 2000,
+      penalty: computedPenalty,
       ordinanceSection: ordinanceSection || "Ordinance No. 53, s.2022",
       offenseCount: offenseCount || 1,
       violationStatus: violationStatus || "pending",
     });
 
-    // Optionally update the related ticket
+    // Update related ticket with this violation
     await Ticket.findByIdAndUpdate(ticketId, {
       $push: { violations: violation._id },
     });
