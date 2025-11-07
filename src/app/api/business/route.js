@@ -2,6 +2,7 @@ import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Business from "@/models/Business";
 import Ticket from "@/models/Ticket";
+import Violation from "@/models/Violation";
 import { getSession } from "@/lib/Auth";
 import { Types } from "mongoose";
 
@@ -10,81 +11,178 @@ export async function GET(request) {
 
   try {
     const session = await getSession();
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!session)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { role, id: userId } = session.user;
     const url = new URL(request.url);
     const queryParams = Object.fromEntries(url.searchParams.entries());
 
+    // Limit fields depending on role
     if (role !== "officer") {
       delete queryParams.businessAccount;
       delete queryParams._id;
       delete queryParams.email;
     }
 
+    // Role-based filter
     let filter = {};
     if (role === "business") {
       filter = { ...queryParams, businessAccount: userId };
-    } else if (role === "officer" || role === "admin") {
+    } else if (["officer", "admin"].includes(role)) {
       filter = { ...queryParams };
     } else {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-
-    const businesses = await Business.find(filter).lean();
     const currentYear = new Date().getFullYear();
+    const startOfYear = new Date(`${currentYear}-01-01`);
+    const endOfYear = new Date(`${currentYear}-12-31`);
 
-    const enriched = await Promise.all(
-      businesses.map(async (b) => {
-        const latestTicket = await Ticket.findOne({ business: b._id })
-          .sort({ createdAt: -1 })
-          .lean();
-
-        const inspectionCountThisYear = await Ticket.countDocuments({
-          business: b._id,
-          inspectionStatus: "completed",
-          createdAt: {
-            $gte: new Date(`${currentYear}-01-01`),
-            $lte: new Date(`${currentYear}-12-31`),
+    // 🚀 Use aggregation with $lookup (joins) for fast combined result
+    const businesses = await Business.aggregate([
+      { $match: filter },
+      {
+        $lookup: {
+          from: "users",
+          localField: "businessAccount",
+          foreignField: "_id",
+          as: "businessAccount",
+          pipeline: [{ $project: { email: 1 } }],
+        },
+      },
+      { $unwind: { path: "$businessAccount", preserveNullAndEmptyArrays: true } },
+      {
+        $lookup: {
+          from: "tickets",
+          let: { businessId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$business", "$$businessId"] },
+                    {
+                      $gte: ["$createdAt", startOfYear],
+                    },
+                    {
+                      $lte: ["$createdAt", endOfYear],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                latestTicket: { $last: "$$ROOT" },
+                completedCount: {
+                  $sum: {
+                    $cond: [{ $eq: ["$inspectionStatus", "completed"] }, 1, 0],
+                  },
+                },
+                hasPending: {
+                  $max: {
+                    $cond: [{ $eq: ["$inspectionStatus", "pending"] }, 1, 0],
+                  },
+                },
+              },
+            },
+          ],
+          as: "ticketInfo",
+        },
+      },
+      {
+        $lookup: {
+          from: "violations",
+          let: { businessId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$business", "$$businessId"] },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: "violationInfo",
+        },
+      },
+      { $unwind: { path: "$ticketInfo", preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: "$violationInfo", preserveNullAndEmptyArrays: true } },
+      {
+        $addFields: {
+          inspectionStatus: {
+            $ifNull: ["$ticketInfo.latestTicket.inspectionStatus", "none"],
           },
-        });
+          inspectionCountThisYear: { $ifNull: ["$ticketInfo.completedCount", 0] },
+          hasPending: { $ifNull: ["$ticketInfo.hasPending", 0] },
+          violationSummary: {
+            $cond: [
+              { $ifNull: ["$violationInfo.code", false] },
+              {
+                $concat: [
+                  { $toUpper: { $substrCP: ["$violationInfo.code", 0, 1] } },
+                  {
+                    $substrCP: [
+                      "$violationInfo.code",
+                      1,
+                      { $subtract: [{ $strLenCP: "$violationInfo.code" }, 1] },
+                    ],
+                  },
+                  " — ₱",
+                  { $toString: "$violationInfo.penalty" },
+                  " (",
+                  "$violationInfo.status",
+                  ")",
+                ],
+              },
+              "-",
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          businessAccount: 1,
+          bidNumber: 1,
+          businessName: 1,
+          businessType: 1,
+          contactPerson: 1,
+          sanitaryPermitIssuedAt: 1,
+          inspectionStatus: 1,
+          inspectionCountThisYear: 1,
+          hasPending: 1,
+          violationSummary: 1,
+        },
+      },
+    ]);
 
-        // ✅ Compute sanitation permit status
-        const now = new Date();
-        const yearEnd = new Date(now.getFullYear(), 11, 31); // Dec 31
-        const graceEnd = new Date(now.getFullYear() + 1, 0, 15); // Jan 15 next year
+    // ✅ Compute permit validity only once (fast)
+    const now = new Date();
+    const yearEnd = new Date(now.getFullYear(), 11, 31);
+    const graceEnd = new Date(now.getFullYear() + 1, 0, 15);
 
-        let permitStatus = "-";
-        if (b.sanitaryPermitIssuedAt) {
-          const issuedYear = new Date(b.sanitaryPermitIssuedAt).getFullYear();
-          if (issuedYear === currentYear && now <= yearEnd) {
-            permitStatus = "valid";
-          } else if (issuedYear === currentYear && now > yearEnd && now <= graceEnd) {
-            permitStatus = "in grace period";
-          } else {
-            permitStatus = "expired";
-          }
-        }
-
-        return {
-          ...b,
-          inspectionStatus: latestTicket ? latestTicket.inspectionStatus : "none",
-          ticketId: latestTicket ? latestTicket._id : null,
-          inspectionCountThisYear,
-          recordedViolation: latestTicket?.violation || "-",
-          checklist: latestTicket?.checklist || null,
-          permitStatus, // ✅ added
-        };
-      })
-    );
+    const enriched = businesses.map((b) => {
+      let permitStatus = "-";
+      if (b.sanitaryPermitIssuedAt) {
+        const issuedYear = new Date(b.sanitaryPermitIssuedAt).getFullYear();
+        if (issuedYear === currentYear && now <= yearEnd) permitStatus = "valid";
+        else if (issuedYear === currentYear && now > yearEnd && now <= graceEnd)
+          permitStatus = "in grace period";
+        else permitStatus = "expired";
+      }
+      return { ...b, permitStatus };
+    });
 
     return NextResponse.json(enriched, { status: 200 });
   } catch (err) {
-    console.error("❌ Error fetching businesses:", err.message);
+    console.error("❌ Error fetching businesses:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+
 
 export async function POST(request) {
   await connectMongoDB();

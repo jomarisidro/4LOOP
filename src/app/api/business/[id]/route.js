@@ -1,3 +1,4 @@
+import Notification from "@/models/Notification"; // ⬅️ Add this at the top of your file
 import connectMongoDB from "@/lib/ConnectMongodb";
 import { NextResponse } from "next/server";
 import Business from "@/models/Business";
@@ -48,13 +49,12 @@ export async function GET(request, { params }) {
     }
 
     // ✅ Populate officer info if assigned
-    let populatedBusiness = business;
-    if (business.officerInCharge) {
-      populatedBusiness = await Business.populate(business, {
-        path: "officerInCharge",
-        select: "fullName email",
-      });
-    }
+    // ✅ Populate both officer and business owner info (email + name)
+let populatedBusiness = await Business.populate(business, [
+  { path: "officerInCharge", select: "fullName email" },
+  { path: "businessAccount", select: "email" },
+]);
+
 
     const currentYear = new Date().getFullYear();
 
@@ -124,7 +124,7 @@ export async function PUT(request, { params }) {
   }
 
   const { id } = await params;
-  const { id: userId, role } = session.user; // ✅ FIXED: include role here!
+  const { id: userId, role } = session.user;
   const body = await request.json();
 
   console.log("🧾 PUT BODY RECEIVED:", JSON.stringify(body, null, 2));
@@ -145,10 +145,7 @@ export async function PUT(request, { params }) {
   if (body.newLandmark) updateFields.landmark = body.newLandmark;
   if (body.newRemarks) updateFields.remarks = body.newRemarks;
 
-
-  if (body.officerInCharge) {
-  updateFields.officerInCharge = body.officerInCharge; // ObjectId from frontend
-}
+  if (body.officerInCharge) updateFields.officerInCharge = body.officerInCharge;
 
   // 🔹 Fee & date fields
   if (body.orDateHealthCert) updateFields.orDateHealthCert = new Date(body.orDateHealthCert);
@@ -205,8 +202,65 @@ export async function PUT(request, { params }) {
       { new: true, runValidators: true }
     )
       .populate("officerInCharge", "fullName email")
+      .populate("businessAccount", "email fullName") // ✅ Ensure businessAccount (user) is populated
       .lean();
 
+    // 🔹 1️⃣ If approved — send notification + email
+    if (updateFields.status === "completed" && updated?.businessAccount) {
+      const user = updated.businessAccount;
+      const userId = user._id;
+      const email = user.email;
+      const businessName = updated.businessName;
+
+      // 🔔 Create Notification
+      await Notification.create({
+        user: userId,
+        title: "Permit Approved 🎉",
+        message: `Your permit for "${businessName}" has been approved. You may now access it in your dashboard.`,
+        category: "approval",
+        business: updated._id,
+        isRead: false,
+        isDeleted: false,
+      });
+
+      // 📧 Send Email
+      try {
+       const baseUrl =
+  process.env.NEXT_PUBLIC_URL_AND_PORT || "http://localhost:3000";
+
+
+        console.log("📧 Sending approval email to:", email);
+        console.log("📨 Email API URL:", `${baseUrl}/api/notifications/email`);
+
+        const emailRes = await fetch(`${baseUrl.replace(/\/+$/, "")}/api/notifications/email`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: email,
+            subject: "Your Business Permit Has Been Approved 🎉",
+            body: `
+              <p>Hello,</p>
+              <p>We are pleased to inform you that your permit request for <strong>${businessName}</strong> has been approved.</p>
+              <p>Please proceed to the Sanitation Department and claim your permit.</p>
+              <br/>
+              <p>Thank you for your compliance and cooperation.</p>
+              <p><strong>Pasig Sanitation Office</strong></p>
+            `,
+          }),
+        });
+
+        const emailResult = await emailRes.json();
+        if (!emailRes.ok) {
+          console.error("❌ Email failed to send:", emailResult);
+        } else {
+          console.log("✅ Email sent successfully:", emailResult);
+        }
+      } catch (emailErr) {
+        console.error("📨 Email sending failed:", emailErr);
+      }
+    }
+
+    // ✅ Return response
     return NextResponse.json({ msg: "Business updated", business: updated }, { status: 200 });
   } catch (err) {
     console.error("❌ PUT error:", err);

@@ -29,6 +29,11 @@ import { useQuery } from '@tanstack/react-query';
 import { getAddOwnerBusiness } from '@/app/services/BusinessService';
 import axios from 'axios';
 
+if (typeof window !== 'undefined' && !window.requestIdleCallback) {
+  window.requestIdleCallback = (cb) => setTimeout(cb, 1);
+}
+
+
 function formatViolationCode(code) {
   if (!code) return '';
   return code
@@ -118,60 +123,55 @@ export default function CreateTicketInspectionForm() {
   const inspectionCache = useRef({});
 
   useEffect(() => {
-    if (!data?.data?.length) return;
+  if (!filteredBusinesses.length) return;
+  const start = (page - 1) * limit;
+  const end = page * limit;
+  const currentBusinesses = filteredBusinesses.slice(start, end);
 
-    async function fetchInspectionInfo() {
-      const start = (page - 1) * limit;
-      const end = page * limit;
-      const currentBusinesses = filteredBusinesses.slice(start, end);
+  const cached = JSON.parse(sessionStorage.getItem('inspectionCache') || '{}');
+  const toFetch = currentBusinesses.filter(b => !cached[b._id]);
 
-      const newInfo = {};
-      const businessesToFetch = currentBusinesses.filter(
-        (b) => !inspectionCache.current[b._id]
-      );
+  if (!toFetch.length) {
+    setInspectionCounts(cached);
+    return;
+  }
 
-      if (!businessesToFetch.length) return;
+  async function fetchInspectionInfo() {
+    await fetchWithLimit(toFetch, 5, async (b) => {
+      try {
+        const [ticketRes, violationRes] = await Promise.all([
+          axios.get(`/api/ticket?businessId=${b._id}&year=${currentYear}`),
+          axios.get(`/api/violation?businessId=${b._id}`),
+        ]);
 
-      await fetchWithLimit(businessesToFetch, 10, async (b) => {
-        try {
-          const [ticketRes, violationRes] = await Promise.all([
-            axios.get(`/api/ticket?businessId=${b._id}&year=${currentYear}`),
-            axios.get(`/api/violation?businessId=${b._id}`),
-          ]);
+        const tickets = ticketRes.data || [];
+        const completedCount = tickets.filter(
+          (t) => t.inspectionStatus === 'completed'
+        ).length;
+        const hasPending = tickets.some((t) => t.inspectionStatus === 'pending');
 
-          const tickets = ticketRes.data || [];
-          const completedCount = tickets.filter(
-            (t) => t.inspectionStatus === 'completed'
-          ).length;
-          const hasPending = tickets.some(
-            (t) => t.inspectionStatus === 'pending'
-          );
+        const violations = violationRes.data || [];
+        const activeViolation = violations.find((v) => v.status === 'pending');
 
-          const violations = violationRes.data || [];
-          const activeViolation = violations.find(
-            (v) => v.status === 'pending'
-          );
-
-          newInfo[b._id] = {
-            completedCount,
-            hasPending,
-            violation: activeViolation
-              ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
-              : '',
-          };
-        } catch {
-          newInfo[b._id] = { completedCount: 0, hasPending: false, violation: '' };
-        }
-      });
-
-      if (Object.keys(newInfo).length) {
-        inspectionCache.current = { ...inspectionCache.current, ...newInfo };
-        setInspectionCounts((prev) => ({ ...prev, ...newInfo }));
+        cached[b._id] = {
+          completedCount,
+          hasPending,
+          violation: activeViolation
+            ? `${formatViolationCode(activeViolation.code)} — ₱${activeViolation.penalty.toLocaleString()} (${activeViolation.status})`
+            : '',
+        };
+      } catch {
+        cached[b._id] = { completedCount: 0, hasPending: false, violation: '' };
       }
-    }
+    });
 
-    fetchInspectionInfo();
-  }, [page, limit, filteredBusinesses, data]);
+    sessionStorage.setItem('inspectionCache', JSON.stringify(cached));
+    setInspectionCounts({ ...cached });
+  }
+
+  requestIdleCallback(fetchInspectionInfo);
+}, [page, limit, filteredBusinesses]);
+
 
   async function fetchInspectionInfoForBusiness(businessId) {
     try {
@@ -267,45 +267,100 @@ export default function CreateTicketInspectionForm() {
     setOpenConfirm(false);
     setInspectionDate('');
   };
+const handleSaveInspection = async () => {
+  if (!selectedBusiness || !inspectionDate) return;
 
-  const handleSaveInspection = async () => {
-    if (!selectedBusiness || !inspectionDate) return;
+  try {
+    console.log("📧 Checking businessAccount:", selectedBusiness.businessAccount);
 
-    try {
-      // 1️⃣ Create inspection ticket
-      const ticketRes = await axios.post(
-        '/api/ticket',
-        {
-          businessId: selectedBusiness._id,
-          inspectionDate,
-          inspectionStatus: 'pending',
-        },
-        { withCredentials: true }
-      );
+    let populatedBusiness = selectedBusiness;
 
-      // 2️⃣ Create corresponding notification for business owner
-      await axios.post('/api/notification', {
-        user: selectedBusiness.businessAccount, // the business owner's user ID
-        business: selectedBusiness._id,
-        type: 'inspection_created',
-        message: `A new inspection has been scheduled for your business "${selectedBusiness.businessName}" on ${new Date(
-          inspectionDate
-        ).toLocaleDateString()}.`,
-        link: `/business/inspections`, // optional: adjust if you have a route for the business side
-      });
-
-      // 3️⃣ Local updates
-      alert('✅ Inspection ticket created!');
-      handleCloseConfirm();
-
-      delete inspectionCache.current[selectedBusiness._id];
-      await fetchInspectionInfoForBusiness(selectedBusiness._id);
-      await refetch();
-    } catch (error) {
-      console.error('Error saving inspection:', error);
-      alert('❌ Failed to save inspection.');
+    // 🧠 Auto-fetch if businessAccount is not populated
+    if (
+      populatedBusiness &&
+      typeof populatedBusiness.businessAccount === "string"
+    ) {
+      console.log("🔍 businessAccount is just an ID, fetching populated business...");
+      try {
+        const res = await axios.get(`/api/business/${populatedBusiness._id}`, {
+          withCredentials: true,
+        });
+        populatedBusiness = res.data;
+        console.log("📩 Populated business fetched:", populatedBusiness);
+      } catch (fetchErr) {
+        console.warn("⚠️ Failed to fetch populated business:", fetchErr);
+      }
     }
-  };
+
+    // 1️⃣ Create inspection ticket
+    await axios.post(
+      "/api/ticket",
+      {
+        businessId: populatedBusiness._id,
+        inspectionDate,
+        inspectionStatus: "pending",
+      },
+      { withCredentials: true }
+    );
+
+    // 2️⃣ Create notification
+    await axios.post("/api/notifications", {
+      user: populatedBusiness.businessAccount?._id || populatedBusiness.businessAccount,
+      business: populatedBusiness._id,
+      title: "New Inspection Scheduled",
+      message: `A new inspection has been scheduled for your business "${populatedBusiness.businessName}" on ${new Date(
+        inspectionDate
+      ).toLocaleDateString()}.`,
+      category: "inspection",
+    });
+
+    // ✅ 3️⃣ Send email safely
+    const userEmail =
+      populatedBusiness?.businessAccount?.email ||
+      populatedBusiness?.businessAccountEmail ||
+      populatedBusiness?.email;
+
+    console.log("📧 Sending email to:", userEmail || "❌ No email found");
+
+    if (userEmail) {
+      await fetch("/api/notifications/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: userEmail,
+          subject: `Scheduled Inspection for ${populatedBusiness.businessName}`,
+          body: `
+            <p>Dear ${populatedBusiness.contactPerson || populatedBusiness.businessName},</p>
+            <p>
+              A new inspection has been scheduled for your business
+              <strong>${populatedBusiness.businessName}</strong> on
+              <strong>${new Date(inspectionDate).toLocaleDateString()}</strong>.
+            </p>
+            <p>Please ensure that your premises and relevant documents are ready for inspection.</p>
+            <p>Thank you,<br><strong>Pasig Sanitation Office</strong></p>
+          `,
+        }),
+      });
+    } else {
+      console.warn("❌ No valid email found for this business.");
+    }
+
+    alert("✅ Inspection ticket created and notifications sent!");
+    handleCloseConfirm();
+
+    delete inspectionCache.current[populatedBusiness._id];
+    await fetchInspectionInfoForBusiness(populatedBusiness._id);
+    await refetch();
+    sessionStorage.removeItem('inspectionCache');
+
+  } catch (error) {
+    console.error("❌ Error saving inspection:", error);
+    alert("❌ Failed to save inspection.");
+  }
+};
+
+
+
 
 
   const handleViewStatus = async (business) => {

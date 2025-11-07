@@ -202,11 +202,13 @@ export default function DashboardForm() {
                     onClick={() => handleNotificationClick(notif)}
                   >
                     <div className="mb-1 text-sm text-gray-500">
-                      {notif.bidNumber && (
-                        <span className="font-medium text-gray-600">
-                          {notif.bidNumber}
-                        </span>
-                      )}
+                     {notif.business?.businessName && (
+  <div className="text-sm text-gray-500">
+    {notif.business.businessName}
+  </div>
+)}
+
+
                     </div>
 
                     <strong className="block mb-1 text-gray-800">

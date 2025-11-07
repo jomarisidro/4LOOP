@@ -25,7 +25,6 @@ export default function PendingPermitApprovalForm() {
     isLoading,
     isError,
     error,
-    refetch,
   } = useQuery({
     queryKey: ['business', id],
     queryFn: async () => {
@@ -36,41 +35,42 @@ export default function PendingPermitApprovalForm() {
     enabled: !!id,
   });
 
-const handleUpdate = async () => {
-  try {
-    // ✅ Get logged-in officer ID (User._id)
-    const officerId =
-      sessionStorage.getItem("userId") || localStorage.getItem("loggedUserId");
+  const handleUpdate = async () => {
+    try {
+      const officerId =
+        sessionStorage.getItem("userId") || localStorage.getItem("loggedUserId");
 
-    if (!officerId) {
-      alert("⚠️ Officer ID not found. Please log in again.");
-      return;
+      if (!officerId) {
+        alert("⚠️ Officer ID not found. Please log in again.");
+        return;
+      }
+
+      // ✅ Update business — backend handles email + notification
+      const res = await fetch(`/api/business/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          newRemarks: remark,
+          newStatus: "completed",
+          officerInCharge: officerId,
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Failed with status ${res.status}`);
+
+      const result = await res.json();
+      console.log("✅ Updated business:", result);
+
+      // ✅ Refresh and redirect
+      setRemark("");
+      await queryClient.invalidateQueries(["permitapproval-requests"]);
+      router.push("/officers/workbench/permitapproval");
+
+    } catch (err) {
+      console.error("❌ Update failed:", err);
+      alert("Failed to approve permit. Please try again.");
     }
-
-    const res = await fetch(`/api/business/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        newRemarks: remark,
-        newStatus: "completed",
-        officerInCharge: officerId, // ✅ send only the ObjectId reference
-      }),
-    });
-
-    if (!res.ok) throw new Error(`Failed with status ${res.status}`);
-    const result = await res.json();
-    console.log("✅ Updated business:", result);
-
-    setRemark("");
-    await queryClient.invalidateQueries(["permitapproval-requests"]);
-    router.push("/officers/workbench/permitapproval");
-  } catch (err) {
-    console.error("❌ Update failed:", err);
-    alert("Failed to approve permit. Please try again.");
-  }
-};
-
-
+  };
 
   if (isLoading) {
     return (
@@ -168,153 +168,7 @@ const handleUpdate = async () => {
           ))}
       </div>
 
-      {/* MSR Section */}
-      <Divider className="my-10">
-        <Typography variant="h6" fontWeight="bold" color="primary">
-          MSR
-        </Typography>
-      </Divider>
-
-      {/* Checklists */}
-      <div className="w-full max-w-4xl mx-auto space-y-10 mb-10">
-        {/* A. Sanitary Permit Checklist */}
-        <div>
-          <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
-            A. Sanitary Permit Checklist
-          </h3>
-          {business.sanitaryPermitChecklist?.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {business.sanitaryPermitChecklist.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
-                >
-                  {item.label || '—'}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 text-center italic">
-              No checklist items available.
-            </p>
-          )}
-        </div>
-
-        {/* B. Health Certificate Checklist */}
-        <div>
-          <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
-            B. Health Certificate Checklist
-          </h3>
-          {business.healthCertificateChecklist?.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {business.healthCertificateChecklist.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
-                >
-                  {item.label || '—'}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 text-center italic">
-              No checklist items available.
-            </p>
-          )}
-        </div>
-
-        {/* C. Minimum Sanitary Requirements (MSR) */}
-        <div>
-          <h3 className="text-lg font-semibold text-blue-900 text-center mb-4">
-            C. Minimum Sanitary Requirements (MSR)
-          </h3>
-          {business.msrChecklist?.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {business.msrChecklist.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-4 gap-2 bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300"
-                >
-                  <div className="col-span-3 font-medium">
-                    {item.label || '—'}
-                  </div>
-                  <div className="col-span-1 text-red-700 text-right">
-                    {item.dueDate
-                      ? `Due: ${new Date(
-                        item.dueDate
-                      ).toLocaleDateString('en-PH')}`
-                      : 'No due date'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500 text-center italic">
-              No checklist items available.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Inspection & Penalty Records */}
-      <Divider className="my-10">
-        <Typography variant="h6" fontWeight="bold" color="primary">
-          Inspection and Penalty Records
-        </Typography>
-      </Divider>
-
-      <div className="w-full max-w-4xl mx-auto space-y-6 mb-10 mt-10">
-        {[
-          ['Health Cert Fee', business.healthCertFee],
-          ['Health Cert Sanitary Fee', business.healthCertSanitaryFee],
-          [
-            'OR Date (Health Cert)',
-            business.orDateHealthCert
-              ? new Date(business.orDateHealthCert).toLocaleDateString('en-PH')
-              : '—',
-          ],
-          ['OR Number (Health Cert)', business.orNumberHealthCert],
-          ['Inspection Status', business.inspectionStatus],
-          ['Inspection Count This Year', business.inspectionCountThisYear ?? 0],
-          ['Recorded Violation', business.recordedViolation],
-          ['Permit Status', business.permitStatus],
-        ]
-          .reduce((rows, [label, value]) => {
-            const pair = (
-              <div key={label} className="flex items-start gap-2">
-                <span className="min-w-[180px] text-sm font-semibold text-gray-700">
-                  {label}:
-                </span>
-                <span className="flex-1 bg-gray-100 text-gray-800 text-sm px-3 py-2 rounded-md border border-gray-300">
-                  {renderValue(value)}
-                </span>
-              </div>
-            );
-            const lastRow = rows[rows.length - 1];
-            if (!lastRow || lastRow.length === 2) rows.push([pair]);
-            else lastRow.push(pair);
-            return rows;
-          }, [])
-          .map((row, i) => (
-            <div key={i} className="grid grid-cols-2 gap-6">
-              {row}
-            </div>
-          ))}
-      </div>
-
-      {/* Previous Remarks */}
-      <div className="w-full max-w-4xl mx-auto mt-10">
-        <div className="flex items-start gap-2">
-          <span className="min-w-[140px] text-sm font-semibold text-gray-700">
-            Previous Remarks:
-          </span>
-          <span className="flex-1 min-h-[120px] whitespace-pre-line bg-gray-100 text-gray-800 px-3 py-2 rounded-md border border-gray-300 w-full">
-            {business.remarks || 'None'}
-          </span>
-        </div>
-      </div>
-
-      {/* Officer Remarks Input */}
+      {/* Remarks Input */}
       <div className="w-full max-w-4xl mx-auto mt-10">
         <TextField
           fullWidth
