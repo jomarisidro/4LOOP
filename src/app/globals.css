@@ -25,19 +25,17 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* Hide arrows in Chrome, Safari, Edge, Opera */
+/* Hide number arrows */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-
-/* Hide arrows in Firefox */
 input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* ---------------- SCREEN STYLES ---------------- */
+/* ================= SCREEN STYLES ================= */
 @media screen {
   .permit-print {
     max-width: 1000px;
@@ -45,66 +43,92 @@ input[type=number] {
     box-shadow: 0 0 8px rgba(0,0,0,0.15);
     background: white;
     padding: 2rem;
-  }
-
-  .permit-logo-group {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 2.5rem; /* spacing between left and middle group */
-    margin-bottom: 1rem;
+    font-size: 0.80rem; /* ✅ Slightly smaller */
+    line-height: 1.15;
   }
 
   .permit-logo {
-    width: 110px;
+    width: 85px;
     height: auto;
+  }
+
+  .header-text {
+    font-size: 0.70rem;
+    line-height: 1.15;
   }
 }
 
-/* ---------------- PRINT STYLES ---------------- */
+/* ================= PRINT STYLES ================= */
 @media print {
+
   @page {
-    size: A4 landscape; /* ✅ Landscape print */
-    margin: 10mm 15mm;
+    size: A4 landscape;
+    margin: 0;
   }
 
   body {
     background: white !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-    transform: scale(0.95);
-    transform-origin: top left;
+    visibility: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ✅ Only print permit */
+  .permit-print,
+  .permit-print * {
+    visibility: visible !important;
   }
 
   .permit-print {
-    width: 297mm; /* ✅ A4 landscape width */
-    min-height: 210mm;
-    margin: 0 auto;
-    border: none;
-    box-shadow: none;
-    background: white;
-    page-break-inside: avoid;
-    break-inside: avoid;
-    padding: 1.5rem;
-  }
+    position: absolute !important;
+    top: 0 !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
 
-  /* ✅ Center and space out logos */
-  .permit-logo-group {
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-    gap: 3rem !important;
-    margin-bottom: 1rem;
+    width: 287mm !important;
+    height: 200mm !important;
+    padding: 4mm 8mm !important;
+
+    background: white !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    box-shadow: none !important;
+    border: none !important;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+
+    /* ✅ Global smaller text */
+    font-size: 0.70rem !important;
+    line-height: 1.10 !important;
+
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
   }
 
   .permit-logo {
-    width: 120px !important; /* ✅ Slightly larger for printing */
+    width: 50px !important;
     height: auto !important;
   }
 
-  /* ✅ Hide UI elements not meant for printing */
-  button,
-  .no-print {
+  .header-text {
+    font-size: 0.58rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .permit-title {
+    font-size: 0.85rem !important; /* ✅ Reduced */
+    font-weight: bold !important;
+    text-decoration: underline !important;
+  }
+
+  /* ✅ Hide UI */
+  .no-print,
+  header,
+  nav,
+  footer {
     display: none !important;
+    visibility: hidden !important;
   }
 }
