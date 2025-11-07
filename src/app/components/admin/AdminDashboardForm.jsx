@@ -32,34 +32,35 @@ export default function AdminDashboardForm() {
 
   useEffect(() => {
     async function fetchAllData() {
-      try {
-        const [renewRes, newRes, totalRes, compRes] = await Promise.all([
-          fetch(`${API_URL}/predict-renewals`),
-          fetch(`${API_URL}/predict-new-business`),
-          fetch(`${API_URL}/predict-total-forecast`),
-          fetch(`${API_URL}/predict-comparison`)
-        ]);
+  try {
+    const [renewRes, newRes, totalRes, compRes] = await Promise.all([
+      fetch(`${API_URL}/cache-renewals`),
+      fetch(`${API_URL}/cache-new-business`),
+      fetch(`${API_URL}/cache-total-forecast`),
+      fetch(`${API_URL}/cache-comparison`)
+    ]);
 
-        if (!renewRes.ok || !newRes.ok || !totalRes.ok || !compRes.ok) {
-          throw new Error("One or more endpoints failed to load.");
-        }
-
-        const renewJson = await renewRes.json();
-        const newJson = await newRes.json();
-        const totalJson = await totalRes.json();
-        const compJson = await compRes.json();
-
-        setRenewalData(renewJson.data || []);
-        setNewBusinessData(newJson.data || []);
-        setTotalForecastData(totalJson.data || []);
-        setComparisonData(compJson.data || []);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to fetch predictions. Please check your Flask API.");
-      } finally {
-        setLoading(false);
-      }
+    if (!renewRes.ok || !newRes.ok || !totalRes.ok || !compRes.ok) {
+      throw new Error("One or more endpoints failed to load.");
     }
+
+    const renewJson = await renewRes.json();
+    const newJson = await newRes.json();
+    const totalJson = await totalRes.json();
+    const compJson = await compRes.json();
+
+    setRenewalData(renewJson.data || []);
+    setNewBusinessData(newJson.data || []);
+    setTotalForecastData(totalJson.data || []);
+    setComparisonData(compJson.data || []);
+  } catch (err) {
+    console.error(err);
+    setError("Failed to fetch predictions. Please check your Flask API.");
+  } finally {
+    setLoading(false);
+  }
+}
+
 
     // only run after admin check done
     if (isAdmin) {
